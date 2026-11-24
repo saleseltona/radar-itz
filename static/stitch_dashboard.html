@@ -151,7 +151,7 @@
       </div>
 
       <nav class="flex flex-col gap-1" id="sidebar-nav">
-        <button onclick="navigateSection('sec-capa-e-feed', this)" class="nav-item active-nav flex items-center justify-between px-3 py-2.5 rounded-xl transition-all bg-primary-container text-on-primary font-bold shadow-sm text-left" type="button">
+        <button id="nav-btn-dashboard" onclick="navigateSection('sec-capa-e-feed', this)" class="nav-item active-nav flex items-center justify-between px-3 py-2.5 rounded-xl transition-all bg-primary-container text-on-primary font-bold shadow-sm text-left" type="button">
           <span class="flex items-center gap-3">
             <span class="material-symbols-outlined text-[20px]">dynamic_feed</span>
             <span class="font-body-md text-body-md">Capa &amp; Feed de Pautas</span>
@@ -165,6 +165,14 @@
             <span class="font-body-md text-body-md">Auditoria PNCP (24–26)</span>
           </span>
           <span id="nav-badge-pncp" class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button id="nav-btn-pncp-stats" onclick="switchMainView('pncp-stats', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">analytics</span>
+            <span class="font-body-md text-body-md">Estatísticas PNCP</span>
+          </span>
+          <span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">14 temas</span>
         </button>
 
         <button onclick="navigateSection('sec-evolucao-gastos', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
@@ -258,7 +266,7 @@
     </header>
 
     <main class="relative pt-20 bg-surface min-h-screen w-full px-4 lg:px-gutter-desktop pb-12">
-      <div class="flex flex-col w-full gap-5">
+      <div id="view-dashboard" class="flex flex-col w-full gap-5">
 
         <!-- ========================================== -->
         <!-- 1. HERO COBALT COMPACTO (ACIMA DA DOBRA)   -->
@@ -461,13 +469,18 @@
                 <div class="m-auto text-xs text-on-surface-variant">Carregando série histórica do PNCP...</div>
               </div>
 
-              <div class="flex items-center justify-between bg-surface-container-low p-3 rounded-xl gap-2">
+              <div class="flex items-center justify-between bg-surface-container-low p-3 rounded-xl gap-2 flex-wrap">
                 <span id="pncp-chart-note" class="font-body-sm text-body-sm text-on-surface">
                   Dados extraídos diretamente dos contratos públicos homologados em pncp.gov.br (2024–2026).
                 </span>
-                <button onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="text-primary font-label-sm text-label-sm font-bold hover:underline shrink-0" type="button">
-                  Cruzar Contratos
-                </button>
+                <div class="flex items-center gap-3 shrink-0">
+                  <button onclick="switchMainView('pncp-stats', document.getElementById('nav-btn-pncp-stats'))" class="px-3 py-1 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed font-label-sm text-label-sm font-bold transition-colors" type="button">
+                    Ver Estatísticas
+                  </button>
+                  <button onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="text-primary font-label-sm text-label-sm font-bold hover:underline" type="button">
+                    Cruzar Contratos
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -488,14 +501,19 @@
 
             <!-- Tabela Real: Últimos Contratos Publicados no PNCP -->
             <div id="sec-contratos-pncp" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
-              <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <div class="flex items-center gap-2">
                   <span class="material-symbols-outlined text-primary text-[20px]">history_edu</span>
                   <h3 class="font-headline-sm text-headline-sm text-on-surface">Últimos Contratos Publicados no PNCP</h3>
                 </div>
-                <button id="btn-ver-todos-pncp" onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="px-3 py-1 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed font-label-sm text-label-sm font-bold transition-colors" type="button">
-                  Ver todos (0)
-                </button>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button onclick="openPncpModal(currentPncpYear, currentPncpOrgao, '', '', 'maior_valor')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold transition-colors" type="button" title="Abrir lista completa ordenada do maior para o menor valor">
+                    Maiores ↓
+                  </button>
+                  <button id="btn-ver-todos-pncp" onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="px-3 py-1 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed font-label-sm text-label-sm font-bold transition-colors" type="button">
+                    Ver todos (0)
+                  </button>
+                </div>
               </div>
 
               <div class="overflow-x-auto">
@@ -598,6 +616,206 @@
           </div>
         </div>
       </div>
+
+      <!-- ==================================================== -->
+      <!-- ABA / VIEW 2: ESTATÍSTICAS DETALHADAS DO PNCP       -->
+      <!-- ==================================================== -->
+      <div id="view-pncp-stats" class="hidden flex-col w-full gap-5">
+        <!-- Cabeçalho Cobalt da Aba -->
+        <section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary shadow-lg p-5 lg:p-6 flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchMainView('dashboard', document.getElementById('nav-btn-dashboard'))" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-bold transition-colors" type="button">
+                  <span class="material-symbols-outlined text-[15px]">arrow_back</span>
+                  Voltar ao Radar
+                </button>
+                <span class="px-2.5 py-0.5 rounded-full bg-white/15 text-white font-label-sm text-label-sm uppercase tracking-wider">Auditoria Estatística • PNCP 2024–2026</span>
+              </div>
+              <h1 class="font-headline-lg lg:font-headline-xl text-headline-lg lg:text-headline-xl tracking-tight text-white mt-1">
+                Estatísticas &amp; Classificação de Contratos Públicos (PNCP)
+              </h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openPncpModal(currentStatsYear, currentStatsOrgao, '', '', 'maior_valor')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-container-lowest text-primary font-label-md text-label-md font-bold shadow hover:bg-surface-bright transition-all" type="button">
+                <span class="material-symbols-outlined text-[17px]">sort</span>
+                Lista Maior → Menor
+              </button>
+              <a id="stats-export-csv" href="/api/pncp/export/csv?ordem=maior_valor" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md font-semibold transition-all">
+                <span class="material-symbols-outlined text-[17px]">download</span>
+                Exportar CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- Filtros de Exercício e Órgão da Aba Estatísticas -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-white/10 backdrop-blur-md p-3 rounded-xl">
+            <div class="flex items-center gap-1.5 flex-wrap" id="stats-year-bar">
+              <span class="font-label-sm text-label-sm text-white/80 mr-1 uppercase">Exercício:</span>
+              <button onclick="setStatsYear('')" class="stats-year-btn px-3 py-1 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all" data-year="" type="button">2024–2026</button>
+              <button onclick="setStatsYear('2026')" class="stats-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-year="2026" type="button">2026</button>
+              <button onclick="setStatsYear('2025')" class="stats-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-year="2025" type="button">2025</button>
+              <button onclick="setStatsYear('2024')" class="stats-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-year="2024" type="button">2024</button>
+            </div>
+            <select id="stats-orgao-filter" onchange="setStatsOrgao(this.value)" class="text-xs font-semibold bg-surface-container-lowest text-on-surface rounded-full px-3 py-1.5 focus:outline-none">
+              <option value="">Todos órgãos de Imperatriz</option>
+              <option value="PMI">Prefeitura (PMI)</option>
+              <option value="CMI">Câmara Municipal (CMI)</option>
+              <option value="FMS">Fundo de Saúde (FMS)</option>
+              <option value="FME">Fundo de Educação (FME)</option>
+            </select>
+          </div>
+        </section>
+
+        <!-- 6 KPIs Analíticos -->
+        <section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Volume Total</span>
+            <span id="stats-kpi-valor" class="font-headline-md text-headline-md text-primary font-extrabold">-</span>
+            <span id="stats-kpi-contratos" class="text-[11px] text-on-surface-variant">0 contratos</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Ticket Médio</span>
+            <span id="stats-kpi-ticket" class="font-headline-md text-headline-md text-on-surface font-extrabold">-</span>
+            <span id="stats-kpi-mediana" class="text-[11px] text-on-surface-variant">Mediana: -</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Fornecedores Únicos</span>
+            <span id="stats-kpi-fornecedores" class="font-headline-md text-headline-md text-on-surface font-extrabold">0</span>
+            <span id="stats-kpi-conc" class="text-[11px] text-primary font-semibold">Top 5: - | Top 10: -</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Pessoa Física (CPF)</span>
+            <span id="stats-kpi-cpf-valor" class="font-headline-md text-headline-md text-on-surface font-extrabold">-</span>
+            <span id="stats-kpi-cpf-qtd" class="text-[11px] text-on-surface-variant">0 contratos</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Emergenciais / Dispensas</span>
+            <span id="stats-kpi-emerg-valor" class="font-headline-md text-headline-md text-error font-extrabold">-</span>
+            <span id="stats-kpi-emerg-qtd" class="text-[11px] text-on-surface-variant">0 contratos citados</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Vigência &amp; Auditoria</span>
+            <span id="stats-kpi-ativos" class="font-headline-md text-headline-md text-emerald-700 font-extrabold">0 ativos</span>
+            <span id="stats-kpi-retif" class="text-[11px] text-on-surface-variant">0 vencendo 60d • 0 retificados</span>
+          </div>
+        </section>
+
+        <!-- Bloco Principal: 14 Classificações por Tipo de Gasto + Valor ao lado -->
+        <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[22px]">category</span>
+                Classificação Temática dos Gastos (14 Categorias + Outros)
+              </h2>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+                Soma real por objeto/secretaria com valor ao lado. Clique em qualquer categoria para abrir seus contratos ordenados do maior pro menor.
+              </p>
+            </div>
+            <span id="stats-cat-badge" class="px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold">Ordenado por valor ↓</span>
+          </div>
+          <div id="stats-categorias-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="col-span-2 p-6 text-center text-xs text-on-surface-variant">Carregando classificação das 14 categorias...</div>
+          </div>
+        </section>
+
+        <!-- Sinais de Atenção & Auditoria -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-error text-[20px]">warning</span>
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Possíveis Erros / Atípicos</h3>
+              </div>
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-error-container text-on-error-container">Outliers</span>
+            </div>
+            <p class="text-[11px] text-on-surface-variant">Contratos em CPF acima de R$ 500 mil ou contratos acima de R$ 25 MI para conferência editorial.</p>
+            <div id="stats-outliers-list" class="flex flex-col gap-2 max-h-96 overflow-y-auto"></div>
+          </div>
+
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-tertiary text-[20px]">bolt</span>
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Emergenciais &amp; Duplicidades</h3>
+              </div>
+              <span id="stats-emerg-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed">0 itens</span>
+            </div>
+            <div id="stats-emerg-list" class="flex flex-col gap-2 max-h-56 overflow-y-auto"></div>
+            <div class="pt-2 border-t border-surface-container">
+              <span class="text-[11px] font-bold uppercase text-on-surface-variant block mb-1.5">Possíveis Duplicidades (&gt;= R$ 100 mil, mesmo ano)</span>
+              <div id="stats-dup-list" class="flex flex-col gap-1.5 max-h-36 overflow-y-auto"></div>
+            </div>
+          </div>
+
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px]">event_upcoming</span>
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Vencendo em até 60 Dias</h3>
+              </div>
+              <span id="stats-vencendo-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">0 itens</span>
+            </div>
+            <p class="text-[11px] text-on-surface-variant">Contratos próximos do fim de vigência (potenciais aditivos ou novas licitações).</p>
+            <div id="stats-vencendo-list" class="flex flex-col gap-2 max-h-96 overflow-y-auto"></div>
+          </div>
+        </section>
+
+        <!-- Secretarias que Mais Contratam + Faixas / Natureza / Comparativo Anual -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-7 bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Secretarias e Unidades que Mais Contratam</h3>
+                <p class="text-xs text-on-surface-variant">Clique em qualquer unidade para abrir seus contratos (maior → menor valor).</p>
+              </div>
+            </div>
+            <div id="stats-secretarias-list" class="flex flex-col gap-2"></div>
+          </div>
+
+          <div class="lg:col-span-5 flex flex-col gap-4">
+            <div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+              <h3 class="font-headline-sm text-headline-sm text-on-surface">Distribuição por Faixa de Valor</h3>
+              <div id="stats-faixas-list" class="flex flex-col gap-2"></div>
+            </div>
+            <div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+              <h3 class="font-headline-sm text-headline-sm text-on-surface">Natureza (CPF vs CNPJ) &amp; Comparativo Anual</h3>
+              <div id="stats-natureza-box" class="grid grid-cols-2 gap-2.5 text-xs"></div>
+              <div id="stats-anual-list" class="flex flex-col gap-2 pt-2 border-t border-surface-container"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Top 20 Maiores Contratos (Maior -> Menor Valor) -->
+        <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-headline-md text-headline-md text-on-surface">Top 20 Maiores Contratos (Maior → Menor Valor)</h3>
+              <p class="text-xs text-on-surface-variant">Ordenação direta pelo valor global homologado/retificado, com edição rápida para corrigir erros de lançamento.</p>
+            </div>
+            <button onclick="openPncpModal(currentStatsYear, currentStatsOrgao, '', '', 'maior_valor')" class="px-3.5 py-1.5 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed text-xs font-bold transition-colors" type="button">
+              Ver Lista Completa Ordenada ↓
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="text-on-surface-variant uppercase border-b border-surface-container">
+                  <th class="py-2 pr-2">#</th>
+                  <th class="py-2 pr-3">Fornecedor</th>
+                  <th class="py-2 pr-3">Classificação / Órgão</th>
+                  <th class="py-2 pr-3">Objeto / Contrato</th>
+                  <th class="py-2 pr-3 text-right">Valor ↓</th>
+                  <th class="py-2 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="stats-top-contratos-tbody" class="divide-y divide-surface-container-low"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -686,21 +904,50 @@
       </div>
 
       <!-- Barra de Filtros do Modal PNCP -->
-      <div class="p-4 border-b border-surface-container grid grid-cols-1 sm:grid-cols-12 gap-2.5 bg-surface-container-lowest">
-        <input id="pncp-modal-search" oninput="debouncedLoadPncpModal(1)" class="sm:col-span-6 h-9 px-3.5 rounded-full bg-surface-container-low text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Pesquisar objeto, fornecedor, CNPJ ou nº contrato..." type="text"/>
-        <select id="pncp-modal-ano" onchange="loadPncpModal(1)" class="sm:col-span-3 h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
-          <option value="">Todos os anos (2024–2026)</option>
-          <option value="2026">Ano 2026</option>
-          <option value="2025">Ano 2025</option>
-          <option value="2024">Ano 2024</option>
-        </select>
-        <select id="pncp-modal-orgao" onchange="loadPncpModal(1)" class="sm:col-span-3 h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
-          <option value="">Todos os órgãos</option>
-          <option value="PMI">Prefeitura (PMI)</option>
-          <option value="FMS">Fundo Saúde (FMS)</option>
-          <option value="FME">Fundo Educação (FME)</option>
-          <option value="CMI">Câmara (CMI)</option>
-        </select>
+      <div class="p-4 border-b border-surface-container flex flex-col gap-2 bg-surface-container-lowest">
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2">
+          <input id="pncp-modal-search" oninput="debouncedLoadPncpModal(1)" class="sm:col-span-4 h-9 px-3.5 rounded-full bg-surface-container-low text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Pesquisar objeto, fornecedor, CNPJ ou nº..." type="text"/>
+          <select id="pncp-modal-ordem" onchange="loadPncpModal(1)" class="sm:col-span-2 h-9 px-2.5 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+            <option value="recentes">Mais recentes</option>
+            <option value="maior_valor">Maior valor ↓</option>
+            <option value="menor_valor">Menor valor ↑</option>
+          </select>
+          <select id="pncp-modal-categoria" onchange="loadPncpModal(1)" class="sm:col-span-2 h-9 px-2.5 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+            <option value="">Todas categorias</option>
+            <option value="Alimentação">Alimentação</option>
+            <option value="Obras e engenharia">Obras e engenharia</option>
+            <option value="Educação e merenda">Educação e merenda</option>
+            <option value="Imóveis alugados e comprados">Imóveis alugados e comprados</option>
+            <option value="Advocacia e assessoria jurídica">Advocacia e assessoria jurídica</option>
+            <option value="Saúde e remédios">Saúde e remédios</option>
+            <option value="Limpeza e lixo">Limpeza e lixo</option>
+            <option value="Veículos e transporte">Veículos e transporte</option>
+            <option value="Combustível">Combustível</option>
+            <option value="Tecnologia e sistemas">Tecnologia e sistemas</option>
+            <option value="Shows e eventos">Shows e eventos</option>
+            <option value="Publicidade, TV e rádio">Publicidade, TV e rádio</option>
+            <option value="Vigilância e segurança">Vigilância e segurança</option>
+            <option value="Consultoria e treinamento">Consultoria e treinamento</option>
+            <option value="Outros serviços e fornecimentos">Outros serviços e fornecimentos</option>
+          </select>
+          <select id="pncp-modal-ano" onchange="loadPncpModal(1)" class="sm:col-span-2 h-9 px-2.5 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+            <option value="">Todos anos</option>
+            <option value="2026">Ano 2026</option>
+            <option value="2025">Ano 2025</option>
+            <option value="2024">Ano 2024</option>
+          </select>
+          <select id="pncp-modal-orgao" onchange="loadPncpModal(1)" class="sm:col-span-2 h-9 px-2.5 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+            <option value="">Todos órgãos</option>
+            <option value="PMI">Prefeitura (PMI)</option>
+            <option value="CMI">Câmara (CMI)</option>
+            <option value="FMS">Saúde (FMS)</option>
+            <option value="FME">Educação (FME)</option>
+          </select>
+        </div>
+        <div id="pncp-modal-unidade-bar" class="hidden items-center justify-between px-3 py-1.5 rounded-full bg-primary-fixed/40 text-xs">
+          <span>Filtrando secretaria: <strong id="pncp-modal-unidade-lbl" class="text-primary"></strong></span>
+          <button onclick="clearPncpModalUnidade()" class="text-error font-bold hover:underline" type="button">Limpar secretaria</button>
+        </div>
       </div>
 
       <!-- Lista / Tabela PNCP -->
@@ -884,6 +1131,10 @@
     let currentSortOrder = 'recentes';
     let currentPncpYear = '';
     let currentPncpOrgao = '';
+    let currentStatsYear = '';
+    let currentStatsOrgao = '';
+    let currentPncpModalUnidade = '';
+    let pncpStatsLoaded = false;
     let pncpModalPage = 1;
     let pncpModalTimer = null;
     const pncpContractsCache = {};
@@ -1465,13 +1716,39 @@
     // ---------------------------
     // Modal Explorador PNCP
     // ---------------------------
-    function openPncpModal(ano = '', orgao = '', fornecedorQuery = '') {
+    function updatePncpModalUnidadeBar() {
+      const bar = document.getElementById('pncp-modal-unidade-bar');
+      const lbl = document.getElementById('pncp-modal-unidade-lbl');
+      if (!bar) return;
+      if (currentPncpModalUnidade) {
+        if (lbl) lbl.innerText = currentPncpModalUnidade;
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+      } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+      }
+    }
+
+    function clearPncpModalUnidade() {
+      currentPncpModalUnidade = '';
+      updatePncpModalUnidadeBar();
+      loadPncpModal(1);
+    }
+
+    function openPncpModal(ano = '', orgao = '', fornecedorQuery = '', categoria = '', ordem = 'recentes', unidade = '') {
       const anoSel = document.getElementById('pncp-modal-ano');
       const orgSel = document.getElementById('pncp-modal-orgao');
       const searchIn = document.getElementById('pncp-modal-search');
+      const catSel = document.getElementById('pncp-modal-categoria');
+      const ordSel = document.getElementById('pncp-modal-ordem');
       if (anoSel) anoSel.value = ano !== undefined && ano !== null ? String(ano) : '';
       if (orgSel) orgSel.value = orgao || '';
       if (searchIn) searchIn.value = fornecedorQuery || '';
+      if (catSel) catSel.value = categoria || '';
+      if (ordSel) ordSel.value = ordem || 'recentes';
+      currentPncpModalUnidade = unidade || '';
+      updatePncpModalUnidadeBar();
 
       document.getElementById('pncp-modal').classList.remove('hidden');
       document.body.style.overflow = 'hidden';
@@ -1479,7 +1756,7 @@
     }
 
     function openPncpModalFornecedor(fornecedorText) {
-      openPncpModal(currentPncpYear, currentPncpOrgao, fornecedorText);
+      openPncpModal(currentPncpYear, currentPncpOrgao, fornecedorText, '', 'maior_valor', '');
     }
 
     function debouncedLoadPncpModal(page) {
@@ -1492,11 +1769,15 @@
       const q = (document.getElementById('pncp-modal-search')?.value || '').trim();
       const ano = document.getElementById('pncp-modal-ano')?.value || '';
       const orgao = document.getElementById('pncp-modal-orgao')?.value || '';
+      const categoria = document.getElementById('pncp-modal-categoria')?.value || '';
+      const ordem = document.getElementById('pncp-modal-ordem')?.value || 'recentes';
 
-      const params = new URLSearchParams({ pagina: String(pncpModalPage), limite: '30' });
+      const params = new URLSearchParams({ pagina: String(pncpModalPage), limite: '30', ordem });
       if (q) params.set('q', q);
       if (ano) params.set('ano', ano);
       if (orgao) params.set('orgao', orgao);
+      if (categoria) params.set('categoria', categoria);
+      if (currentPncpModalUnidade) params.set('unidade', currentPncpModalUnidade);
 
       const expLink = document.getElementById('pncp-modal-export-link');
       if (expLink) expLink.href = '/api/pncp/export/csv?' + params.toString();
@@ -1532,6 +1813,7 @@
           const retInfo = c.retificado
             ? `<div class="mt-0.5 flex flex-col items-end gap-0.5"><span class="px-1.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold" title="${escapeHtml(c.justificativa_retificacao || 'Valor retificado manualmente')}">Retificado</span>${c.valor_original_pncp ? `<span class="text-[10px] text-on-surface-variant line-through font-normal">Orig.: ${formatBRL(c.valor_original_pncp)}</span>` : ''}</div>`
             : '';
+          const cpfBadge = c.is_cpf ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">CPF</span>' : '';
           return `
           <tr class="hover:bg-surface-container-low/60">
             <td class="py-2.5 pr-3 whitespace-nowrap">
@@ -1543,12 +1825,15 @@
               <div class="text-[11px] text-on-surface-variant mt-0.5 max-w-[140px] truncate">${escapeHtml(c.unidade_nome || c.orgao_nome)}</div>
             </td>
             <td class="py-2.5 pr-3 max-w-[190px]">
-              <div class="font-semibold text-on-surface">${escapeHtml(c.fornecedor_nome || '-')}</div>
+              <div class="font-semibold text-on-surface">${escapeHtml(c.fornecedor_nome || '-')}${cpfBadge}</div>
               <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(c.fornecedor_cnpj || '')}</div>
             </td>
             <td class="py-2.5 pr-3 max-w-[320px]">
               <div class="text-on-surface line-clamp-2">${escapeHtml(c.objeto || '-')}</div>
-              <div class="text-[11px] text-on-surface-variant mt-0.5">Contrato ${escapeHtml(c.numero_contrato || '-')} ${c.processo ? '• Proc. ' + escapeHtml(c.processo) : ''}</div>
+              <div class="flex flex-wrap items-center gap-1 mt-1">
+                ${c.categoria_tematica ? `<span class="px-2 py-0.5 rounded-full bg-primary-fixed/60 text-on-primary-fixed text-[10px] font-semibold">${escapeHtml(c.categoria_tematica)}</span>` : ''}
+                <span class="text-[11px] text-on-surface-variant">Contrato ${escapeHtml(c.numero_contrato || '-')} ${c.processo ? '• Proc. ' + escapeHtml(c.processo) : ''}</span>
+              </div>
             </td>
             <td class="py-2.5 pr-3 text-right font-bold text-on-surface whitespace-nowrap">
               <div>${formatBRL(c.valor_global)}</div>
@@ -1711,7 +1996,12 @@
     }
 
     async function refreshAfterPncpEdit() {
-      await Promise.all([loadPncpSummary(), loadPautasAndStats()]);
+      const jobs = [loadPncpSummary(), loadPautasAndStats()];
+      const statsView = document.getElementById('view-pncp-stats');
+      if (pncpStatsLoaded || (statsView && !statsView.classList.contains('hidden'))) {
+        jobs.push(loadPncpEstatisticas());
+      }
+      await Promise.all(jobs);
       const pncpModal = document.getElementById('pncp-modal');
       if (pncpModal && !pncpModal.classList.contains('hidden')) {
         await loadPncpModal(pncpModalPage);
@@ -2124,8 +2414,357 @@
       btnEl.className = 'nav-item active-nav flex items-center justify-between px-3 py-2.5 rounded-xl transition-all bg-primary-container text-on-primary font-bold shadow-sm text-left';
     }
 
+    // ---------------------------
+    // Aba Estatísticas PNCP (14 Categorias + Auditoria + Top 20)
+    // ---------------------------
+    function switchMainView(viewName, btnEl) {
+      const vDash = document.getElementById('view-dashboard');
+      const vStats = document.getElementById('view-pncp-stats');
+      if (!vDash || !vStats) return;
+
+      if (viewName === 'pncp-stats') {
+        vDash.classList.add('hidden');
+        vDash.classList.remove('flex');
+        vStats.classList.remove('hidden');
+        vStats.classList.add('flex');
+        if (btnEl) setActiveNavButton(btnEl);
+        toggleMobileSidebar(false);
+        loadPncpEstatisticas();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        vStats.classList.add('hidden');
+        vStats.classList.remove('flex');
+        vDash.classList.remove('hidden');
+        vDash.classList.add('flex');
+        if (btnEl) setActiveNavButton(btnEl);
+      }
+    }
+
+    function setStatsYear(year) {
+      currentStatsYear = year;
+      document.querySelectorAll('#stats-year-bar .stats-year-btn').forEach(btn => {
+        if ((btn.dataset.year || '') === year) {
+          btn.className = 'stats-year-btn px-3 py-1 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all';
+        } else {
+          btn.className = 'stats-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all';
+        }
+      });
+      loadPncpEstatisticas();
+    }
+
+    function setStatsOrgao(orgao) {
+      currentStatsOrgao = orgao;
+      loadPncpEstatisticas();
+    }
+
+    async function loadPncpEstatisticas() {
+      const params = new URLSearchParams();
+      if (currentStatsYear) params.set('ano', currentStatsYear);
+      if (currentStatsOrgao) params.set('orgao', currentStatsOrgao);
+
+      const expParams = new URLSearchParams(params);
+      expParams.set('ordem', 'maior_valor');
+      const expEl = document.getElementById('stats-export-csv');
+      if (expEl) expEl.href = '/api/pncp/export/csv?' + expParams.toString();
+
+      try {
+        const res = await fetch('/api/pncp/estatisticas?' + params.toString());
+        if (!res.ok) return;
+        const data = await res.json();
+        pncpStatsLoaded = true;
+
+        const r = data.resumo_geral || {};
+        const nat = data.natureza_fornecedor || { cpf: {}, cnpj: {} };
+        const emg = (data.alertas_auditoria && data.alertas_auditoria.emergenciais_ou_dispensas) || {};
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+
+        setTxt('stats-kpi-valor', formatBRLCompact(r.valor_total_global || 0));
+        setTxt('stats-kpi-contratos', `${r.total_contratos || 0} contratos (${formatBRL(r.valor_total_global || 0)})`);
+        setTxt('stats-kpi-ticket', formatBRLCompact(r.ticket_medio || 0));
+        setTxt('stats-kpi-mediana', `Mediana: ${formatBRL(r.valor_mediano || 0)}`);
+        setTxt('stats-kpi-fornecedores', String(r.fornecedores_unicos || 0));
+        setTxt('stats-kpi-conc', `Top 5: ${r.concentracao_top5_pct || 0}% • Top 10: ${r.concentracao_top10_pct || 0}%`);
+        setTxt('stats-kpi-cpf-valor', formatBRLCompact((nat.cpf && nat.cpf.valor_total) || 0));
+        setTxt('stats-kpi-cpf-qtd', `${(nat.cpf && nat.cpf.contratos) || 0} contratos (${(nat.cpf && nat.cpf.participacao_pct) || 0}%)`);
+        setTxt('stats-kpi-emerg-valor', formatBRLCompact(emg.valor_total || 0));
+        setTxt('stats-kpi-emerg-qtd', `${emg.total_contratos || 0} contratos citados`);
+        setTxt('stats-kpi-ativos', `${r.contratos_ativos || 0} ativos`);
+        setTxt('stats-kpi-retif', `${r.contratos_vencendo_60d || 0} venc. 60d • ${r.contratos_retificados || 0} retificados`);
+
+        renderStatsCategorias(data.por_categoria || []);
+        renderStatsAudit(data.alertas_auditoria || {});
+        renderStatsSecretarias(data.por_secretaria || []);
+        renderStatsFaixasNaturezaAnual(data.faixas_valor || [], nat, data.comparativo_anual || []);
+        renderStatsTopContratos(data.top_maiores_contratos || []);
+      } catch (err) {
+        console.error('Erro ao carregar estatísticas PNCP:', err);
+      }
+    }
+
+    function renderStatsCategorias(list) {
+      const grid = document.getElementById('stats-categorias-grid');
+      if (!grid) return;
+      if (!list.length) {
+        grid.innerHTML = '<div class="col-span-2 p-6 text-center text-xs text-on-surface-variant">Sem dados nesta seleção.</div>';
+        return;
+      }
+      const maxVal = Math.max(...list.map(x => Number(x.valor_total || 0)), 1);
+      grid.innerHTML = list.map(c => {
+        const barPct = Number(c.valor_total || 0) > 0
+          ? Math.max(3, Math.round((Number(c.valor_total) / maxVal) * 100))
+          : 0;
+        const emptyCls = c.contratos === 0 ? 'opacity-60' : '';
+        return `
+          <div data-cat="${escapeHtml(c.categoria)}" onclick="openPncpModal(currentStatsYear, currentStatsOrgao, '', this.dataset.cat, 'maior_valor')" class="${emptyCls} cursor-pointer bg-surface-container-low hover:bg-surface-container p-3.5 rounded-xl border border-surface-container transition-all flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center shrink-0">
+                  <span class="material-symbols-outlined text-[20px]">${escapeHtml(c.icone || 'category')}</span>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-label-lg text-label-lg font-bold text-on-surface truncate">${escapeHtml(c.categoria)}</p>
+                  <p class="text-[11px] text-on-surface-variant">${c.contratos} contrato(s)${c.contratos > 0 ? ' • Ticket: ' + formatBRLCompact(c.ticket_medio) : ''}</p>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="font-headline-sm text-headline-sm font-extrabold text-primary">${formatBRL(c.valor_total)}</p>
+                <p class="text-[11px] font-bold text-on-surface-variant">${c.participacao_pct}% do total</p>
+              </div>
+            </div>
+            <div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-primary rounded-full transition-all" style="width: ${barPct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderStatsAudit(alertas) {
+      const outBox = document.getElementById('stats-outliers-list');
+      const outliers = alertas.possiveis_erros_outliers || [];
+      if (outBox) {
+        outBox.innerHTML = outliers.length
+          ? outliers.map(c => {
+              if (c && c.numero_controle_pncp) pncpContractsCache[c.numero_controle_pncp] = c;
+              return `
+                <div class="p-3 rounded-xl bg-error-container/30 border border-error/20 flex flex-col gap-1.5 text-xs">
+                  <div class="flex items-start justify-between gap-2">
+                    <span class="font-bold text-on-surface line-clamp-1">${escapeHtml(c.fornecedor_nome || '-')} ${c.is_cpf ? '<span class="px-1 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">CPF</span>' : ''}</span>
+                    <span class="font-extrabold text-error shrink-0">${formatBRL(c.valor_global)}</span>
+                  </div>
+                  <p class="text-[11px] text-on-error-container font-medium">${escapeHtml(c.motivo_alerta || '')}</p>
+                  <p class="text-[11px] text-on-surface-variant line-clamp-1">${escapeHtml(c.objeto || '')}</p>
+                  <div class="flex items-center justify-end gap-2 pt-1">
+                    <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="text-[11px] font-bold text-primary hover:underline">Abrir PNCP ↗</a>
+                    <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container-lowest hover:bg-tertiary-fixed text-on-surface font-bold text-[11px] shadow-sm">
+                      <span class="material-symbols-outlined text-[13px]">edit</span> Editar
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : '<div class="p-4 text-center text-xs text-on-surface-variant">Nenhum valor atípico detectado nesta seleção.</div>';
+      }
+
+      const emgObj = alertas.emergenciais_ou_dispensas || {};
+      const emgItems = emgObj.items || [];
+      const emgBadge = document.getElementById('stats-emerg-badge');
+      if (emgBadge) emgBadge.innerText = `${emgObj.total_contratos || 0} contratos`;
+
+      const emgBox = document.getElementById('stats-emerg-list');
+      if (emgBox) {
+        emgBox.innerHTML = emgItems.length
+          ? emgItems.map(c => {
+              if (c && c.numero_controle_pncp) pncpContractsCache[c.numero_controle_pncp] = c;
+              return `
+                <div class="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1 text-xs">
+                  <div class="flex items-start justify-between gap-2">
+                    <span class="font-semibold text-on-surface line-clamp-1">${escapeHtml(c.fornecedor_nome || '-')}</span>
+                    <span class="font-bold text-on-surface shrink-0">${formatBRLCompact(c.valor_global)}</span>
+                  </div>
+                  <p class="text-[11px] text-on-surface-variant line-clamp-2">${escapeHtml(c.objeto || '')}</p>
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="text-on-surface-variant">${escapeHtml(c.orgao_sigla)} • ${escapeHtml(c.data_publicacao || c.ano_contrato)}</span>
+                    <div class="flex items-center gap-2">
+                      <a href="${escapeHtml(c.url_pncp || '#')}" target="_blank" class="text-primary font-bold hover:underline">PNCP ↗</a>
+                      <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="font-bold text-on-surface hover:text-primary">Editar</button>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : '<div class="p-3 text-center text-xs text-on-surface-variant">Sem emergenciais/dispensas citados no objeto.</div>';
+      }
+
+      const dupBox = document.getElementById('stats-dup-list');
+      const dups = alertas.possiveis_duplicidades || [];
+      if (dupBox) {
+        dupBox.innerHTML = dups.length
+          ? dups.map(d => `
+              <button type="button" data-forn="${escapeHtml(d.fornecedor_cnpj || d.fornecedor_nome)}" onclick="openPncpModal(currentStatsYear, currentStatsOrgao, this.dataset.forn, '', 'maior_valor')" class="w-full text-left p-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-[11px] flex items-center justify-between gap-2 transition-colors">
+                <span class="truncate font-semibold text-amber-950">${d.qtd}x • ${escapeHtml(d.fornecedor_nome)} (${d.ano_contrato})</span>
+                <span class="font-bold text-amber-900 shrink-0">${formatBRL(d.valor_global)}</span>
+              </button>
+            `).join('')
+          : '<p class="text-[11px] text-on-surface-variant">Nenhuma repetição idêntica >= R$ 100 mil no mesmo ano.</p>';
+      }
+
+      const vencObj = alertas.vencendo_em_60d || {};
+      const vencItems = vencObj.items || [];
+      const vencBadge = document.getElementById('stats-vencendo-badge');
+      if (vencBadge) vencBadge.innerText = `${vencObj.total_contratos || 0} contratos`;
+
+      const vencBox = document.getElementById('stats-vencendo-list');
+      if (vencBox) {
+        vencBox.innerHTML = vencItems.length
+          ? vencItems.map(c => {
+              const prazoTxt = c.dias_restantes === 0 ? 'Vence hoje' : `Faltam ${c.dias_restantes}d`;
+              return `
+                <div class="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1 text-xs">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold">${prazoTxt} • ${escapeHtml(c.data_vigencia_fim)}</span>
+                    <span class="font-bold text-on-surface">${formatBRLCompact(c.valor_global)}</span>
+                  </div>
+                  <p class="font-semibold text-on-surface truncate">${escapeHtml(c.fornecedor_nome || '-')}</p>
+                  <div class="flex items-center justify-between text-[11px] text-on-surface-variant">
+                    <span class="truncate max-w-[180px]">${escapeHtml(c.objeto || '')}</span>
+                    <a href="${escapeHtml(c.url_pncp || '#')}" target="_blank" class="text-primary font-bold hover:underline shrink-0">PNCP ↗</a>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : '<div class="p-4 text-center text-xs text-on-surface-variant">Nenhum contrato vencendo nos próximos 60 dias.</div>';
+      }
+    }
+
+    function renderStatsSecretarias(list) {
+      const box = document.getElementById('stats-secretarias-list');
+      if (!box) return;
+      if (!list.length) {
+        box.innerHTML = '<div class="p-4 text-center text-xs text-on-surface-variant">Sem dados.</div>';
+        return;
+      }
+      const maxVal = Math.max(...list.map(s => Number(s.valor_total || 0)), 1);
+      box.innerHTML = list.map((s, idx) => {
+        const bar = Math.max(3, Math.round((Number(s.valor_total || 0) / maxVal) * 100));
+        return `
+          <button type="button" data-uni="${escapeHtml(s.unidade_nome)}" onclick="openPncpModal(currentStatsYear, currentStatsOrgao, '', '', 'maior_valor', this.dataset.uni)" class="w-full text-left p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors flex flex-col gap-1.5">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-5 h-5 rounded-full bg-surface-container-high text-on-surface font-bold text-[10px] flex items-center justify-center shrink-0">${idx + 1}</span>
+                <span class="font-semibold text-on-surface truncate">${escapeHtml(s.unidade_nome)}</span>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="font-bold text-primary">${formatBRL(s.valor_total)}</span>
+                <span class="text-[11px] text-on-surface-variant ml-1">(${s.contratos})</span>
+              </div>
+            </div>
+            <div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-primary/80 rounded-full" style="width: ${bar}%;"></div>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderStatsFaixasNaturezaAnual(faixas, nat, anual) {
+      const faixasBox = document.getElementById('stats-faixas-list');
+      if (faixasBox) {
+        faixasBox.innerHTML = faixas.map(f => `
+          <div class="p-2.5 rounded-xl bg-surface-container-low flex items-center justify-between gap-2 text-xs">
+            <div>
+              <p class="font-semibold text-on-surface">${escapeHtml(f.faixa)}</p>
+              <p class="text-[11px] text-on-surface-variant">${f.contratos} contrato(s) • ${f.participacao_pct}%</p>
+            </div>
+            <span class="font-bold text-primary">${formatBRL(f.valor_total)}</span>
+          </div>
+        `).join('');
+      }
+
+      const natBox = document.getElementById('stats-natureza-box');
+      if (natBox) {
+        const cpf = nat.cpf || { contratos: 0, valor_total: 0, participacao_pct: 0 };
+        const cnpj = nat.cnpj || { contratos: 0, valor_total: 0, participacao_pct: 0 };
+        natBox.innerHTML = `
+          <div class="p-3 rounded-xl bg-surface-container-low">
+            <span class="text-[10px] font-bold uppercase text-on-surface-variant">Empresas (CNPJ)</span>
+            <p class="font-bold text-sm text-on-surface mt-0.5">${formatBRLCompact(cnpj.valor_total)}</p>
+            <p class="text-[11px] text-on-surface-variant">${cnpj.contratos} contratos (${cnpj.participacao_pct}%)</p>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low">
+            <span class="text-[10px] font-bold uppercase text-on-surface-variant">Pessoas Físicas (CPF)</span>
+            <p class="font-bold text-sm text-on-surface mt-0.5">${formatBRLCompact(cpf.valor_total)}</p>
+            <p class="text-[11px] text-on-surface-variant">${cpf.contratos} contratos (${cpf.participacao_pct}%)</p>
+          </div>
+        `;
+      }
+
+      const anualBox = document.getElementById('stats-anual-list');
+      if (anualBox) {
+        anualBox.innerHTML = anual.map(a => `
+          <div class="flex items-center justify-between text-xs py-1">
+            <span class="font-bold text-on-surface">Exercício ${a.ano} <span class="font-normal text-on-surface-variant">(${a.contratos} contratos • médio ${formatBRLCompact(a.ticket_medio)})</span></span>
+            <span class="font-bold text-primary">${formatBRL(a.valor_total)}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderStatsTopContratos(list) {
+      const tbody = document.getElementById('stats-top-contratos-tbody');
+      if (!tbody) return;
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-xs text-on-surface-variant">Nenhum contrato nesta seleção.</td></tr>';
+        return;
+      }
+
+      list.forEach(c => {
+        if (c && c.numero_controle_pncp) pncpContractsCache[c.numero_controle_pncp] = c;
+      });
+
+      tbody.innerHTML = list.map((c, idx) => {
+        const cpfBadge = c.is_cpf ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">CPF</span>' : '';
+        const retBadge = c.retificado
+          ? `<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold">Retificado</span></div>`
+          : '';
+        return `
+          <tr class="hover:bg-surface-container-low/60">
+            <td class="py-2.5 pr-2 font-bold text-on-surface-variant">${idx + 1}</td>
+            <td class="py-2.5 pr-3 max-w-[190px]">
+              <div class="font-semibold text-on-surface">${escapeHtml(c.fornecedor_nome || '-')}${cpfBadge}</div>
+              <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(c.fornecedor_cnpj || '')}</div>
+            </td>
+            <td class="py-2.5 pr-3">
+              <span class="inline-block px-2 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-[10px] font-bold">${escapeHtml(c.categoria_tematica || '')}</span>
+              <div class="text-[11px] text-on-surface-variant mt-0.5 max-w-[170px] truncate">${escapeHtml(c.orgao_sigla)} • ${escapeHtml(c.unidade_nome || c.orgao_nome)}</div>
+            </td>
+            <td class="py-2.5 pr-3 max-w-[300px]">
+              <div class="text-on-surface line-clamp-2">${escapeHtml(c.objeto || '-')}</div>
+              <div class="text-[11px] text-on-surface-variant mt-0.5">Contrato ${escapeHtml(c.numero_contrato || '-')} • Ano ${escapeHtml(c.ano_contrato)}</div>
+            </td>
+            <td class="py-2.5 pr-3 text-right font-extrabold text-on-surface whitespace-nowrap">
+              <div>${formatBRL(c.valor_global)}</div>
+              ${retBadge}
+            </td>
+            <td class="py-2.5 text-right whitespace-nowrap">
+              <div class="inline-flex items-center justify-end gap-1.5">
+                <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-on-primary font-bold">
+                  <span>Abrir</span>
+                  <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-tertiary-fixed text-on-surface font-bold transition-colors">
+                  <span class="material-symbols-outlined text-[14px]">edit</span>
+                  <span>Editar</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function navigateSection(elementId, btnEl) {
-      setActiveNavButton(btnEl);
+      switchMainView('dashboard', btnEl);
       toggleMobileSidebar(false);
       scrollToElement(elementId);
     }

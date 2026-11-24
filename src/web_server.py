@@ -551,6 +551,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             orgao_val = query.get("orgao", [""])[0].strip() or None
             forn_val = query.get("fornecedor", [""])[0].strip() or None
             q_val = query.get("q", [""])[0].strip() or None
+            cat_val = query.get("categoria", [""])[0].strip() or None
+            uni_val = query.get("unidade", [""])[0].strip() or None
+            ordem_val = query.get("ordem", ["recentes"])[0].strip() or "recentes"
             try:
                 pagina_val = int(query.get("pagina", ["1"])[0])
             except ValueError:
@@ -564,6 +567,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 orgao=orgao_val,
                 fornecedor=forn_val,
                 q=q_val,
+                categoria=cat_val,
+                unidade=uni_val,
+                ordem=ordem_val,
                 pagina=pagina_val,
                 limite=limite_val,
             )
@@ -578,12 +584,23 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(resumo)
             return
 
+        if path == "/api/pncp/estatisticas":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str.isdigit() else None
+            orgao_val = query.get("orgao", [""])[0].strip() or None
+            estatisticas = db.get_pncp_estatisticas(ano=ano_val, orgao=orgao_val)
+            self.send_json_response(estatisticas)
+            return
+
         if path == "/api/pncp/export/csv":
             ano_str = query.get("ano", [""])[0].strip()
             ano_val = int(ano_str) if ano_str.isdigit() else None
             orgao_val = query.get("orgao", [""])[0].strip() or None
             forn_val = query.get("fornecedor", [""])[0].strip() or None
             q_val = query.get("q", [""])[0].strip() or None
+            cat_val = query.get("categoria", [""])[0].strip() or None
+            uni_val = query.get("unidade", [""])[0].strip() or None
+            ordem_val = query.get("ordem", ["recentes"])[0].strip() or "recentes"
 
             all_rows: List[Dict[str, Any]] = []
             pg = 1
@@ -593,6 +610,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     orgao=orgao_val,
                     fornecedor=forn_val,
                     q=q_val,
+                    categoria=cat_val,
+                    unidade=uni_val,
+                    ordem=ordem_val,
                     pagina=pg,
                     limite=200,
                 )
@@ -609,6 +629,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 "orgao_sigla",
                 "orgao_nome",
                 "unidade_nome",
+                "categoria_tematica",
                 "numero_contrato",
                 "processo",
                 "tipo_contrato",

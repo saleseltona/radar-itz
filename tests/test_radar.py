@@ -464,6 +464,111 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertFalse(restored["retificado"])
         self.assertAlmostEqual(restored["valor_global"], 159984000.0)
 
+    def test_14_pncp_estatisticas_14_categorias_e_ordenacao(self) -> None:
+        """Testa classificação das 14 categorias, ordenação por valor e estatísticas PNCP."""
+        from src.pncp_analytics import PNCP_CATEGORIAS_ORDEM, classify_pncp_contrato
+
+        # Garante precisão contra falsos positivos (mão de obra != Obras; servidores != TI)
+        self.assertNotEqual(
+            classify_pncp_contrato(
+                {"objeto": "Prestação de serviços de mão de obra terceirizada", "unidade_nome": "SEDES"}
+            ),
+            "Obras e engenharia",
+        )
+        self.assertEqual(
+            classify_pncp_contrato(
+                {"objeto": "Curso de capacitação presencial para servidores públicos", "unidade_nome": "SEAMO"}
+            ),
+            "Consultoria e treinamento",
+        )
+        self.assertEqual(
+            classify_pncp_contrato(
+                {"objeto": "Aquisição de gêneros alimentícios para programas da SEDES", "unidade_nome": "Secretaria Municipal de Desenvolvimento Social"}
+            ),
+            "Alimentação",
+        )
+        self.assertEqual(
+            classify_pncp_contrato(
+                {"objeto": "Aquisição de gêneros alimentícios da merenda escolar PNAE", "unidade_nome": "Secretaria Municipal de Educação"}
+            ),
+            "Educação e merenda",
+        )
+
+        amostras = [
+            ("CTRL-01", "11111111111", "Locador CPF", "SEDES", "Locação de imóvel urbano", 2000000.0, "Imóveis alugados e comprados"),
+            ("CTRL-02", "22222222000122", "Construtora A", "SINFRA", "Pavimentação asfáltica e drenagem", 5000000.0, "Obras e engenharia"),
+            ("CTRL-03", "33333333000133", "Alimentos B", "SEDES", "Fornecimento de gêneros alimentícios e cestas básicas", 800000.0, "Alimentação"),
+            ("CTRL-04", "44444444000144", "Farma C", "SEMUS", "Aquisição de medicamentos hospitalares", 1200000.0, "Saúde e remédios"),
+            ("CTRL-05", "55555555000155", "Tech D", "SEAMO", "Licenciamento de software de gestão pública", 300000.0, "Tecnologia e sistemas"),
+            ("CTRL-06", "66666666000166", "Posto E", "SEGOV", "Fornecimento de óleo diesel S10 e gasolina", 450000.0, "Combustível"),
+            ("CTRL-07", "77777777000177", "Limpa F", "SEGOV", "Serviços de manejo de resíduos sólidos e coleta de lixo", 900000.0, "Limpeza e lixo"),
+            ("CTRL-08", "88888888000188", "Frota G", "SEMED", "Locação de veículos para transporte escolar", 600000.0, "Veículos e transporte"),
+            ("CTRL-09", "99999999000199", "Jurídico H", "PGM", "Escritório de advocacia e assessoria jurídica", 180000.0, "Advocacia e assessoria jurídica"),
+            ("CTRL-10", "12121212000112", "Eventos I", "FCI", "Apresentação artística de banda e sonorização", 120000.0, "Shows e eventos"),
+            ("CTRL-11", "13131313000113", "Mídia J", "ASCOM", "Serviços de publicidade institucional em TV e rádio", 250000.0, "Publicidade, TV e rádio"),
+            ("CTRL-12", "14141414000114", "Segurança K", "SEAMO", "Serviço de vigilância patrimonial armada", 400000.0, "Vigilância e segurança"),
+            ("CTRL-13", "15151515000115", "Escola L", "SEMED", "Aquisição de merenda escolar PNAE", 700000.0, "Educação e merenda"),
+            ("CTRL-14", "16161616000116", "Consult M", "SEAMO", "Consultoria técnica e treinamento de equipes", 90000.0, "Consultoria e treinamento"),
+        ]
+
+        batch = [
+            {
+                "numero_controle_pncp": ctrl,
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "unidade_nome": uni,
+                "ano_contrato": 2026,
+                "numero_contrato": ctrl,
+                "processo": f"PROC-{ctrl}",
+                "tipo_contrato": "Contrato",
+                "fornecedor_cnpj": doc,
+                "fornecedor_nome": forn,
+                "objeto": obj,
+                "valor_inicial": val,
+                "valor_global": val,
+                "valor_acumulado": val,
+                "data_assinatura": "2026-11-01",
+                "data_publicacao": "2026-11-02",
+                "data_vigencia_inicio": "2026-11-01",
+                "data_vigencia_fim": "2026-12-15",
+                "url_pncp": f"https://pncp.gov.br/{ctrl}",
+            }
+            for ctrl, doc, forn, uni, obj, val, _ in amostras
+        ]
+        self.db.upsert_pncp_contratos_batch(batch)
+
+        for _, _, _, uni, obj, _, expected_cat in amostras:
+            self.assertEqual(classify_pncp_contrato({"objeto": obj, "unidade_nome": uni}), expected_cat)
+
+        # Ordenação Maior -> Menor e Menor -> Maior
+        q_desc = self.db.query_pncp_contratos(ordem="maior_valor", limite=5)
+        self.assertEqual(q_desc["items"][0]["numero_controle_pncp"], "CTRL-02")
+        self.assertAlmostEqual(q_desc["items"][0]["valor_global"], 5000000.0)
+
+        q_asc = self.db.query_pncp_contratos(ordem="menor_valor", limite=5)
+        self.assertEqual(q_asc["items"][0]["numero_controle_pncp"], "CTRL-14")
+        self.assertAlmostEqual(q_asc["items"][0]["valor_global"], 90000.0)
+
+        # Filtro por categoria temática
+        q_alim = self.db.query_pncp_contratos(categoria="Alimentação", ordem="maior_valor")
+        self.assertEqual(q_alim["total"], 1)
+        self.assertEqual(q_alim["items"][0]["numero_controle_pncp"], "CTRL-03")
+
+        # Estatísticas agregadas
+        est = self.db.get_pncp_estatisticas()
+        rg = est["resumo_geral"]
+        self.assertEqual(rg["total_contratos"], 14)
+        self.assertGreater(rg["ticket_medio"], 0)
+        self.assertGreater(rg["valor_mediano"], 0)
+        cats_retornadas = {c["categoria"] for c in est["por_categoria"]}
+        for required_cat in PNCP_CATEGORIAS_ORDEM[:-1]:
+            self.assertIn(required_cat, cats_retornadas)
+        self.assertEqual(est["natureza_fornecedor"]["cpf"]["contratos"], 1)
+        self.assertEqual(len(est["faixas_valor"]), 4)
+        self.assertEqual(len(est["alertas_auditoria"]["possiveis_erros_outliers"]), 1)  # CTRL-01 em CPF >= 500k
+        self.assertGreaterEqual(est["alertas_auditoria"]["vencendo_em_60d"]["total_contratos"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

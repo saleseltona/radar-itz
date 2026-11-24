@@ -13,6 +13,11 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
 from src.config import DB_PATH
+from src.pncp_analytics import (
+    build_pncp_estatisticas,
+    classify_pncp_contrato,
+    is_fornecedor_cpf,
+)
 
 
 class RadarDatabase:
@@ -758,7 +763,7 @@ class RadarDatabase:
 
     @staticmethod
     def _format_pncp_row(row: sqlite3.Row) -> Dict[str, Any]:
-        """Converte linha PNCP enriquecida com JOIN de `pncp_retificacoes` para dict serializável."""
+        """Converte linha PNCP enriquecida com JOIN de `pncp_retificacoes` e categoria temática."""
         d = dict(row)
         d["retificado"] = bool(d.pop("retificado_flag", 0))
         if d.get("valor_original_pncp") is not None:
@@ -766,6 +771,8 @@ class RadarDatabase:
         else:
             d["valor_original_pncp"] = None
         d["justificativa_retificacao"] = str(d.get("justificativa_retificacao") or "")
+        d["is_cpf"] = is_fornecedor_cpf(str(d.get("fornecedor_cnpj") or ""))
+        d["categoria_tematica"] = classify_pncp_contrato(d)
         return d
 
     def _select_pncp_single_row(
@@ -898,6 +905,7 @@ class RadarDatabase:
         orgao: Optional[str] = None,
         fornecedor: Optional[str] = None,
         q: Optional[str] = None,
+        unidade: Optional[str] = None,
     ) -> tuple[str, List[Any]]:
         clauses: List[str] = []
         args: List[Any] = []
@@ -914,6 +922,9 @@ class RadarDatabase:
             f_clean = fornecedor.strip()
             clauses.append("(c.fornecedor_cnpj = ? OR UPPER(c.fornecedor_nome) LIKE UPPER(?))")
             args.extend([f_clean, f"%{f_clean}%"])
+        if unidade and unidade.strip():
+            clauses.append("UPPER(c.unidade_nome) LIKE UPPER(?)")
+            args.append(f"%{unidade.strip()}%")
         if q and q.strip():
             like = f"%{q.strip()}%"
             clauses.append(
@@ -938,18 +949,87 @@ class RadarDatabase:
         orgao: Optional[str] = None,
         fornecedor: Optional[str] = None,
         q: Optional[str] = None,
+        categoria: Optional[str] = None,
+        unidade: Optional[str] = None,
+        ordem: str = "recentes",
         pagina: int = 1,
         limite: int = 50,
     ) -> Dict[str, Any]:
         pagina = max(1, int(pagina))
         limite = max(1, min(200, int(limite)))
         offset = (pagina - 1) * limite
-        where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao, fornecedor=fornecedor, q=q)
+        where_sql, args = self._build_pncp_where(
+            ano=ano, orgao=orgao, fornecedor=fornecedor, q=q, unidade=unidade
+        )
+        ordem_clean = (ordem or "recentes").strip().lower()
+        if ordem_clean == "maior_valor":
+            order_clause = "c.valor_global DESC, COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC"
+        elif ordem_clean == "menor_valor":
+            order_clause = "c.valor_global ASC, COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC"
+        else:
+            order_clause = "COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC, c.ano_contrato DESC, c.valor_global DESC"
+
+        cat_clean = (categoria or "").strip()
+        filtrar_categoria = bool(cat_clean and cat_clean.lower() not in ("todas", "all"))
+
         with self.connect() as conn:
-            total_row = conn.execute(
-                f"SELECT COUNT(*) AS cnt FROM pncp_contratos c {where_sql}", args
-            ).fetchone()
-            total = int(total_row["cnt"]) if total_row else 0
+            if filtrar_categoria:
+                rows = conn.execute(
+                    f"""
+                    SELECT c.*,
+                           CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                           r.valor_original_pncp,
+                           COALESCE(r.justificativa, '') AS justificativa_retificacao
+                    FROM pncp_contratos c
+                    LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+                    {where_sql}
+                    ORDER BY {order_clause}
+                    """,
+                    args,
+                ).fetchall()
+                filtrados = [
+                    it
+                    for it in (self._format_pncp_row(r) for r in rows)
+                    if it["categoria_tematica"] == cat_clean
+                ]
+                total = len(filtrados)
+                items_page = filtrados[offset : offset + limite]
+            else:
+                total_row = conn.execute(
+                    f"SELECT COUNT(*) AS cnt FROM pncp_contratos c {where_sql}", args
+                ).fetchone()
+                total = int(total_row["cnt"]) if total_row else 0
+                rows = conn.execute(
+                    f"""
+                    SELECT c.*,
+                           CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                           r.valor_original_pncp,
+                           COALESCE(r.justificativa, '') AS justificativa_retificacao
+                    FROM pncp_contratos c
+                    LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+                    {where_sql}
+                    ORDER BY {order_clause}
+                    LIMIT ? OFFSET ?
+                    """,
+                    args + [limite, offset],
+                ).fetchall()
+                items_page = [self._format_pncp_row(r) for r in rows]
+
+        total_paginas = max(1, (total + limite - 1) // limite)
+        return {
+            "items": items_page,
+            "total": total,
+            "pagina": pagina,
+            "limite": limite,
+            "total_paginas": total_paginas,
+        }
+
+    def get_pncp_estatisticas(
+        self, ano: Optional[int] = None, orgao: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Retorna estatísticas analíticas completas e classificação por tema dos contratos PNCP."""
+        where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao)
+        with self.connect() as conn:
             rows = conn.execute(
                 f"""
                 SELECT c.*,
@@ -959,21 +1039,11 @@ class RadarDatabase:
                 FROM pncp_contratos c
                 LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
                 {where_sql}
-                ORDER BY COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC,
-                         c.ano_contrato DESC,
-                         c.valor_global DESC
-                LIMIT ? OFFSET ?
                 """,
-                args + [limite, offset],
+                args,
             ).fetchall()
-        total_paginas = max(1, (total + limite - 1) // limite)
-        return {
-            "items": [self._format_pncp_row(r) for r in rows],
-            "total": total,
-            "pagina": pagina,
-            "limite": limite,
-            "total_paginas": total_paginas,
-        }
+        formatted_rows = [self._format_pncp_row(r) for r in rows]
+        return build_pncp_estatisticas(formatted_rows)
 
     def get_pncp_resumo(
         self, ano: Optional[int] = None, orgao: Optional[str] = None

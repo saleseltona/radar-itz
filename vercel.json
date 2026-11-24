@@ -16,6 +16,7 @@
     { "source": "/api/executar", "destination": "/api/index?__route=/api/executar" },
     { "source": "/api/pncp/contratos", "destination": "/api/index?__route=/api/pncp/contratos" },
     { "source": "/api/pncp/resumo", "destination": "/api/index?__route=/api/pncp/resumo" },
+    { "source": "/api/pncp/estatisticas", "destination": "/api/index?__route=/api/pncp/estatisticas" },
     { "source": "/api/pncp/sync", "destination": "/api/index?__route=/api/pncp/sync" },
     { "source": "/api/pncp/export/csv", "destination": "/api/index?__route=/api/pncp/export/csv" },
     { "source": "/api/pncp/retificar", "destination": "/api/index?__route=/api/pncp/retificar" },
