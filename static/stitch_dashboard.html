@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "secondary-fixed-dim": "#bec6e0", "surface-container": "#edeef1", "surface-container-lowest": "#ffffff", "surface-container-low": "#f2f3f6", "outline-variant": "#c3c5d8", "secondary": "#565e74", "primary-fixed-dim": "#b7c4ff", "tertiary-container": "#925c00", "surface-tint": "#004deb", "error-container": "#ffdad6", "surface-bright": "#f8f9fc", "on-secondary": "#ffffff", "surface-dim": "#d9dadd", "tertiary-fixed-dim": "#ffb95f", "primary-container": "#1d58f5", "surface-variant": "#e1e2e5", "on-primary-fixed": "#001551", "on-surface": "#191c1e", "secondary-fixed": "#dae2fd", "on-tertiary": "#ffffff", "inverse-surface": "#2e3133", "on-secondary-fixed": "#131b2e", "surface": "#f8f9fc", "on-primary": "#ffffff", "background": "#f8f9fc", "primary": "#0041ca", "surface-container-high": "#e7e8eb", "primary-fixed": "#dce1ff", "on-error": "#ffffff", "on-tertiary-fixed": "#2a1700", "on-secondary-container": "#5c647a", "on-primary-container": "#e4e7ff", "surface-container-highest": "#e1e2e5", "on-tertiary-container": "#ffe3c6", "on-error-container": "#93000a", "error": "#ba1a1a", "on-background": "#191c1e", "tertiary-fixed": "#ffddb8", "inverse-on-surface": "#f0f1f4", "tertiary": "#714600", "on-secondary-fixed-variant": "#3f465c", "on-tertiary-fixed-variant": "#653e00", "on-primary-fixed-variant": "#0039b4", "outline": "#737687", "inverse-primary": "#b7c4ff", "secondary-container": "#dae2fd", "on-surface-variant": "#434656" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "space-xl": "1.75rem", "space-xs": "0.25rem", "space-md": "0.75rem", "space-2xl": "2.5rem", "gutter": "1rem", "space-sm": "0.5rem", "space-lg": "1.25rem", "gutter-desktop": "1.5rem", "margin-desktop": "2.5rem", "margin": "1rem" }, "fontFamily": { "headline-sm": [ "Plus Jakarta Sans" ], "label-sm": [ "Plus Jakarta Sans" ], "headline-lg-mobile": [ "Plus Jakarta Sans" ], "headline-xl": [ "Plus Jakarta Sans" ], "body-md": [ "Plus Jakarta Sans" ], "headline-md": [ "Plus Jakarta Sans" ], "label-md": [ "Plus Jakarta Sans" ], "body-sm": [ "Plus Jakarta Sans" ], "headline-lg": [ "Plus Jakarta Sans" ], "body-lg": [ "Plus Jakarta Sans" ], "label-lg": [ "Plus Jakarta Sans" ] }, "fontSize": { "headline-sm": [ "16px", { "lineHeight": "24px", "fontWeight": "600" } ], "label-sm": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "700" } ], "headline-lg-mobile": [ "24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "headline-xl": [ "36px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "800" } ], "body-md": [ "14px", { "lineHeight": "20px", "fontWeight": "400" } ], "headline-md": [ "20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "label-md": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" } ], "body-sm": [ "12px", { "lineHeight": "16px", "fontWeight": "400" } ], "headline-lg": [ "28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "body-lg": [ "15px", { "lineHeight": "22px", "fontWeight": "500" } ], "label-lg": [ "14px", { "lineHeight": "18px", "fontWeight": "600" } ] } } } };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between p-space-md"><div class="flex flex-col gap-space-lg"><div class="flex items-center gap-space-sm px-space-xs py-space-xs"><img alt="Radar de Pautas de Imperatriz Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrA1hfOQvNMKqFkUTzZdU2mbH4Cevm5RlpUf1CHtfcBrTQVfHjrUtxnRwV0JDsMHUk9nGDVSh3psDT2g60b0flrE0QV5RSlUjHsOQRJ7HkFsR-npv_rHXIoBAu9R2dxsKTizCK_jEGm2hZjH3pvZTifa22SJUXEX0kuVqHl-oz_yGHXudPLPgB3gNxfOEaP6q0wuqnT6ZJ-HXwELa0SQsEytgy15_fYaOV0PyyQXOZEdgg"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-tight">Radar de Pautas</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Imperatriz • MA</span></div></div><div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container"></span></span><span class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Varredura Ativa</span></div><span class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full">22 Fontes ON</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold shadow-sm"><a aria-current="page" class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT transition-all bg-primary-container text-on-primary font-bold shadow-sm" data-path="feed-de-pautas" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">dynamic_feed</span><span class="font-body-md text-body-md">Feed de Pautas</span></div><span class="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full">14</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="auditoria-pncp-e-contratos" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">verified</span><span class="font-body-md text-body-md">Auditoria PNCP &amp; Contratos</span></div><span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">Alerta</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="evolucao-de-gastos-orcamento" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">trending_up</span><span class="font-body-md text-body-md">Evolução de Gastos</span></div></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="monitor-de-fontes" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">sensors</span><span class="font-body-md text-body-md">Monitor de Fontes</span></div><span class="bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2 py-0.5 rounded-full">22</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="dossies-investigativos" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">folder_special</span><span class="font-body-md text-body-md">Dossiês Investigativos</span></div><span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">6</span></a></nav></div><div class="flex flex-col gap-space-sm"><div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-space-xs"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Sincronismo TCE-MA</span><span class="font-label-sm text-label-sm text-primary font-bold">Há 3 min</span></div><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Base PNCP Diário</span><span class="font-label-sm text-label-sm text-primary font-bold">100% OK</span></div></div><div class="flex items-center justify-between p-space-xs rounded-DEFAULT hover:bg-surface-container-high transition-colors"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex flex-col"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Redação Investigativa</span><span class="font-label-sm text-label-sm text-on-surface-variant">Chefe de Pauta • ITZ</span></div></div><span class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-gutter-desktop flex items-center justify-between"><div class="flex items-center gap-space-sm flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px]">search</span><input id="stitch-search-input" oninput="filterPautas()" class="w-full h-10 pl-10 pr-12 rounded-full bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary-container shadow-sm" placeholder="Pesquisar licitações, contratos, bairros, secretarias ou palavras-chave..." type="text"/><kbd class="absolute right-3 px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm border-0">ESC</kbd></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs bg-surface-container-lowest px-3 py-1.5 rounded-full shadow-sm"><span class="material-symbols-outlined text-primary text-[18px]">sync</span><span class="font-label-sm text-label-sm text-on-surface font-medium">TCE-MA / PNCP Sincronizados</span></div><button aria-label="Notificações de Alertas" class="relative p-2 rounded-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface shadow-sm transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-error"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-gutter-desktop py-space-lg"><div class="flex flex-col w-full gap-space-lg pb-space-2xl">
+<!-- ========================================== -->
+<!-- 1. HERO COBALT EDITORIAL INTELLIGENCE RADAR -->
+<!-- ========================================== -->
+<section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary shadow-xl p-space-xl flex flex-col gap-space-lg">
+<!-- Atmospheric subtle glows -->
+<div class="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+<div class="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-primary/30 blur-2xl pointer-events-none"></div>
+<!-- Header bar within hero -->
+<div class="relative z-10 flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm uppercase tracking-wider">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Varredura Ativa • 22 Fontes Oficiais
+          </span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px]">verified_user</span>
+            TCE-MA / PNCP Sincronizado
+          </span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px]">water</span>
+            Rio Tocantins: 4,12m (Estável)
+          </span>
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px]">calendar_today</span>
+            Exercício 2024/2025
+          </span>
+</div>
+<h1 class="font-headline-xl text-headline-xl tracking-tight text-white mt-space-xs">
+          Centro de Inteligência &amp; Auditoria Municipal de Imperatriz
+        </h1>
+<p class="font-body-md text-body-md text-on-primary-container max-w-4xl">
+          Triagem algorítmica de diários oficiais, dispensas de licitação, contratos do PNCP e empenhos da Prefeitura de Imperatriz em tempo real.
+        </p>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center gap-space-sm flex-wrap">
+<a href="/api/clipping" target="_blank" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-container-lowest text-primary font-label-lg text-label-lg shadow-md hover:bg-surface-bright transition-all transform active:scale-95" id="btn-nova-pauta">
+<span class="material-symbols-outlined text-[18px]">newspaper</span>
+          Ver Clipping Diário
+</a>
+<button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/15 backdrop-blur-md text-white hover:bg-white/25 font-label-lg text-label-lg transition-all" id="btn-sync-manual" type="button" onclick="triggerManualSync()">
+<span class="material-symbols-outlined text-[18px] sync-icon" id="sync-icon-spin">refresh</span>
+          Disparar Varredura Manual
+</button>
+<a href="/api/export/csv" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/15 backdrop-blur-md text-white hover:bg-white/25 font-label-md text-label-md transition-all" title="Exportar Relatório CSV">
+<span class="material-symbols-outlined text-[18px]">download</span>
+          Exportar CSV
+</a>
+</div>
+</div>
+<!-- 4 KPI Metrics Block inside Hero -->
+<div class="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md pt-space-xs">
+<!-- KPI 1 -->
+<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
+<div class="flex items-center justify-between text-white/80">
+<span class="font-label-md text-label-md uppercase tracking-wider">Total Auditado (24/25)</span>
+<span class="material-symbols-outlined text-[20px]">account_balance</span>
+</div>
+<div class="mt-space-sm">
+<span class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">R$ 684,2 MI</span>
+<div class="flex items-center gap-1 mt-1 text-emerald-300 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+<span>+14,8% vs período homólogo</span>
+</div>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
+<div class="flex items-center justify-between text-white/80">
+<span class="font-label-md text-label-md uppercase tracking-wider">PNCP Homologados</span>
+<span class="material-symbols-outlined text-[20px]">contract</span>
+</div>
+<div class="mt-space-sm">
+<span class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">R$ 142,8 MI</span>
+<div class="flex items-center gap-1 mt-1 text-tertiary-fixed font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+<span>184 contratos • <strong>29 em alerta</strong></span>
+</div>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
+<div class="flex items-center justify-between text-white/80">
+<span class="font-label-md text-label-md uppercase tracking-wider">Total de Pautas</span>
+<span class="material-symbols-outlined text-[20px]">pending_actions</span>
+</div>
+<div class="mt-space-sm">
+<span id="kpi-total-pautas" class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">18 Ativas</span>
+<div class="flex items-center gap-1 mt-1 text-on-primary-container font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">flag</span>
+<span id="kpi-emergencias-sub">4 em prioridade de emergência</span>
+</div>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
+<div class="flex items-center justify-between text-white/80">
+<span class="font-label-md text-label-md uppercase tracking-wider">Fontes Monitoradas</span>
+<span class="material-symbols-outlined text-[20px]">sensors</span>
+</div>
+<div class="mt-space-sm">
+<span id="kpi-total-fontes" class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">22 Fontes</span>
+<div class="flex items-center gap-1 mt-1 text-emerald-300 font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>100% catalogadas no sistema</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ========================================== -->
+<!-- 2. DESKTOP 3-COLUMN INVESTIGATIVE WORKSPACE -->
+<!-- 12 COLS: 4 (Feed) + 5 (Auditoria/Gráficos) + 3 (Fontes/Telemetria) -->
+<!-- ========================================== -->
+<div class="grid grid-cols-12 gap-space-lg items-start">
+<!-- ==================================================== -->
+<!-- COLUNA ESQUERDA: FEED DE PAUTAS & INVESTIGAÇÃO (4 COLS) -->
+<!-- ==================================================== -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-space-md">
+<!-- Seção Cabeçalho & Filtros -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[22px]">feed</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Radar de Pautas</h2>
+</div>
+<span id="pautas-count-badge" class="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">Carregando...</span>
+</div>
+<!-- Filtros interativos -->
+<div class="flex items-center gap-1 overflow-x-auto py-1 text-nowrap" id="filter-buttons-bar">
+<button onclick="setCategoryFilter('todas')" class="filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all" data-cat="todas" type="button">Todas (<span id="count-todas">0</span>)</button>
+<button onclick="setCategoryFilter('Pautas urgentes')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas urgentes" type="button">🚨 Urgentes (<span id="count-urgentes">0</span>)</button>
+<button onclick="setCategoryFilter('Pautas de denúncia e apuração')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de denúncia e apuração" type="button">🔍 Denúncias (<span id="count-denuncias">0</span>)</button>
+<button onclick="setCategoryFilter('Pautas de serviço público')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de serviço público" type="button">🏛️ Serviço Público (<span id="count-servico">0</span>)</button>
+<button onclick="setCategoryFilter('Pautas de cultura, economia e cidade')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de cultura, economia e cidade" type="button">🎭 Cidade (<span id="count-cidade">0</span>)</button>
+</div>
+</div>
+
+<!-- Container dinâmico das pautas reais -->
+<div id="pautas-cards-container" class="flex flex-col gap-space-md">
+  <div class="p-8 text-center text-on-surface-variant text-body-md bg-surface-container-lowest rounded-lg">
+    <span class="material-symbols-outlined text-primary text-[32px] animate-spin">refresh</span>
+    <p class="mt-2 font-medium">Carregando pautas do banco de inteligência...</p>
+  </div>
+</div>
+</div>
+<!-- ==================================================== -->
+<!-- COLUNA CENTRAL: AUDITORIA ORÇAMENTÁRIA & GRÁFICOS (5 COLS) -->
+<!-- ==================================================== -->
+<div class="col-span-12 lg:col-span-5 flex flex-col gap-space-md">
+<!-- Bloco Gráfico: Evolução Mensal de Desembolsos com Anomalia Pré-Eleitoral -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-wrap items-center justify-between gap-space-xs">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">ssid_chart</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Evolução de Desembolsos da Prefeitura</h2>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Série histórica 2024-2025 consolidada (TCE-MA &amp; SIAFIC)</p>
+</div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center gap-1 text-on-surface font-label-sm text-label-sm">
+<span class="w-3 h-3 rounded-sm bg-primary"></span> Liquidado
+            </span>
+<span class="inline-flex items-center gap-1 text-on-surface font-label-sm text-label-sm">
+<span class="w-3 h-3 rounded-sm bg-secondary-fixed"></span> Empenhado
+            </span>
+<span class="inline-flex items-center gap-1 text-error font-label-sm text-label-sm">
+<span class="w-2.5 h-2.5 rounded-full bg-error"></span> Anomalia Auditada
+            </span>
+</div>
+</div>
+<!-- Inline SVG Data Visualization Chart (Desembolso por Mês + Spike em Outubro) -->
+<div class="relative w-full h-64 bg-surface-container-low rounded-DEFAULT p-3 flex flex-col justify-end overflow-hidden">
+<!-- Subtle Grid Lines -->
+<div class="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none opacity-40">
+<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 90 MI</span></div>
+<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 60 MI</span></div>
+<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 30 MI</span></div>
+<div class="w-full flex justify-between text-[10px] text-on-surface-variant"><span>R$ 0</span></div>
+</div>
+<!-- Chart Visual Bars & Anomaly Pin -->
+<div class="relative z-10 w-full h-44 flex items-end justify-between gap-1.5 px-2">
+<!-- Jan -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-20"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Jan</span>
+</div>
+<!-- Fev -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-24"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Fev</span>
+</div>
+<!-- Mar -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-28"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Mar</span>
+</div>
+<!-- Abr -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-26"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Abr</span>
+</div>
+<!-- Mai -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-32"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Mai</span>
+</div>
+<!-- Jun -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-36"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Jun</span>
+</div>
+<!-- Jul -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-30"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Jul</span>
+</div>
+<!-- Ago -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-34"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Ago</span>
+</div>
+<!-- Set -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-38"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Set</span>
+</div>
+<!-- Out (Pico Pré-Eleitoral Anômalo) -->
+<div class="flex-1 flex flex-col items-center gap-1 relative group cursor-pointer">
+<!-- Floating Tooltip Box -->
+<div class="absolute -top-16 bg-on-surface text-surface px-2.5 py-1.5 rounded-DEFAULT text-center shadow-lg pointer-events-none z-20 whitespace-nowrap">
+<span class="font-label-sm text-label-sm block font-bold text-error-container">Out/24: R$ 82,4 MI</span>
+<span class="text-[9px] block text-surface-container">+28% dispensas SINFRA</span>
+</div>
+<div class="w-full bg-error rounded-t-sm h-40 shadow-sm ring-2 ring-error-container"></div>
+<span class="text-[10px] font-label-sm text-error font-extrabold">Out</span>
+</div>
+<!-- Nov -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-28"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Nov</span>
+</div>
+<!-- Dez -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-32"></div>
+<span class="text-[10px] font-label-sm text-on-surface-variant">Dez</span>
+</div>
+<!-- Jan/25 -->
+<div class="flex-1 flex flex-col items-center gap-1 group">
+<div class="w-full bg-primary hover:bg-primary-container rounded-t-sm transition-all h-22"></div>
+<span class="text-[10px] font-label-sm text-primary font-bold">Jan/25</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between bg-surface-container-low p-space-sm rounded-DEFAULT">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[20px]">crisis_alert</span>
+<span class="font-body-sm text-body-sm text-on-surface">
+<strong>Nota Analítica:</strong> O salto de R$ 82,4 MI em outubro/2024 coincide com 12 termos de dispensa emergencial emitidos no período eleitoral.
+            </span>
+</div>
+<button class="text-primary font-label-sm text-label-sm font-bold hover:underline shrink-0" type="button">
+            Cruzar Empenhos
+          </button>
+</div>
+</div>
+<!-- Ranking: Maiores Credores Municipais (Estilo Active Savings) -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Quem Mais Recebeu Recursos Públicos</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Principais fornecedores e taxa de execução de empenhos (2024-2025)</p>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Top 4 Credores</span>
+</div>
+<div class="flex flex-col gap-space-sm">
+<!-- Credor 1 -->
+<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center font-bold">1</span>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Construtora Rio Tocantins Ltda</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 04.981.332/0001-90</span>
+</div>
+</div>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 28.450.000,00</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>8 contratos ativos • SINFRA • Pavimentação</span>
+<span class="font-bold text-primary">78% executado</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 78%;"></div>
+</div>
+</div>
+<!-- Credor 2 -->
+<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">2</span>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">MedHosp Distribuidora e Logística Ltda</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 12.339.810/0001-44</span>
+</div>
+</div>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 19.320.000,00</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>SEMUS • Hospital Municipal (Socorrão) e Farmácia Básica</span>
+<span class="font-bold text-primary">89% executado</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 89%;"></div>
+</div>
+</div>
+<!-- Credor 3 -->
+<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">3</span>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">LimpaBem Serviços Urbanos &amp; Resíduos</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 08.411.750/0001-02</span>
+</div>
+</div>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 14.800.000,00</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>Coleta domiciliar, aterro sanitário e caçambas</span>
+<span class="font-bold text-primary">62% executado</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 62%;"></div>
+</div>
+</div>
+<!-- Credor 4 -->
+<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">4</span>
+<div>
+<span class="font-label-lg text-label-lg text-on-surface font-semibold">Tecnologia &amp; Gestão Escolar Brasil</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 33.109.444/0001-11</span>
+</div>
+</div>
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 9.150.000,00</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span>SEMED • Softwares de frequência e lousas digitais</span>
+<span class="font-bold text-primary">45% executado</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 45%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Tabela Compacta de Últimos Contratos PNCP -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">history_edu</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Últimos Contratos Publicados no PNCP</h3>
+</div>
+<a class="text-primary font-label-sm text-label-sm font-semibold hover:underline" href="#">Ver todos (184)</a>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm">
+<thead>
+<tr class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
+<th class="py-2">Objeto / Empresa</th>
+<th class="py-2">Secretaria</th>
+<th class="py-2">Valor</th>
+<th class="py-2 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low text-on-surface">
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5">
+<div class="font-semibold text-on-surface">Locação de Caminhões Pipa</div>
+<div class="text-on-surface-variant text-[11px]">TransNorte Serviços • Dispensa nº 04/25</div>
+</td>
+<td class="py-2.5 text-on-surface-variant">SEMED</td>
+<td class="py-2.5 font-bold text-on-surface">R$ 890.000</td>
+<td class="py-2.5 text-right">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-semibold">Regular</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5">
+<div class="font-semibold text-on-surface">Manutenção Preventiva de Bombas</div>
+<div class="text-on-surface-variant text-[11px]">HidroImperatriz Ltda • Pregão 002/25</div>
+</td>
+<td class="py-2.5 text-on-surface-variant">SINFRA</td>
+<td class="py-2.5 font-bold text-on-surface">R$ 1.240.000</td>
+<td class="py-2.5 text-right">
+<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-label-sm text-label-sm font-semibold">Sub Judice</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-2.5">
+<div class="font-semibold text-on-surface">Oxigênio Hospitalar Medicinal</div>
+<div class="text-on-surface-variant text-[11px]">Oxigás Tocantins • Registro de Preço</div>
+</td>
+<td class="py-2.5 text-on-surface-variant">SEMUS</td>
+<td class="py-2.5 font-bold text-on-surface">R$ 3.100.000</td>
+<td class="py-2.5 text-right">
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-semibold">Homologado</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- ==================================================== -->
+<!-- COLUNA DIREITA: MONITOR DE FONTES & TELEMETRIA (3 COLS) -->
+<!-- ==================================================== -->
+<div class="col-span-12 lg:col-span-3 flex flex-col gap-space-md">
+<!-- Card Telemetria Ambiental: Rio Tocantins & Beira-Rio -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm relative overflow-hidden">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">water</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Telemetria do Rio Tocantins</h3>
+</div>
+<span class="font-label-sm text-label-sm bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Estável</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Estação Fluviométrica Cais do Porto de Imperatriz (ANA &amp; Defesa Civil).
+        </p>
+<!-- Régua Fluviométrica Visual -->
+<div class="bg-surface-container-low rounded-DEFAULT p-space-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase">Nível Atual</span>
+<span class="font-headline-lg text-headline-lg font-extrabold text-primary">4,12 metros</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">Alerta Cheia: 8,00m</span>
+<span class="text-emerald-700 font-label-sm text-label-sm font-semibold flex items-center justify-end gap-0.5">
+<span class="material-symbols-outlined text-[15px]">trending_up</span>
+              +0,18m em 12h
+            </span>
+</div>
+</div>
+<!-- Mini Mapa / Ponto de Monitoramento -->
+<div class="w-full h-28 bg-cover bg-center rounded-DEFAULT relative overflow-hidden" data-location="Imperatriz, Maranhão" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAi8B2wKFT8kMVmilEcPto6LEPkxbQKmBcalnM6xAqtQsKssmg85Co4oKw7KQ-SlfPiu6aEnoB73B-dvdf5NTvnDEfcIMvlYwxtL1zP8fjvpE5ii2zrXOxdZweoZQs37NVtS00ai3EwQkUURxfAm8rJoMewFgEGgeDcNxyL9M9JrYrsTCcX5szHZkhLUiQa3CFwUrn65fs_vlsGCxAb-k31mN1pfkheB4vO6ssWujg2')">
+<div class="absolute inset-0 bg-primary/20 backdrop-blur-[1px] flex items-center justify-center">
+<span class="px-2.5 py-1 rounded-full bg-on-surface/80 text-surface font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed">pin_drop</span>
+              Beira-Rio • Cais Fluvial
+            </span>
+</div>
+</div>
+</div>
+<!-- Monitor de Fontes Oficiais em Tempo Real -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">sensors</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Fontes Monitoradas</h3>
+</div>
+<span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">22 Ativas</span>
+</div>
+<div class="flex flex-col gap-2 mt-1">
+<!-- Fonte 1: DOM -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Diário Oficial (DOM-ITZ)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Ed. nº 2.842 • lido há 30 min</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+<!-- Fonte 2: Portal da Transparência ITZ -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Portal Transparência ITZ</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">API JSON • 68 empenhos hoje</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+<!-- Fonte 3: DOEMA -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">DOEMA / Maranhão</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Convênios AGEMSUL</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+<!-- Fonte 4: TCE-MA -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">TCE-MA Acórdãos</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">2 processos indexados</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+<!-- Fonte 5: MPMA & Varas -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">MPMA &amp; PJe Fazenda ITZ</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Varredura de intimações</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+<!-- Fonte 6: Bombeiros Militar -->
+<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface font-semibold">3º BBM • Corpo de Bombeiros</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Despachos operacionais</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
+            </span>
+</div>
+</div>
+</div>
+<!-- Radar de Palavras-Chave & Alertas Customizados -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">filter_alt</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Termos Sob Alerta</h3>
+</div>
+<span class="text-on-surface-variant font-label-sm text-label-sm">5 ativos</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+          Disparam notificação imediata quando encontrados nas edições diárias.
+        </p>
+<!-- Chips de Palavras-chave com botão remover -->
+<div class="flex flex-wrap gap-1.5 pt-1" id="keyword-container">
+<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+<span>dispensa</span>
+<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+<span>inexigibilidade</span>
+<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+<span>alagamento</span>
+<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+<span>socorrão</span>
+<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+<span>interdição</span>
+<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</span>
+</div>
+<!-- Input para Inserção Rápida de Palavra-chave -->
+<div class="relative mt-2">
+<input class="w-full h-9 pl-3 pr-8 rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="input-keyword" placeholder="+ Adicionar palavra-chave..." type="text"/>
+<button aria-label="Adicionar" class="absolute right-2 top-1.5 text-primary hover:text-primary-container" id="btn-add-keyword" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- ========================================== -->
+<!-- MODAL DE DOSSIÊ / INVESTIGAÇÃO DE PAUTA    -->
+<!-- ========================================== -->
+<div id="stitch-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+  <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-outline-variant/30 p-space-lg flex flex-col gap-space-md animate-in fade-in zoom-in-95 duration-150">
+    <!-- Cabeçalho do Modal -->
+    <div class="flex items-start justify-between border-b border-surface-container pb-space-sm">
+      <div class="flex flex-col gap-1 pr-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="modal-badge-prio" class="px-2.5 py-0.5 text-xs font-bold rounded-full"></span>
+          <span id="modal-categoria" class="text-xs text-on-surface-variant font-medium"></span>
+          <span id="modal-score" class="text-xs font-bold text-primary"></span>
+        </div>
+        <h3 id="modal-title" class="font-headline-md text-headline-md text-on-surface mt-1 leading-snug"></h3>
+      </div>
+      <button onclick="closeModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container transition-colors" title="Fechar (ESC)">
+        <span class="material-symbols-outlined text-[24px]">close</span>
+      </button>
+    </div>
+
+    <!-- Conteúdo do Modal -->
+    <div class="flex flex-col gap-space-sm text-body-md text-on-surface">
+      <div>
+        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Resumo Editorial</h4>
+        <p id="modal-resumo" class="mt-1 leading-relaxed text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container"></p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-container-low p-3 rounded-lg border border-surface-container text-xs">
+        <div><span class="font-semibold text-on-surface-variant">Fonte Principal:</span> <span id="modal-fonte" class="text-on-surface font-medium"></span></div>
+        <div><span class="font-semibold text-on-surface-variant">Nível de Verificação:</span> <span id="modal-nivel" class="font-bold"></span></div>
+        <div><span class="font-semibold text-on-surface-variant">Data da Publicação:</span> <span id="modal-data-pub" class="text-on-surface"></span></div>
+        <div><span class="font-semibold text-on-surface-variant">Data do Fato:</span> <span id="modal-data-fato" class="text-on-surface"></span></div>
+        <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Locais e Envolvidos:</span> <span id="modal-locais" class="text-on-surface font-medium"></span></div>
+        <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Status do Contraditório:</span> <span id="modal-contraditorio" class="text-on-surface"></span></div>
+      </div>
+
+      <div>
+        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Evidências Primárias, Documentos e Citações</h4>
+        <div id="modal-evidencias" class="mt-1 text-xs font-mono bg-surface-container-low p-3 rounded-lg border border-surface-container text-on-surface leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap"></div>
+      </div>
+
+      <div>
+        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Pauta Recomendada & Ângulo Investigativo</h4>
+        <p id="modal-angulo" class="mt-1 text-sm text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container leading-relaxed"></p>
+      </div>
+
+      <div class="pt-space-sm border-t border-surface-container flex items-center justify-between flex-wrap gap-2">
+        <a id="modal-link-original" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-primary font-label-lg text-label-lg font-bold hover:underline">
+          <span>Acessar Documento / Matéria Original</span>
+          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+        </a>
+        <button onclick="closeModal()" class="px-5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+          Fechar Dossiê
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- SCRIPTS DE INTEGRAÇÃO COM BACKEND REST API -->
+<!-- ========================================== -->
+<script>
+  let pautasData = [];
+  let currentCategory = 'todas';
+
+  // 1. Carregar pautas e estatísticas da API REST nativa
+  async function loadData() {
+    try {
+      const res = await fetch('/api/pautas');
+      pautasData = await res.json();
+      
+      const statsRes = await fetch('/api/stats');
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        updateKpis(stats);
+      }
+      
+      updateCounts();
+      filterPautas();
+    } catch (err) {
+      console.error("Erro ao carregar dados do Radar:", err);
+      const container = document.getElementById('pautas-cards-container');
+      if (container) {
+        container.innerHTML = '<div class="p-6 text-center text-error bg-surface-container-lowest rounded-lg">Erro ao conectar com o Radar de Pautas. Verifique se o servidor está ativo.</div>';
+      }
+    }
+  }
+
+  // 2. Atualizar KPIs do Hero
+  function updateKpis(stats) {
+    const elTotal = document.getElementById('kpi-total-pautas');
+    if (elTotal) elTotal.innerText = `${stats.total_pautas} Ativas`;
+
+    const elEmerg = document.getElementById('kpi-emergencias-sub');
+    if (elEmerg) elEmerg.innerText = `${stats.emergencias} em prioridade de emergência`;
+
+    const elFontes = document.getElementById('kpi-total-fontes');
+    if (elFontes) elFontes.innerText = `${stats.total_fontes || 22} Fontes`;
+  }
+
+  // 3. Atualizar contadores das abas de filtro
+  function updateCounts() {
+    const total = pautasData.length;
+    const urgentes = pautasData.filter(p => p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes').length;
+    const denuncias = pautasData.filter(p => p.categoria === 'Pautas de denúncia e apuração').length;
+    const servico = pautasData.filter(p => p.categoria === 'Pautas de serviço público').length;
+    const cidade = pautasData.filter(p => p.categoria === 'Pautas de cultura, economia e cidade').length;
+
+    const elBadge = document.getElementById('pautas-count-badge');
+    if (elBadge) elBadge.innerText = `${total} Na Base`;
+
+    if (document.getElementById('count-todas')) document.getElementById('count-todas').innerText = total;
+    if (document.getElementById('count-urgentes')) document.getElementById('count-urgentes').innerText = urgentes;
+    if (document.getElementById('count-denuncias')) document.getElementById('count-denuncias').innerText = denuncias;
+    if (document.getElementById('count-servico')) document.getElementById('count-servico').innerText = servico;
+    if (document.getElementById('count-cidade')) document.getElementById('count-cidade').innerText = cidade;
+  }
+
+  // 4. Seleção de categoria de filtro
+  function setCategoryFilter(cat) {
+    currentCategory = cat;
+    document.querySelectorAll('#filter-buttons-bar .filter-btn').forEach(btn => {
+      if (btn.dataset.cat === cat) {
+        btn.className = 'filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all';
+      } else {
+        btn.className = 'filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all';
+      }
+    });
+    filterPautas();
+  }
+
+  // 5. Filtragem em tempo real (categoria + busca textual)
+  function filterPautas() {
+    const searchEl = document.getElementById('stitch-search-input');
+    const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+
+    const filtered = pautasData.filter(p => {
+      let matchCat = true;
+      if (currentCategory === 'Pautas urgentes') {
+        matchCat = (p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes');
+      } else if (currentCategory !== 'todas') {
+        matchCat = (p.categoria === currentCategory);
+      }
+
+      const matchQ = (!q ||
+        (p.titulo_jornalistico && p.titulo_jornalistico.toLowerCase().includes(q)) ||
+        (p.resumo_3_linhas && p.resumo_3_linhas.toLowerCase().includes(q)) ||
+        (p.bairros_locais_instituicoes && p.bairros_locais_instituicoes.toLowerCase().includes(q)) ||
+        (p.fonte_principal && p.fonte_principal.toLowerCase().includes(q)) ||
+        (p.pauta_sugerida && p.pauta_sugerida.toLowerCase().includes(q))
+      );
+
+      return matchCat && matchQ;
+    });
+
+    renderCards(filtered);
+  }
+
+  // 6. Renderizar cards na coluna esquerda com estética exata do Stitch
+  function renderCards(list) {
+    const container = document.getElementById('pautas-cards-container');
+    if (!container) return;
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="bg-surface-container-lowest rounded-lg p-space-lg text-center shadow-sm">
+          <span class="material-symbols-outlined text-[36px] text-on-surface-variant">search_off</span>
+          <p class="font-headline-sm text-headline-sm text-on-surface mt-2">Nenhuma pauta encontrada</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Ajuste os filtros ou o termo de busca.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map(p => {
+      let borderClass = 'bg-outline-variant';
+      let badgeClass = 'bg-surface-container text-on-surface-variant';
+
+      if (p.prioridade === 'Emergência') {
+        borderClass = 'bg-error';
+        badgeClass = 'bg-error-container text-on-error-container';
+      } else if (p.prioridade === 'Alta') {
+        borderClass = 'bg-tertiary';
+        badgeClass = 'bg-tertiary-fixed text-on-tertiary-fixed';
+      } else if (p.prioridade === 'Média') {
+        borderClass = 'bg-primary';
+        badgeClass = 'bg-secondary-container text-on-secondary-container';
+      }
+
+      const isConfirmado = p.nivel_verificacao === 'Confirmado';
+      const statusIcon = isConfirmado ? 'check_circle' : 'pending';
+      const statusColor = isConfirmado ? 'text-emerald-700' : 'text-error';
+
+      return `
+        <article class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm relative overflow-hidden flex flex-col gap-space-sm group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${p.id}')">
+          <div class="absolute left-0 top-0 bottom-0 w-1.5 ${borderClass}"></div>
+          
+          <div class="flex items-center justify-between pl-2">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="${badgeClass} font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
+                ${p.prioridade === 'Emergência' ? '<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>' : ''}
+                ${p.prioridade} • Score ${p.score_relevancia}/100
+              </span>
+              <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold">${p.fonte_principal}</span>
+            </div>
+            <span class="font-label-sm text-label-sm ${statusColor} font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">${statusIcon}</span>
+              ${p.nivel_verificacao}
+            </span>
+          </div>
+
+          <div class="pl-2">
+            <h3 class="font-headline-sm text-headline-sm text-on-surface leading-snug group-hover:text-primary transition-colors">
+              ${escapeHtml(p.titulo_jornalistico)}
+            </h3>
+            <p class="font-body-md text-body-md text-on-surface-variant mt-1 line-clamp-3">
+              ${escapeHtml(p.resumo_3_linhas)}
+            </p>
+          </div>
+
+          <div class="pl-2 pt-1 flex items-center justify-between gap-space-sm flex-wrap text-on-surface-variant font-label-sm text-label-sm">
+            <div class="flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+              <span class="truncate max-w-[180px]">${escapeHtml(p.bairros_locais_instituicoes || 'Imperatriz • MA')}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="event.stopPropagation(); window.open('${p.url_original}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button" title="Ver Link Original">
+                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+                Fonte
+              </button>
+              <button onclick="event.stopPropagation(); openModal('${p.id}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm hover:bg-primary-container transition-all flex items-center gap-1" type="button">
+                <span>Dossiê</span>
+                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  // 7. Modal de Dossiê Detalhado
+  function openModal(id) {
+    const p = pautasData.find(item => String(item.id) === String(id));
+    if (!p) return;
+
+    document.getElementById('modal-title').innerText = p.titulo_jornalistico || '';
+    document.getElementById('modal-resumo').innerText = p.resumo_3_linhas || '';
+    document.getElementById('modal-fonte').innerText = p.fonte_principal || '';
+    document.getElementById('modal-nivel').innerText = p.nivel_verificacao || '';
+    document.getElementById('modal-data-pub').innerText = p.data_publicacao || 'Não informada';
+    document.getElementById('modal-data-fato').innerText = p.data_fato || 'Recente';
+    document.getElementById('modal-locais').innerText = p.bairros_locais_instituicoes || 'Imperatriz, MA';
+    document.getElementById('modal-contraditorio').innerText = p.status_contraditorio || 'Exige contato formal com a assessoria/órgão competente.';
+    document.getElementById('modal-angulo').innerText = p.pauta_sugerida || 'Pauta prioritária para cobertura investigativa local.';
+
+    let evid = p.evidencias_primarias || 'Documentos em verificação.';
+    if (typeof evid === 'string' && evid.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(evid);
+        evid = parsed.join('\\n• ');
+        if (evid) evid = '• ' + evid;
+      } catch (e) {}
+    }
+    document.getElementById('modal-evidencias').innerText = evid;
+
+    const linkEl = document.getElementById('modal-link-original');
+    linkEl.href = p.url_original || '#';
+
+    const prioBadge = document.getElementById('modal-badge-prio');
+    prioBadge.innerText = p.prioridade;
+    if (p.prioridade === 'Emergência') {
+      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-error-container text-on-error-container';
+    } else if (p.prioridade === 'Alta') {
+      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-tertiary-fixed text-on-tertiary-fixed';
+    } else {
+      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-secondary-container text-on-secondary-container';
+    }
+
+    document.getElementById('modal-categoria').innerText = p.categoria || '';
+    document.getElementById('modal-score').innerText = `Score: ${p.score_relevancia}/100`;
+
+    document.getElementById('stitch-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('stitch-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  // 8. Disparo manual de novo ciclo de varredura (POST /api/executar)
+  async function triggerManualSync() {
+    const btn = document.getElementById('btn-sync-manual');
+    const icon = document.getElementById('sync-icon-spin');
+    if (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+    }
+    if (icon) icon.classList.add('animate-spin');
+
+    try {
+      const res = await fetch('/api/executar', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Varredura concluída com sucesso!\\n• Execução: #${data.execucao_id}\\n• Novas pautas: ${data.total_novas_pautas}\\n• Fontes verificadas: ${data.fontes_consultadas}`);
+        await loadData();
+      } else {
+        alert(`Aviso durante varredura: ${data.erro || 'Não foi possível completar.'}`);
+      }
+    } catch (err) {
+      alert(`Erro na comunicação com o servidor: ${err.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+      if (icon) icon.classList.remove('animate-spin');
+    }
+  }
+
+  // 9. Atalhos de teclado (ESC fecha modal)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // 10. Tags de palavras-chave
+  const kwContainer = document.getElementById('keyword-container');
+  const kwInput = document.getElementById('input-keyword');
+  const kwAddBtn = document.getElementById('btn-add-keyword');
+
+  function bindRemovers() {
+    document.querySelectorAll('.remove-tag').forEach(b => {
+      b.onclick = function() {
+        this.closest('.keyword-tag').remove();
+      };
+    });
+  }
+  bindRemovers();
+
+  function addKeyword() {
+    if (!kwInput) return;
+    const val = kwInput.value.trim().toLowerCase();
+    if (!val) return;
+    const span = document.createElement('span');
+    span.className = 'keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm';
+    span.innerHTML = `<span>${val}</span><button type="button" class="remove-tag text-on-surface-variant hover:text-error" aria-label="Remover termo"><span class="material-symbols-outlined text-[14px]">close</span></button>`;
+    if (kwContainer) kwContainer.appendChild(span);
+    kwInput.value = '';
+    bindRemovers();
+  }
+
+  if (kwAddBtn && kwInput) {
+    kwAddBtn.addEventListener('click', addKeyword);
+    kwInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addKeyword();
+      }
+    });
+  }
+
+  // Inicialização
+  document.addEventListener('DOMContentLoaded', loadData);
+</script>
+</div></main></div></body></html>

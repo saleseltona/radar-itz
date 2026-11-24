@@ -1,0 +1,6 @@
+__pycache__/
+**/__pycache__/
+*.pyc
+data/scheduler.lock
+.env
+mcp_config.json

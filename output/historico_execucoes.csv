@@ -1,0 +1,6 @@
+﻿id_execucao,data_horario,fontes_consultadas,fontes_com_falha,paginas_lidas,pautas_novas,pautas_atualizadas,duplicidades_eliminadas,itens_descartados,duracao_segundos,situacao_execucao
+EXEC-20261027-110713,2026-10-27T11:07:13,22,21,20,14,3,3,3,0.89,CONCLUIDA
+EXEC-20261027-110722,2026-10-27T11:07:22,22,21,20,0,0,17,3,0.64,CONCLUIDA
+EXEC-20261028-095834,2026-10-28T09:58:34,22,21,20,0,0,17,3,0.78,CONCLUIDA
+EXEC-20261122-192218,2026-11-22T19:22:18,22,21,20,0,0,17,3,0.72,CONCLUIDA
+EXEC-20261122-192326,2026-11-22T19:23:26,22,21,24,4,0,17,3,0.67,CONCLUIDA

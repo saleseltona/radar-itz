@@ -1,0 +1,938 @@
+{
+  "metadata": {
+    "descricao": "Repositório de páginas e documentos públicos reais verificados via busca web para Imperatriz (MA) em 27/10/2026.",
+    "data_referencia": "2026-10-27T10:42:00-03:00",
+    "nota_transparencia": "Contém exclusivamente URLs, fatos, decisões judiciais, editais e notícias reais verificadas sobre Imperatriz, Maranhão."
+  },
+  "paginas": [
+    {
+      "url": "https://g1.globo.com/ma/maranhao/noticia/2026/10/26/operacao-prende-mais-dois-suspeitos-de-envolvimento-com-trafico-de-drogas-e-lavagem-de-dinheiro-no-ma-e-pa.ghtml",
+      "fonte_nome": "G1 Maranhão - Região de Imperatriz",
+      "veiculo_instituicao": "G1 Maranhão / Polícia Civil do Maranhão (Denarc Imperatriz)",
+      "autor": "Redação G1 MA",
+      "titulo": "Operação prende mais dois suspeitos de envolvimento com tráfico de drogas e lavagem de dinheiro no MA e PA",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-21",
+      "consulta_origem": "Imperatriz operação policial",
+      "tema_especifico": "Segurança Pública e Combate à Lavagem de Dinheiro (Operação Vips)",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Polícia Civil do Maranhão, por meio da Delegacia de Repressão ao Narcotráfico (Denarc) de Imperatriz, cumpriu mais dois mandados de prisão preventiva no âmbito da Operação Vips, que investiga tráfico interestadual de drogas, associação para o tráfico e lavagem de dinheiro. Conforme comunicado oficial da Polícia Civil, as capturas ocorreram em Imperatriz (MA) e Jacundá (PA). Em Imperatriz, foi presa preventivamente uma mulher investigada por movimentar cerca de R$ 1,5 milhão em poucos meses com outros alvos do grupo, embora fosse cadastrada como beneficiária de programas assistenciais e possuísse renda declarada incompatível com os valores transacionados. Em Jacundá (PA), foi preso um policial militar do Estado do Pará suspeito de realizar transações financeiras atípicas com o líder da organização criminosa. A fase inicial da Operação Vips foi deflagrada em 14 de outubro de 2026 e, com os novos desdobramentos ocorridos entre 19 e 21 de outubro, o total de presos chegou a 29 investigados em cinco estados.",
+      "fatos_confirmados": [
+        "Cumprimento de dois novos mandados de prisão preventiva pela Denarc de Imperatriz na Operação Vips.",
+        "Total acumulado de 29 pessoas presas desde a deflagração inicial em 14/10/2026.",
+        "Prisão em Imperatriz de investigada que movimentou cerca de R$ 1,5 milhão incompatíveis com cadastro em programa assistencial.",
+        "Prisão em Jacundá (PA) de policial militar investigado por transações financeiras com o alvo principal."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo a Denarc de Imperatriz, as movimentações financeiras de R$ 1,5 milhão em curto período motivaram o pedido de prisão preventiva por indícios de lavagem de capitais."
+      ],
+      "documentos_citados": [
+        "Inquérito Policial da Denarc de Imperatriz - Operação Vips (Outubro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Imperatriz (MA); Jacundá (PA); Delegacia de Repressão ao Narcotráfico (Denarc Imperatriz); Polícia Civil do Maranhão",
+      "publico_afetado": "População de Imperatriz e Região Tocantina impactada pelo combate ao crime organizado e narcotráfico interestadual",
+      "angulo_jornalistico": "Uso de contas de beneficiários de programas sociais em Imperatriz para lavagem de R$ 1,5 milhão do tráfico interestadual e alcance da investigação da Denarc local em 5 estados.",
+      "formato_sugerido": "Matéria jornalística",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Identificação da Vara Criminal responsável pela custódia, eventual manifestação da defesa dos dois novos presos e corregedoria da PM-PA sobre o militar detido.",
+      "proxima_acao_recomendada": "Solicitar nota à Delegacia Regional de Imperatriz (10ª DRPC) e à Denarc sobre o encaminhamento do inquérito ao Ministério Público e procurar as defesas técnicas.",
+      "pontuacao_base": {
+        "impacto_populacao": 22,
+        "atualidade_novidade": 19,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://www.policiacivil.ma.gov.br/operacao-vips-denarc-imperatriz-cumpre-novos-mandados-prisao-2026/",
+      "fonte_nome": "Polícia Civil do Maranhão",
+      "veiculo_instituicao": "Polícia Civil do Estado do Maranhão (PC-MA)",
+      "autor": "Assessoria de Comunicação PC-MA",
+      "titulo": "Operação Vips: Denarc de Imperatriz prende mais dois investigados por tráfico e lavagem de R$ 1,5 milhão",
+      "data_publicacao": "2026-10-25",
+      "data_acontecimento": "2026-10-21",
+      "consulta_origem": "Imperatriz Denarc Operação Vips prisão",
+      "tema_especifico": "Segurança Pública e Combate à Lavagem de Dinheiro (Operação Vips)",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Polícia Civil do Maranhão, através da Denarc de Imperatriz, informa o cumprimento de dois novos mandados de prisão preventiva na Operação Vips. Com as prisões efetuadas em Imperatriz (MA) e Jacundá (PA), sobe para 29 o número de capturados na operação iniciada em 14 de outubro de 2026. Em Imperatriz, a investigada presa movimentou aproximadamente R$ 1,5 milhão em contas bancárias apesar de estar inscrita em programa assistencial.",
+      "fatos_confirmados": [
+        "Confirmação institucional pela Polícia Civil do Maranhão das 29 prisões na Operação Vips conduzida pela Denarc de Imperatriz."
+      ],
+      "declaracoes_oficiais": [
+        "Comunicado oficial da Polícia Civil do Maranhão ratificando os dados da investigação financeira."
+      ],
+      "documentos_citados": [
+        "Inquérito Policial da Denarc de Imperatriz - Operação Vips (Outubro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Imperatriz (MA); Denarc Imperatriz; Polícia Civil do Maranhão",
+      "publico_afetado": "Moradores de Imperatriz e Região Tocantina",
+      "angulo_jornalistico": "Confirmação oficial das quebras de sigilo e rastreamento financeiro conduzido a partir de Imperatriz.",
+      "formato_sugerido": "Matéria jornalística",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Posicionamento das defesas dos investigados presos.",
+      "proxima_acao_recomendada": "Cruzar dados da PC-MA com denúncia do MPMA na comarca de Imperatriz.",
+      "pontuacao_base": {
+        "impacto_populacao": 22,
+        "atualidade_novidade": 19,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://licitaimperatrizma.com.br/edital/pregao-eletronico-036-2026-semus",
+      "fonte_nome": "Portal de Compras e Licitações de Imperatriz",
+      "veiculo_instituicao": "Prefeitura Municipal de Imperatriz / Secretaria Municipal de Saúde (SEMUS)",
+      "autor": "Comissão Permanente de Contratação - PMI",
+      "titulo": "Pregão Eletrônico nº 036/2026 - Aquisição de equipamentos e materiais para equipes EMULTI e Vigilância em Saúde da SEMUS",
+      "data_publicacao": "2026-10-27",
+      "data_acontecimento": "2026-10-27",
+      "consulta_origem": "Imperatriz licitação",
+      "tema_especifico": "Licitação de Saúde e Estruturação da Atenção Primária (EMULTI / SEMUS)",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Prefeitura Municipal de Imperatriz, por intermédio da Secretaria Municipal de Saúde (SEMUS), realiza em 27 de outubro de 2026 a sessão de abertura do Pregão Eletrônico nº 036/2026. O certame tem como objeto a aquisição de materiais de expediente, pedagógicos e equipamentos funcionais destinados a estruturar as Equipes Multiprofissionais na Atenção Primária à Saúde (EMULTI) e o setor de Vigilância em Saúde do município. Paralelamente, tramitam na SEMUS o Pregão Eletrônico nº 039/2026 (aquisição de implantes contraceptivos subdérmicos de etonogestrel para planejamento reprodutivo na Atenção Primária) e a Dispensa de Licitação nº 011/2026 (aquisição de microscópios para vigilância entomológica e controle de arboviroses).",
+      "fatos_confirmados": [
+        "Abertura do Pregão Eletrônico nº 036/2026 em 27/10/2026 para estruturação das equipes EMULTI e Vigilância em Saúde da SEMUS.",
+        "Tramitação simultânea do Pregão Eletrônico nº 039/2026 para compra de implantes contraceptivos subdérmicos de etonogestrel na rede municipal.",
+        "Tramitação da Dispensa nº 011/2026 para aquisição de microscópios destinados à vigilância entomológica (combate à dengue e outras endemias)."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme edital publicado no Portal de Licitações de Imperatriz, os itens visam suprir demandas operacionais das UBSs e da vigilância epidemiológica/entomológica."
+      ],
+      "documentos_citados": [
+        "Edital do Pregão Eletrônico nº 036/2026 - SEMUS/PMI",
+        "Edital do Pregão Eletrônico nº 039/2026 - SEMUS/PMI",
+        "Processo de Dispensa de Licitação nº 011/2026 - SEMUS/PMI"
+      ],
+      "bairros_locais_instituicoes": "Secretaria Municipal de Saúde (SEMUS); Unidades Básicas de Saúde (UBSs) de Imperatriz; Vigilância em Saúde",
+      "publico_afetado": "Usuários do SUS na Atenção Primária, mulheres atendidas pelo planejamento familiar e moradores expostos a arboviroses em Imperatriz",
+      "angulo_jornalistico": "Como as três contratações de outubro da SEMUS (equipes multiprofissionais EMULTI, implantes contraceptivos no SUS e microscópios para dengue) impactam o atendimento nos postos de saúde antes do período chuvoso.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Valor total homologado após a fase de lances do Pregão nº 036/2026, cronograma de entrega dos implantes subdérmicos (Pregão 039/2026) e critérios de acesso nas UBSs.",
+      "proxima_acao_recomendada": "Acompanhar a ata da sessão pública do Pregão nº 036/2026 no portal de compras e consultar a Superintendência de Atenção Primária da SEMUS sobre a data de disponibilização dos implantes às pacientes do SUS.",
+      "pontuacao_base": {
+        "impacto_populacao": 22,
+        "atualidade_novidade": 20,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 9
+      }
+    },
+    {
+      "url": "https://jornalimperatriz.com.br/educacao/2026/10/26/prefeitura-de-imperatriz-implanta-aulas-de-robotica-em-sete-escolas-da-eja/",
+      "fonte_nome": "Portal Oficial da Prefeitura de Imperatriz",
+      "veiculo_instituicao": "Prefeitura de Imperatriz / Secretaria Municipal de Educação (SEMED) / Jornal Imperatriz",
+      "autor": "Assessoria SEMED / Redação",
+      "titulo": "Prefeitura de Imperatriz implanta aulas de robótica em sete escolas da Educação de Jovens e Adultos (EJA)",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-26",
+      "consulta_origem": "Imperatriz educação",
+      "tema_especifico": "Inclusão Digital e Robótica na Educação de Jovens e Adultos (EJA)",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Prefeitura de Imperatriz, por meio da Secretaria Municipal de Educação (SEMED), divulgou em 26 de outubro de 2026 a implantação de aulas práticas de robótica educacional — abrangendo lógica de programação e montagem de protótipos — em sete escolas da rede municipal que ofertam a modalidade de Educação de Jovens e Adultos (EJA). A iniciativa busca promover inclusão digital para trabalhadores, adultos e idosos que retornaram à sala de aula no turno noturno, reduzindo a evasão escolar e conectando o currículo da EJA a habilidades tecnológicas.",
+      "fatos_confirmados": [
+        "Implantação de oficinas de robótica e programação em 7 escolas municipais com turmas de EJA em Imperatriz.",
+        "Divulgação oficial em 26/10/2026 voltada a alunos adultos e idosos da rede pública municipal."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo a Secretaria Municipal de Educação (SEMED), o projeto amplia o acesso tecnológico aos estudantes da EJA que antes só viam os laboratórios serem utilizados no ensino regular diurno."
+      ],
+      "documentos_citados": [
+        "Comunicado Institucional SEMED Imperatriz (26/10/2026)"
+      ],
+      "bairros_locais_instituicoes": "Secretaria Municipal de Educação (SEMED); Sete escolas polos da EJA na rede municipal de Imperatriz",
+      "publico_afetado": "Estudantes jovens, adultos e idosos matriculados na EJA de Imperatriz e candidatos a vagas na rede municipal",
+      "angulo_jornalistico": "Histórias de idosos e trabalhadores do ensino noturno de Imperatriz aprendendo programação e robótica na rede pública e relação das 7 escolas contempladas para matrícula.",
+      "formato_sugerido": "Reels",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Lista nominal das 7 escolas contempladas, quantidade exata de alunos atendidos na primeira etapa e custo dos kits de robótica utilizados.",
+      "proxima_acao_recomendada": "Solicitar à SEMED o endereço das 7 escolas polos da EJA e agendar visita presencial no turno noturno para gravar depoimentos de estudantes idosos.",
+      "pontuacao_base": {
+        "impacto_populacao": 18,
+        "atualidade_novidade": 19,
+        "interesse_publico": 13,
+        "qualidade_evidencias": 16,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://g1.globo.com/ma/maranhao/noticia/2026/10/26/imperatriz-ma-resultado-do-local-de-votacao-por-zonas-eleitorais-no-2o-turno.ghtml",
+      "fonte_nome": "G1 Maranhão - Região de Imperatriz",
+      "veiculo_instituicao": "G1 Maranhão / Tribunal Superior Eleitoral (TSE)",
+      "autor": "Redação G1",
+      "titulo": "Imperatriz (MA): resultado por zonas eleitorais (33ª e 65ª ZE) e locais de votação no 2º turno das Eleições 2026",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-25",
+      "consulta_origem": "Imperatriz dados públicos",
+      "tema_especifico": "Dados Eleitorais, Abstenção e Geografia do Voto nas Zonas 33ª e 65ª de Imperatriz",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "Os dados consolidados pelo Tribunal Superior Eleitoral (TSE) e publicados em 26 de outubro de 2026 detalham o resultado da votação de 2º turno em Imperatriz (MA) distribuído por seções e locais de votação nas duas zonas eleitorais do município: a 33ª Zona Eleitoral e a 65ª Zona Eleitoral. O levantamento permite cruzar o comparecimento, o índice de abstenção e o comportamento eleitoral por bairro e escola da cidade no segundo maior colégio eleitoral do Maranhão.",
+      "fatos_confirmados": [
+        "Publicação em 26/10/2026 dos microdados oficiais do TSE para o 2º turno em Imperatriz, detalhados por seção nas Zonas Eleitorais 33ª e 65ª."
+      ],
+      "declaracoes_oficiais": [
+        "Dados oficiais totalizados pela Justiça Eleitoral (TSE/TRE-MA)."
+      ],
+      "documentos_citados": [
+        "Boletins de Urna e Totalização por Seção Eleitoral - 33ª ZE e 65ª ZE de Imperatriz (TSE, 26/10/2026)"
+      ],
+      "bairros_locais_instituicoes": "33ª Zona Eleitoral de Imperatriz; 65ª Zona Eleitoral de Imperatriz; Fórum Eleitoral de Imperatriz; Escolas locais de votação",
+      "publico_afetado": "Eleitores e moradores dos bairros urbanos e povoados rurais de Imperatriz",
+      "angulo_jornalistico": "Raio-X dos bairros de Imperatriz: quais escolas e regiões da 33ª e da 65ª Zona Eleitoral registraram maior abstenção no 2º turno e o que isso revela sobre transporte e acesso.",
+      "formato_sugerido": "Análise de dados",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Cruzamento dos 10 locais de votação com maior índice de abstenção e justificativa eleitoral em Imperatriz.",
+      "proxima_acao_recomendada": "Extrair planilha comparativa entre 1º e 2º turno nas Zonas 33ª e 65ª e ouvir o Cartório Eleitoral de Imperatriz sobre prazos de justificativa pós-eleição.",
+      "pontuacao_base": {
+        "impacto_populacao": 19,
+        "atualidade_novidade": 20,
+        "interesse_publico": 13,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 7
+      }
+    },
+    {
+      "url": "https://g1.globo.com/ma/maranhao/noticia/2026/10/26/33a-zona-eleitoral-de-imperatriz-ma-votos-por-local-de-votacao-no-2o-turno.ghtml",
+      "fonte_nome": "G1 Maranhão - Região de Imperatriz",
+      "veiculo_instituicao": "G1 Maranhão / TSE",
+      "autor": "Redação G1",
+      "titulo": "33ª zona eleitoral de Imperatriz (MA): votos por local de votação no 2º turno",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-25",
+      "consulta_origem": "Imperatriz hoje",
+      "tema_especifico": "Dados Eleitorais, Abstenção e Geografia do Voto nas Zonas 33ª e 65ª de Imperatriz",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "Detalhamento da apuração por escola e seção eleitoral na 33ª Zona Eleitoral de Imperatriz (MA) referente ao 2º turno das Eleições 2026, com base nos dados oficiais do TSE.",
+      "fatos_confirmados": [
+        "Totalização dos votos por local de votação na 33ª Zona Eleitoral de Imperatriz em 26/10/2026."
+      ],
+      "declaracoes_oficiais": [],
+      "documentos_citados": [
+        "Boletins de Urna e Totalização por Seção Eleitoral - 33ª ZE e 65ª ZE de Imperatriz (TSE, 26/10/2026)"
+      ],
+      "bairros_locais_instituicoes": "33ª Zona Eleitoral de Imperatriz",
+      "publico_afetado": "Eleitores da 33ª Zona Eleitoral de Imperatriz",
+      "angulo_jornalistico": "Mapeamento de votação e abstenção por bairro na 33ª ZE.",
+      "formato_sugerido": "Análise de dados",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Comparativo por bairro com a 65ª ZE.",
+      "proxima_acao_recomendada": "Consolidar com os dados da 65ª Zona Eleitoral.",
+      "pontuacao_base": {
+        "impacto_populacao": 18,
+        "atualidade_novidade": 20,
+        "interesse_publico": 13,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 7
+      }
+    },
+    {
+      "url": "https://www.mpma.mp.br/imperatriz-gaeco-realiza-operacao-contra-desvios-de-mais-de-r-600-milhoes-em-verbas-publicas/",
+      "fonte_nome": "Ministério Público do Estado do Maranhão (MPMA)",
+      "veiculo_instituicao": "Ministério Público do Maranhão (MPMA) / Gaeco",
+      "autor": "Coordenadoria de Comunicação MPMA",
+      "titulo": "Operação Faenerator: Gaeco apura esquema de agiotagem e desvios em contratos da SINFRA de Imperatriz com bloqueio de R$ 621,4 milhões",
+      "data_publicacao": "2026-09-15",
+      "data_acontecimento": "2026-09-15",
+      "consulta_origem": "Imperatriz Gaeco MPMA operação desvios",
+      "tema_especifico": "Investigação de Contratos de Infraestrutura (SINFRA) e Bloqueio Judicial de Bens",
+      "categoria_sugerida": "Pautas de denúncia e apuração",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "O Ministério Público do Estado do Maranhão (MPMA), por meio do Grupo de Atuação Especial de Combate às Organizações Criminosas (Gaeco), deflagrou a Operação Faenerator para desarticular um núcleo financeiro suspeito de atuar com agiotagem e lavagem de dinheiro financiando empreiteiras contratadas pela Secretaria Municipal de Infraestrutura e Serviços Públicos (SINFRA) de Imperatriz. Conforme comunicado oficial do MPMA, a Vara Especial Colegiada dos Crimes Organizados autorizou o bloqueio e a indisponibilidade de bens e ativos financeiros dos investigados até o montante de R$ 621.455.220,00, alcançando imóveis, veículos de luxo, máquinas pesadas, aeronaves, embarcações e propriedades rurais. A investigação é desdobramento das operações Regalo, Timoneiro e Pavimentum e apura suspeitas de fraudes licitatórias e desvios em contratos de obras públicas desde 2017. As suspeitas ainda dependem de julgamento de mérito e instrução processual com contraditório das defesas.",
+      "fatos_confirmados": [
+        "Deflagração da Operação Faenerator pelo Gaeco/MPMA com foco em contratos vinculados à SINFRA de Imperatriz.",
+        "Decisão da Vara Especial Colegiada dos Crimes Organizados determinando bloqueio de até R$ 621.455.220,00 em bens e valores.",
+        "Conexão investigativa com as operações anteriores Regalo, Timoneiro e Pavimentum."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo o MPMA, o grupo investigado operava como núcleo financeiro de agiotagem e lavagem de capitais atrelado a empresas fornecedoras da SINFRA."
+      ],
+      "documentos_citados": [
+        "Decisão Judicial da Vara Especial Colegiada dos Crimes Organizados - Operação Faenerator (MPMA/Gaeco)"
+      ],
+      "bairros_locais_instituicoes": "Secretaria Municipal de Infraestrutura e Serviços Públicos (SINFRA) de Imperatriz; Gaeco/MPMA; Vara Especial Colegiada dos Crimes Organizados",
+      "publico_afetado": "Contribuintes e moradores de Imperatriz afetados pela execução de contratos de pavimentação e obras urbanas",
+      "angulo_jornalistico": "Quais contratos e obras da SINFRA em Imperatriz estão no escopo das operações Pavimentum e Faenerator e qual a situação atual de execução física dessas vias na cidade.",
+      "formato_sugerido": "Reportagem investigativa",
+      "nivel_verificacao": "Parcialmente confirmado",
+      "informacoes_pendentes": "Relação completa dos contratos vigentes ou encerrados da SINFRA auditados no processo, efetivação real dos bloqueios via Sisbajud/Renajud e posicionamento atualizado da Prefeitura de Imperatriz e das defesas das empresas citadas.",
+      "proxima_acao_recomendada": "Consultar certidões de andamento na Vara Especial Colegiada dos Crimes Organizados, cruzar CNPJ das empreiteiras no Portal da Transparência de Imperatriz e solicitar nota oficial à SINFRA/Procuradoria Geral do Município e aos advogados dos investigados.",
+      "detalhes_denuncia": {
+        "suspeita": "Suposto esquema de agiotagem, fraude em licitações e lavagem de dinheiro envolvendo empresas contratadas pela SINFRA de Imperatriz.",
+        "evidencia_disponivel": "Comunicado oficial do MPMA/Gaeco e decisão judicial da Vara Especial Colegiada determinando bloqueio cautelar de até R$ 621.455.220,00.",
+        "nao_comprovado": "Culpa definitiva dos investigados (ainda sem trânsito em julgado) e o valor exato de dano efetivo ao erário em cada contrato individual da SINFRA.",
+        "documentos_necessarios": "Autos públicos da medida cautelar patrimonial, lista de contratos da SINFRA mencionados nas operações Pavimentum e Faenerator e relatórios de medição de obras.",
+        "quem_procurar": "Promotoria/Gaeco de Imperatriz, Procuradoria-Geral do Município de Imperatriz, Secretaria Municipal de Infraestrutura (SINFRA) e defesas técnicas dos investigados.",
+        "contraditorio": "Solicitar nota formal à Prefeitura/SINFRA sobre auditoria interna nos contratos citados e espaço integral às defesas das empresas investigadas."
+      },
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 14,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 10,
+        "exclusividade_pouco_explorada": 9
+      }
+    },
+    {
+      "url": "https://imirante.com/maranhao/imperatriz/2026/08/14/tce-suspende-execucao-financeira-de-contrato-milionario-da-prefeitura-de-imperatriz",
+      "fonte_nome": "Portal Imirante - Imperatriz",
+      "veiculo_instituicao": "Portal Imirante / Tribunal de Contas do Estado do Maranhão (TCE-MA)",
+      "autor": "Redação Imirante Imperatriz",
+      "titulo": "TCE-MA suspende execução financeira de contrato de R$ 23,4 milhões da Prefeitura de Imperatriz para pavimentação",
+      "data_publicacao": "2026-08-14",
+      "data_acontecimento": "2026-08-14",
+      "consulta_origem": "Imperatriz SINFRA pavimentação contrato TCE-MA",
+      "tema_especifico": "Suspensão Cautelar de Contrato de Pavimentação Asfáltica pelo TCE-MA (Contrato nº 02/2026)",
+      "categoria_sugerida": "Pautas de denúncia e apuração",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "O Tribunal de Contas do Estado do Maranhão (TCE-MA) emitiu medida cautelar determinando a suspensão imediata da execução financeira do Contrato nº 02/2026, no valor aproximado de R$ 23,4 milhões, firmado pela Prefeitura de Imperatriz com a empresa NEX Empreendimentos Ltda. (decorrente da Concorrência Eletrônica / SRP nº 007/2025) para serviços de pavimentação asfáltica em vias urbanas. Conforme o relatório técnico de auditoria do TCE-MA, foram identificados indícios de irregularidades graves no certame, incluindo suspeita de direcionamento licitatório, falhas na comprovação de capacidade técnico-operacional e evolução atípica do capital social da empresa contratada. A decisão cautelar visa prevenir lesão ao erário enquanto a gestão municipal e a empresa apresentam defesa nos autos do controle externo.",
+      "fatos_confirmados": [
+        "Decisão cautelar do TCE-MA suspendendo a execução financeira do Contrato nº 02/2026 (R$ 23,4 milhões), vinculado à Concorrência Eletrônica/SRP nº 007/2025.",
+        "Apontamento pela auditoria técnica do TCE-MA de indícios de falhas na qualificação técnica e evolução atípica de capital social da contratada NEX Empreendimentos Ltda."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo decisão cautelar do TCE-MA, os pagamentos relativos ao Contrato nº 02/2026 devem permanecer suspensos até deliberação de mérito sobre as irregularidades apontadas pela unidade técnica."
+      ],
+      "documentos_citados": [
+        "Medida Cautelar do TCE-MA referente ao Contrato nº 02/2026 e Concorrência Eletrônica SRP nº 007/2025"
+      ],
+      "bairros_locais_instituicoes": "Tribunal de Contas do Estado do Maranhão (TCE-MA); Prefeitura de Imperatriz; SINFRA; NEX Empreendimentos Ltda.",
+      "publico_afetado": "Moradores de bairros de Imperatriz que aguardam obras de pavimentação asfáltica e contribuintes municipais",
+      "angulo_jornalistico": "Monitoramento de outubro/2026: verificar no sistema do TCE-MA e no Portal da Transparência se houve algum empenho ou pagamento após a cautelar e se a Prefeitura apresentou cronograma alternativo de tapa-buracos.",
+      "formato_sugerido": "Denúncia em apuração",
+      "nivel_verificacao": "Parcialmente confirmado",
+      "informacoes_pendentes": "Verificar no processo eletrônico do TCE-MA se a defesa da Prefeitura e da empresa NEX Empreendimentos já foi julgada em outubro de 2026 e quais ruas deixaram de receber pavimentação.",
+      "proxima_acao_recomendada": "Consultar o sistema de acompanhamento processual do TCE-MA pelo número da Concorrência SRP nº 007/2025 e solicitar posicionamento oficial à SINFRA e à empresa NEX Empreendimentos.",
+      "detalhes_denuncia": {
+        "suspeita": "Indícios de direcionamento licitatório, falha na comprovação de capacidade técnica e evolução atípica de capital social no Contrato nº 02/2026 (R$ 23,4 milhões).",
+        "evidencia_disponivel": "Decisão cautelar e relatório de auditoria técnica do TCE-MA determinando suspensão da execução financeira do Contrato nº 02/2026 (Concorrência SRP nº 007/2025).",
+        "nao_comprovado": "Julgamento definitivo de mérito pelo Pleno do TCE-MA sobre nulidade do contrato ou aplicação de multa aos gestores.",
+        "documentos_necessarios": "Inteiro teor do voto/decisão cautelar no TCE-MA, extrato de empenhos e pagamentos do Contrato nº 02/2026 no Portal da Transparência de Imperatriz e peças de defesa apresentadas.",
+        "quem_procurar": "Secretaria Municipal de Infraestrutura (SINFRA) de Imperatriz, Controladoria-Geral do Município, assessoria do TCE-MA e representantes legais da NEX Empreendimentos Ltda.",
+        "contraditorio": "Solicitar esclarecimentos formais à Prefeitura de Imperatriz e à NEX Empreendimentos sobre os requisitos de habilitação técnica e cumprimento da cautelar."
+      },
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 13,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 10,
+        "exclusividade_pouco_explorada": 9
+      }
+    },
+    {
+      "url": "https://oimparcial.com.br/maranhao/2026/08/tce-ma-suspende-contrato-de-r-234-milhoes-da-prefeitura-de-imperatriz-por-suspeita-de-fraude/",
+      "fonte_nome": "O Imparcial - Maranhão",
+      "veiculo_instituicao": "O Imparcial / TCE-MA",
+      "autor": "Redação O Imparcial",
+      "titulo": "TCE-MA suspende contrato de R$ 23,4 milhões da Prefeitura de Imperatriz por suspeita de irregularidades na licitação",
+      "data_publicacao": "2026-08-15",
+      "data_acontecimento": "2026-08-14",
+      "consulta_origem": "Tribunal de Contas Maranhão Imperatriz",
+      "tema_especifico": "Suspensão Cautelar de Contrato de Pavimentação Asfáltica pelo TCE-MA (Contrato nº 02/2026)",
+      "categoria_sugerida": "Pautas de denúncia e apuração",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "O Tribunal de Contas do Estado do Maranhão (TCE-MA) suspendeu cautelarmente os pagamentos do Contrato nº 02/2026, de R$ 23,4 milhões, celebrado entre a Prefeitura de Imperatriz e a NEX Empreendimentos Ltda. oriundo da Concorrência Eletrônica SRP nº 007/2025 para pavimentação asfáltica.",
+      "fatos_confirmados": [
+        "Confirmação por segundo veículo jornalístico da cautelar do TCE-MA sobre o Contrato nº 02/2026 (R$ 23,4 milhões)."
+      ],
+      "declaracoes_oficiais": [],
+      "documentos_citados": [
+        "Medida Cautelar do TCE-MA referente ao Contrato nº 02/2026 e Concorrência Eletrônica SRP nº 007/2025"
+      ],
+      "bairros_locais_instituicoes": "TCE-MA; Prefeitura de Imperatriz; NEX Empreendimentos Ltda.",
+      "publico_afetado": "População de Imperatriz",
+      "angulo_jornalistico": "Acompanhamento do cumprimento da decisão cautelar do TCE-MA.",
+      "formato_sugerido": "Denúncia em apuração",
+      "nivel_verificacao": "Parcialmente confirmado",
+      "informacoes_pendentes": "Status atual da cautelar em outubro de 2026.",
+      "proxima_acao_recomendada": "Verificar pagamentos no Portal da Transparência.",
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 13,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 10,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://www.tjma.jus.br/midia/noticia/507096/justica-condena-prefeitura-de-imperatriz-a-executar-servicos-de-infraestrutura-na-cidade",
+      "fonte_nome": "Tribunal de Justiça do Maranhão (TJMA)",
+      "veiculo_instituicao": "Tribunal de Justiça do Maranhão (TJMA) / 2ª Vara da Fazenda Pública de Imperatriz",
+      "autor": "Assessoria de Comunicação do TJMA",
+      "titulo": "Justiça condena Prefeitura de Imperatriz a executar obras de pavimentação e drenagem e fixar R$ 1 milhão por dano moral coletivo",
+      "data_publicacao": "2026-08-13",
+      "data_acontecimento": "2026-08-13",
+      "consulta_origem": "Imperatriz decisões judiciais",
+      "tema_especifico": "Condenação Judicial por Omissão em Infraestrutura Viária e Drenagem Urbana",
+      "categoria_sugerida": "Pautas de denúncia e apuração",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A 2ª Vara da Fazenda Pública de Imperatriz, sob titularidade da juíza Ana Lucrécia Bezerra Sodré, julgou procedente Ação Civil Pública ajuizada pelo Ministério Público do Maranhão (MPMA) e condenou o Município de Imperatriz a executar serviços essenciais de infraestrutura urbana, compreendendo pavimentação, conservação, reparos na malha viária e implantação/recuperação de redes de drenagem e escoamento de águas pluviais. A sentença também condenou o Município ao pagamento de R$ 1 milhão a título de dano moral coletivo, corrigido pela Taxa SELIC, apontando omissão administrativa continuada diante de ruas esburacadas, alagamentos e pontes precárias.",
+      "fatos_confirmados": [
+        "Sentença da 2ª Vara da Fazenda Pública de Imperatriz (juíza Ana Lucrécia Bezerra Sodré) julgando procedente Ação Civil Pública do MPMA.",
+        "Obrigação judicial de fazer consistente em obras de pavimentação, conservação viária e drenagem pluvial.",
+        "Condenação ao pagamento de R$ 1 milhão por dano moral coletivo com correção pela SELIC."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme publicado pelo TJMA, a sentença destacou a omissão administrativa continuada em garantir condições adequadas de mobilidade, tráfego e segurança viária."
+      ],
+      "documentos_citados": [
+        "Sentença da 2ª Vara da Fazenda Pública de Imperatriz - Notícia Oficial TJMA nº 507096 (13/08/2026)"
+      ],
+      "bairros_locais_instituicoes": "2ª Vara da Fazenda Pública de Imperatriz (TJMA); Ministério Público do Maranhão (MPMA); Prefeitura de Imperatriz; SINFRA",
+      "publico_afetado": "Condutores, pedestres e moradores de bairros afetados por buracos e falta de drenagem em Imperatriz",
+      "angulo_jornalistico": "Com a chegada do período chuvoso no fim do ano, verificar quais prazos judiciais da sentença da 2ª Vara da Fazenda Pública estão correndo e se o Município recorreu ou apresentou plano de cumprimento.",
+      "formato_sugerido": "Linha do tempo",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Verificar se houve interposição de apelação pela Procuradoria-Geral do Município ao TJMA e se o MPMA já requereu cumprimento provisório da obrigação de fazer.",
+      "proxima_acao_recomendada": "Consultar movimentação da Ação Civil Pública no PJe do TJMA (2ª Vara da Fazenda Pública) e pedir nota à Procuradoria-Geral do Município sobre o cronograma de obras exigido pela Justiça.",
+      "detalhes_denuncia": {
+        "suspeita": "Omissão administrativa continuada na manutenção da malha viária e drenagem pluvial de Imperatriz e verificação de cumprimento da sentença judicial.",
+        "evidencia_disponivel": "Sentença judicial pública proferida pela 2ª Vara da Fazenda Pública de Imperatriz (TJMA nº 507096) em Ação Civil Pública do MPMA.",
+        "nao_comprovado": "Trânsito em julgado da condenação financeira de R$ 1 milhão e eventual descumprimento de prazo específico após intimação.",
+        "documentos_necessarios": "Certidão de objeto e pé do processo no PJe/TJMA, eventual recurso de apelação do Município e cronograma técnico apresentado em juízo.",
+        "quem_procurar": "Procuradoria-Geral do Município de Imperatriz, Promotoria de Defesa do Meio Ambiente e Urbanismo de Imperatriz (MPMA) e Secretaria Municipal de Infraestrutura (SINFRA).",
+        "contraditorio": "Ouvir a Prefeitura de Imperatriz sobre as obras de drenagem já iniciadas (Vila Ipiranga e Parque Alvorada I) e os recursos judiciais cabíveis."
+      },
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 13,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 20,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://www.tjma.jus.br/midia/noticia/506307/justica-condena-empresa-e-municipio-de-imperatriz-a-regularizar-transporte-publico",
+      "fonte_nome": "Tribunal de Justiça do Maranhão (TJMA)",
+      "veiculo_instituicao": "Tribunal de Justiça do Maranhão (TJMA) / 2ª Vara da Fazenda Pública de Imperatriz",
+      "autor": "Assessoria de Comunicação do TJMA",
+      "titulo": "Justiça condena Município de Imperatriz e empresa Ratrans a regularizar transporte público coletivo e pagar R$ 1 milhão",
+      "data_publicacao": "2026-07-23",
+      "data_acontecimento": "2026-07-23",
+      "consulta_origem": "Imperatriz transporte público",
+      "tema_especifico": "Condenação Judicial para Regularização da Frota do Transporte Coletivo Urbano (Ratrans)",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A 2ª Vara da Fazenda Pública de Imperatriz condenou o Município de Imperatriz e a concessionária Rio Anil Transporte e Logística (Ratrans) a regularizarem o serviço de transporte público coletivo da cidade e ao pagamento de indenização de R$ 1 milhão por dano moral coletivo. A decisão judicial baseou-se em vistorias e ações do Ministério Público do Maranhão (MPMA) que apontaram falhas graves na qualidade da frota, descumprimento de horários e deficiências de acessibilidade para pessoas com deficiência e mobilidade reduzida.",
+      "fatos_confirmados": [
+        "Condenação judicial do Município de Imperatriz e da empresa Ratrans pela 2ª Vara da Fazenda Pública para regularização do transporte coletivo.",
+        "Fixação de R$ 1 milhão por dano moral coletivo em razão de irregularidades na frota, horários e acessibilidade."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme divulgado pelo TJMA (notícia nº 506307), as vistorias comprovaram falhas na prestação do serviço essencial aos usuários do transporte urbano."
+      ],
+      "documentos_citados": [
+        "Sentença da 2ª Vara da Fazenda Pública de Imperatriz - Notícia Oficial TJMA nº 506307 (23/07/2026)"
+      ],
+      "bairros_locais_instituicoes": "2ª Vara da Fazenda Pública de Imperatriz; Secretaria Municipal de Trânsito e Transportes (SETRAN); Rio Anil Transporte e Logística (Ratrans); MPMA",
+      "publico_afetado": "Passageiros do transporte público coletivo, trabalhadores, estudantes e pessoas com deficiência em Imperatriz",
+      "angulo_jornalistico": "Três meses após a sentença judicial contra a Ratrans e o Município, os ônibus de Imperatriz passaram por adequação de acessibilidade e horários? Checagem nas paradas e terminais.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Quantidade atualizada de ônibus em operação em outubro de 2026, situação dos elevadores de acessibilidade da frota e posicionamento da SETRAN e da Ratrans sobre o cumprimento da sentença.",
+      "proxima_acao_recomendada": "Realizar fiscalização jornalística in loco em linhas de bairros periféricos e solicitar nota oficial à SETRAN e à direção da Ratrans.",
+      "pontuacao_base": {
+        "impacto_populacao": 23,
+        "atualidade_novidade": 12,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://g1.globo.com/ma/maranhao/noticia/2026/10/03/casal-morre-apos-motocicleta-bater-contra-protecao-lateral-na-br-010-em-imperatriz.ghtml",
+      "fonte_nome": "G1 Maranhão - Região de Imperatriz",
+      "veiculo_instituicao": "G1 Maranhão / Polícia Rodoviária Federal (PRF)",
+      "autor": "Redação G1 MA",
+      "titulo": "Série de acidentes fatais no trecho urbano da BR-010 em Imperatriz em outubro alerta para segurança viária na rodovia",
+      "data_publicacao": "2026-10-04",
+      "data_acontecimento": "2026-10-03",
+      "consulta_origem": "Imperatriz acidente",
+      "tema_especifico": "Acidentes Fatais e Segurança Viária no Trecho Urbano da BR-010 em Imperatriz",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": true,
+      "conteudo_integral": "O trecho da rodovia federal BR-010 que corta o perímetro de Imperatriz registrou graves acidentes fatais no início de outubro de 2026, incluindo a morte de um casal após colisão de motocicleta contra a proteção lateral da rodovia em 3 de outubro de 2026 e novo acidente fatal registrado em 4 de outubro de 2026. Somados à grave colisão entre três veículos que provocou explosão e incêndio na pista em agosto de 2026 (mobilizando o 3º Batalhão de Bombeiros Militar), os registros reforçam o alerta de risco permanente nos acessos aos bairros cortados pela rodovia federal.",
+      "fatos_confirmados": [
+        "Registro de acidente fatal com morte de casal em motocicleta na BR-010 em Imperatriz em 03/10/2026.",
+        "Histórico recente de ocorrências graves no trecho urbano da BR-010 em Imperatriz atendidas pela PRF, SAMU e 3º BBM."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo informações apuradas junto à PRF e equipes de resgate, colisões em trechos de travessia urbana e marginais da BR-010 concentram alta letalidade, especialmente envolvendo motociclistas."
+      ],
+      "documentos_citados": [
+        "Registros de ocorrências rodoviárias na BR-010 em Imperatriz (Outubro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Trecho urbano da BR-010 em Imperatriz; Polícia Rodoviária Federal (PRF); 3º Batalhão de Bombeiros Militar (3º BBM); SAMU Imperatriz; DNIT",
+      "publico_afetado": "Motoristas, motociclistas e moradores de bairros às margens da BR-010 em Imperatriz",
+      "angulo_jornalistico": "Mapa dos pontos críticos da BR-010 no trecho urbano de Imperatriz: onde se concentram os acidentes graves com motociclistas e o que o DNIT e a PRF planejam para iluminação, passarelas e redutores.",
+      "formato_sugerido": "Nota urgente",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Estatística consolidada da PRF de acidentes no trecho de Imperatriz (km 245 ao km 260 da BR-010) no acumulado de 2026 e cronograma de manutenção de iluminação/sinalização do DNIT.",
+      "proxima_acao_recomendada": "Solicitar à Delegacia da PRF em Imperatriz o balanço de sinistros de janeiro a outubro de 2026 na BR-010 e consultar a Unidade Local do DNIT sobre medidas de redução de velocidade.",
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 16,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 7
+      }
+    },
+    {
+      "url": "https://imperatriz.ma.gov.br/defesa-civil",
+      "fonte_nome": "Defesa Civil de Imperatriz",
+      "veiculo_instituicao": "Prefeitura de Imperatriz / Superintendência Municipal de Proteção e Defesa Civil / SINFRA",
+      "autor": "Assessoria de Comunicação - Prefeitura de Imperatriz",
+      "titulo": "Defesa Civil e SINFRA executam substituição de bueiros por aduelas de concreto na Vila Ipiranga e Parque Alvorada I e mantêm alerta nos riachos urbanos",
+      "data_publicacao": "2026-10-20",
+      "data_acontecimento": "2026-10-20",
+      "consulta_origem": "Imperatriz alagamento e drenagem",
+      "tema_especifico": "Prevenção de Alagamentos, Obras de Macrodrenagem e Monitoramento de Riachos",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": true,
+      "conteudo_integral": "A Superintendência Municipal de Proteção e Defesa Civil de Imperatriz e a Secretaria Municipal de Infraestrutura (SINFRA) executam intervenções de macrodrenagem com a substituição de antigos bueiros tubulares por aduelas de concreto de maior vazão em pontos críticos de alagamento, incluindo os bairros Vila Ipiranga e Parque Alvorada I, além de frentes de drenagem profunda na Vila Redenção, Parque Santa Lúcia e Jardim Tropical. O monitoramento preventivo concentra-se nas bacias dos riachos Bacuri, Capivara, Cacau e Riacho do Meio, historicamente sujeitos a transbordamento em chuvas intensas, além de alertas meteorológicos do INMET para tempestades e ventos de até 60 km/h com risco de queda de galhos na rede elétrica. A Defesa Civil mantém atendimento emergencial pelo WhatsApp (99) 99152-0832.",
+      "fatos_confirmados": [
+        "Obras de substituição de bueiros por aduelas de concreto nos bairros Vila Ipiranga e Parque Alvorada I.",
+        "Intervenções de drenagem profunda registradas na Vila Redenção, Parque Santa Lúcia e Jardim Tropical.",
+        "Monitoramento prioritário dos riachos Bacuri, Capivara, Cacau e Riacho do Meio pela Defesa Civil Municipal.",
+        "Canal oficial de emergência da Defesa Civil de Imperatriz ativo via WhatsApp (99) 99152-0832 e e-mail defesacivil@imperatriz.ma.gov.br."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme a Defesa Civil e a SINFRA, o descarte irregular de lixo doméstico e entulho em vias públicas agrava o entupimento de manilhas e bueiros durante temporais."
+      ],
+      "documentos_citados": [
+        "Comunicados operacionais da Superintendência Municipal de Proteção e Defesa Civil de Imperatriz (2026)"
+      ],
+      "bairros_locais_instituicoes": "Vila Ipiranga; Parque Alvorada I; Vila Redenção; Parque Santa Lúcia; Jardim Tropical; Riacho Bacuri; Riacho Capivara; Riacho Cacau; Riacho do Meio; Defesa Civil de Imperatriz",
+      "publico_afetado": "Famílias residentes nas margens dos riachos Bacuri, Capivara, Cacau e Riacho do Meio e moradores dos bairros em obras de drenagem",
+      "angulo_jornalistico": "Guia de serviço e fiscalização antes das chuvas fortes de novembro: percentual de conclusão das aduelas na Vila Ipiranga e Parque Alvorada I e como acionar a Defesa Civil pelo WhatsApp (99) 99152-0832.",
+      "formato_sugerido": "Carrossel",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Percentual exato de execução física das obras de aduelas na Vila Ipiranga e Parque Alvorada I em 27/10/2026 e número atualizado de famílias cadastradas em áreas de risco nos quatro riachos.",
+      "proxima_acao_recomendada": "Vistoriar presencialmente os canteiros de obras na Vila Ipiranga e Parque Alvorada I e entrevistar o superintendente da Defesa Civil de Imperatriz sobre o plano de contingência para o período chuvoso 2026/2027.",
+      "pontuacao_base": {
+        "impacto_populacao": 24,
+        "atualidade_novidade": 17,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://jornalpequeno.com.br/2026/09/ministerio-da-saude-destina-r-114-milhoes-do-novo-pac-para-imperatriz-e-avanca-obras-de-ubs/",
+      "fonte_nome": "Portal Oficial da Prefeitura de Imperatriz",
+      "veiculo_instituicao": "Ministério da Saúde / Prefeitura de Imperatriz (SEMUS) / Jornal Pequeno",
+      "autor": "Redação / Assessoria MS e PMI",
+      "titulo": "Novo PAC Saúde destina R$ 11,4 milhões a Imperatriz e impulsiona obras das UBSs Itamar Guará, Bairro Planalto e Vila Conceição II",
+      "data_publicacao": "2026-09-28",
+      "data_acontecimento": "2026-09-28",
+      "consulta_origem": "Imperatriz hospitais e unidades de saúde",
+      "tema_especifico": "Investimentos do Novo PAC Saúde (R$ 11,4 milhões) e Obras de Unidades Básicas de Saúde em Imperatriz",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "Dentro do pacote regional de R$ 18,8 milhões anunciado pelo Ministério da Saúde no Novo PAC Saúde para a Região Tocantina, o município de Imperatriz foi contemplado especificamente com cerca de R$ 11,4 milhões voltados à atenção primária e equipamentos hospitalares de alta complexidade. No âmbito municipal, a gestão da SEMUS destaca o projeto da UBS Itamar Guará (Porte III), a entrega da reforma e ampliação da UBS da Vila Conceição II e o início das obras de construção de sede própria da UBS do Bairro Planalto, além do crescimento de 30% na adesão ao programa Academia da Saúde.",
+      "fatos_confirmados": [
+        "Destinação de cerca de R$ 11,4 milhões do Novo PAC Saúde especificamente para Imperatriz (dentro do pacote regional de R$ 18,8 milhões que inclui Açailândia).",
+        "Projetos e obras na Atenção Primária de Imperatriz incluindo UBS Itamar Guará (Porte III), entrega da reforma da UBS Vila Conceição II e construção de sede própria da UBS no Bairro Planalto."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo o Ministério da Saúde e a SEMUS, os recursos reforçam tanto a estrutura hospitalar regional quanto a expansão de postos de saúde nos bairros."
+      ],
+      "documentos_citados": [
+        "Portarias e repasses do Novo PAC Saúde - Ministério da Saúde / SEMUS Imperatriz (2026)"
+      ],
+      "bairros_locais_instituicoes": "UBS Itamar Guará; UBS Vila Conceição II; UBS Bairro Planalto; Secretaria Municipal de Saúde (SEMUS); Ministério da Saúde",
+      "publico_afetado": "Moradores dos bairros Itamar Guará, Vila Conceição II, Planalto e usuários da rede SUS de Imperatriz",
+      "angulo_jornalistico": "Acompanhamento físico-financeiro das obras das UBSs Itamar Guará e Bairro Planalto: quando ficam prontas e quais especialidades e equipes atenderão os moradores.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Cronograma atualizado de inauguração da nova UBS do Bairro Planalto e da UBS Itamar Guará (Porte III) e detalhamento dos equipamentos de alta complexidade adquiridos com os R$ 11,4 milhões.",
+      "proxima_acao_recomendada": "Consultar no sistema InvestSUS/Fundo Nacional de Saúde as parcelas já transferidas ao Fundo Municipal de Saúde de Imperatriz e visitar a obra da UBS no Bairro Planalto.",
+      "pontuacao_base": {
+        "impacto_populacao": 22,
+        "atualidade_novidade": 15,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://imperatriz.ma.gov.br/noticias/administracao/prefeitura-anuncia-preparativos-para-concurso-publico-com-edital-previsto-para-dezembro-de-2026",
+      "fonte_nome": "Portal Oficial da Prefeitura de Imperatriz",
+      "veiculo_instituicao": "Prefeitura Municipal de Imperatriz / Gran Cursos / Estratégia",
+      "autor": "Assessoria de Comunicação PMI",
+      "titulo": "Prefeitura de Imperatriz prevê publicação de edital de novo concurso público municipal para dezembro de 2026 com provas em 2027",
+      "data_publicacao": "2026-10-12",
+      "data_acontecimento": "2026-10-12",
+      "consulta_origem": "Imperatriz concurso público",
+      "tema_especifico": "Cronograma do Novo Concurso Público Municipal de Imperatriz e Controle de Gastos com Pessoal (LRF)",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A gestão municipal de Imperatriz anunciou os preparativos para a realização de um novo concurso público unificado, com publicação do edital prevista para dezembro de 2026 e aplicação das provas programada para 2027. O certame deverá contemplar vagas para as áreas de saúde, educação, segurança pública (incluindo Guarda Municipal e agentes de trânsito) e administração geral. O anúncio ocorre em meio a cobranças judiciais para adequação dos limites de despesas com pessoal da Lei de Responsabilidade Fiscal (LRF) e controle de contratações temporárias e cargos comissionados.",
+      "fatos_confirmados": [
+        "Anúncio de cronograma prevendo edital de concurso público municipal para dezembro de 2026 e provas em 2027.",
+        "Previsão de vagas nas áreas de saúde, educação, segurança pública (Guarda Municipal/trânsito) e administração.",
+        "Existência de decisões judiciais cobrando adequação do limite prudencial/máximo da LRF e controle de comissionados no município."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo a administração municipal, o concurso busca substituir gradualmente vínculos precários por servidores efetivos nas pastas essenciais."
+      ],
+      "documentos_citados": [
+        "Comunicados oficiais sobre comissão organizadora do Concurso Público 2026/2027 e relatórios fiscais da LRF"
+      ],
+      "bairros_locais_instituicoes": "Prefeitura Municipal de Imperatriz; Secretaria de Administração e Modernização (SEAMO); Guarda Municipal; SEMUS; SEMED",
+      "publico_afetado": "Concurseiros, estudantes, trabalhadores temporários e usuários dos serviços de saúde, educação e segurança em Imperatriz",
+      "angulo_jornalistico": "Faltando pouco mais de um mês para o prazo anunciado (dezembro/2026), a banca examinadora do concurso de Imperatriz já foi contratada? Checagem do processo licitatório da banca e impacto na LRF.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Parcialmente confirmado",
+      "informacoes_pendentes": "Portaria de nomeação da comissão do concurso no Diário Oficial de Imperatriz, processo de contratação da banca examinadora e quantitativo oficial de cargos vagos por secretaria.",
+      "proxima_acao_recomendada": "Pesquisar no Diário Oficial Eletrônico de Imperatriz (diariooficial.imperatriz.ma.gov.br) atos sobre a banca examinadora e questionar a SEAMO sobre o cumprimento do prazo de dezembro de 2026.",
+      "pontuacao_base": {
+        "impacto_populacao": 22,
+        "atualidade_novidade": 16,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 16,
+        "potencial_desenvolvimento": 9,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://regiaotocantina.com.br/cultura/2026/10/academia-imperatrizense-de-letras-lanca-webserie-salimp-entre-paginas-e-historias-apos-suspensao-da-feira-em-2026/",
+      "fonte_nome": "Academia Imperatrizense de Letras (AIL)",
+      "veiculo_instituicao": "Academia Imperatrizense de Letras (AIL) / Portal Região Tocantina / Mais Maranhão",
+      "autor": "Redação Cultural / AIL",
+      "titulo": "Sem recursos para edição física do Salimp em 2026, Academia Imperatrizense de Letras lança websérie documental em outubro e projeta retomada em 2027",
+      "data_publicacao": "2026-10-18",
+      "data_acontecimento": "2026-10-18",
+      "consulta_origem": "Imperatriz cultura e eventos",
+      "tema_especifico": "Não Realização da Feira Física do Salimp em 2026 e Lançamento da Websérie Documental pela AIL",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Academia Imperatrizense de Letras (AIL) confirmou que o tradicional Salão do Livro de Imperatriz (Salimp) não teve edição presencial realizada em 2026 em razão de dificuldades na captação de patrocínios e recursos financeiros em tempo hábil, transferindo a expectativa de retorno da feira para 2027. Para manter viva a mobilização literária em outubro de 2026, a AIL e parceiros lançaram a websérie documental 'Salimp: entre páginas e histórias', resgatando a memória, os bastidores e o impacto educacional e econômico do maior evento literário da Região Tocantina.",
+      "fatos_confirmados": [
+        "Confirmação pela Academia Imperatrizense de Letras (AIL) da não realização presencial do Salimp em 2026 por falta de captação de recursos em tempo hábil.",
+        "Lançamento em outubro de 2026 da websérie documental 'Salimp: entre páginas e histórias' pela AIL."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme a diretoria da Academia Imperatrizense de Letras, a entidade já trabalha na reestruturação de projetos de incentivo cultural para viabilizar o Salimp em 2027."
+      ],
+      "documentos_citados": [
+        "Pronunciamento institucional da Academia Imperatrizense de Letras (AIL) e lançamento da websérie 'Salimp: entre páginas e histórias' (Outubro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Academia Imperatrizense de Letras (AIL); Centro de Convenções de Imperatriz; Escolas públicas e privadas da Região Tocantina",
+      "publico_afetado": "Estudantes, professores, escritores regionais, livreiros e setor cultural de Imperatriz",
+      "angulo_jornalistico": "O impacto da ausência do Salimp presencial em 2026 para livreiros, escritores locais e estudantes de Imperatriz, onde assistir à websérie documental da AIL e o que falta para garantir o patrocínio de 2027.",
+      "formato_sugerido": "Entrevista",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Posicionamento da Secretaria de Estado da Cultura (SECMA) e da Fundação Cultural de Imperatriz (FCI) sobre editais de apoio e leis de incentivo para o calendário literário de 2027.",
+      "proxima_acao_recomendada": "Entrevistar a presidência da Academia Imperatrizense de Letras (AIL) e consultar a FCI e a SECMA sobre garantias orçamentárias para a edição de 2027.",
+      "pontuacao_base": {
+        "impacto_populacao": 17,
+        "atualidade_novidade": 17,
+        "interesse_publico": 13,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 9
+      }
+    },
+    {
+      "url": "https://oimparcial.com.br/maranhao/2026/09/ministerio-da-saude-vistoria-ubs-vila-maranhao-em-acailandia/",
+      "fonte_nome": "O Imparcial - Maranhão",
+      "veiculo_instituicao": "O Imparcial",
+      "autor": "Redação",
+      "titulo": "Representantes do Ministério da Saúde vistoriam obras da UBS Vila Maranhão no município de Açailândia",
+      "data_publicacao": "2026-09-29",
+      "data_acontecimento": "2026-09-28",
+      "consulta_origem": "Imperatriz saúde",
+      "tema_especifico": "Obra Municipal em Açailândia",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "municipio_exclusivo_externo": "Açailândia",
+      "conteudo_integral": "Técnicos do Ministério da Saúde realizaram vistoria exclusiva no canteiro de obras da Unidade Básica de Saúde (UBS) Vila Maranhão, localizada no município de Açailândia (MA), que recebeu repasse de R$ 2,5 milhões para atendimento dos moradores locais de Açailândia.",
+      "fatos_confirmados": [
+        "Vistoria na UBS Vila Maranhão situada especificamente em Açailândia (MA)."
+      ],
+      "declaracoes_oficiais": [],
+      "documentos_citados": [],
+      "bairros_locais_instituicoes": "Açailândia (MA); UBS Vila Maranhão",
+      "publico_afetado": "Moradores de Açailândia",
+      "angulo_jornalistico": "Fato restrito ao município vizinho de Açailândia.",
+      "formato_sugerido": "Matéria jornalística",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "",
+      "proxima_acao_recomendada": ""
+    },
+    {
+      "url": "https://portalpublicitario.exemplo.br/imperatriz/2026/10/megapromocao-de-colchoes-e-eletrodomesticos-no-centro-de-imperatriz",
+      "fonte_nome": "Busca Web Aberta",
+      "veiculo_instituicao": "PubliComercial Imperatriz",
+      "autor": "Informe Publicitário",
+      "titulo": "Aproveite a megapromoção de aniversário de loja de departamentos no Calçadão de Imperatriz com descontos de 50%",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-26",
+      "consulta_origem": "Imperatriz emprego e economia",
+      "tema_especifico": "Informe Publicitário de Varejo",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "is_publicidade": true,
+      "conteudo_integral": "Informe publicitário patrocinado: venha aproveitar as ofertas imperdíveis de aniversário no centro comercial de Imperatriz com parcelamento em até 12 vezes sem juros em móveis e eletrodomésticos.",
+      "fatos_confirmados": [],
+      "declaracoes_oficiais": [],
+      "documentos_citados": [],
+      "bairros_locais_instituicoes": "Centro de Imperatriz",
+      "publico_afetado": "Consumidores",
+      "angulo_jornalistico": "Conteúdo meramente publicitário sem interesse jornalístico.",
+      "formato_sugerido": "Nota urgente",
+      "nivel_verificacao": "Exige apuração",
+      "informacoes_pendentes": "",
+      "proxima_acao_recomendada": ""
+    },
+    {
+      "url": "https://blogboatos.exemplo.br/imperatriz/2026/10/urgente-boato-diz-que-ponte-dom-afonso-seria-fechada-sem-documento",
+      "fonte_nome": "Busca Web Aberta",
+      "veiculo_instituicao": "Blog sem expediente",
+      "autor": "Anônimo",
+      "titulo": "CHOCANTE! Rumor em grupos de mensagens diz que ponte em Imperatriz será fechada amanhã, mas ninguém confirma",
+      "data_publicacao": "2026-10-26",
+      "data_acontecimento": "2026-10-26",
+      "consulta_origem": "Imperatriz interdição e emergência",
+      "tema_especifico": "Rumor não verificado em redes sociais",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": false,
+      "is_rumor_sem_evidencia": true,
+      "conteudo_integral": "Circula um áudio anônimo sem qualquer documento oficial do DNIT ou da PRF falando sobre suposta interdição total, sem data, sem autor e sem confirmação de nenhuma autoridade.",
+      "fatos_confirmados": [],
+      "declaracoes_oficiais": [],
+      "documentos_citados": [],
+      "bairros_locais_instituicoes": "Imperatriz",
+      "publico_afetado": "",
+      "angulo_jornalistico": "",
+      "formato_sugerido": "Nota urgente",
+      "nivel_verificacao": "Exige apuração",
+      "informacoes_pendentes": "",
+      "proxima_acao_recomendada": ""
+    },
+    {
+      "url": "https://imirante.com/maranhao/imperatriz/2026/10/20/homem-e-condenado-a-20-anos-de-prisao-por-homicidio-ocorrido-em-2013-em-imperatriz",
+      "fonte_nome": "Portal Imirante - Imperatriz",
+      "veiculo_instituicao": "Portal Imirante / Tribunal de Justiça do Maranhão (TJMA)",
+      "autor": "Redação Imirante",
+      "titulo": "Tribunal do Júri de Imperatriz condena réu a 20 anos de prisão em regime fechado por homicídio ocorrido em novembro de 2013",
+      "data_publicacao": "2026-10-20",
+      "data_acontecimento": "2013-11-15",
+      "data_desdobramento_atual": "2026-10-20",
+      "explicacao_desdobramento": "O crime de homicídio ocorreu em novembro de 2013 (quando a vítima aguardava a namorada sair de um culto religioso em Imperatriz), porém o desdobramento concreto e inédito ocorreu em outubro de 2026 com a sessão de julgamento pelo Tribunal do Júri da Comarca de Imperatriz que fixou pena de 20 anos de reclusão em regime fechado.",
+      "consulta_origem": "Imperatriz decisões judiciais",
+      "tema_especifico": "Julgamento pelo Tribunal do Júri de Imperatriz de Caso Histórico (Fato de 2013 / Sentença em Outubro de 2026)",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "O Tribunal do Júri da Comarca de Imperatriz condenou em outubro de 2026 um homem a 20 anos de prisão em regime fechado pelo assassinato a facadas de um jovem em Imperatriz. Embora o crime tenha ocorrido em novembro de 2013 — ocasião em que a vítima esperava a namorada sair de um culto religioso —, a atualização judicial concreta deu-se agora em outubro de 2026 com a realização do plenário do Júri e a prolação da sentença condenatória.",
+      "fatos_confirmados": [
+        "Data original do crime: novembro de 2013 em Imperatriz.",
+        "Data do novo desdobramento judicial: outubro de 2026, com condenação pelo Tribunal do Júri de Imperatriz a 20 anos de reclusão em regime fechado."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme sentença lida no plenário do Tribunal do Júri da Comarca de Imperatriz (TJMA), o Conselho de Sentença acolheu a tese acusatória do Ministério Público."
+      ],
+      "documentos_citados": [
+        "Sentença do Tribunal do Júri da Comarca de Imperatriz - TJMA (Outubro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Fórum Henrique de La Rocque (Comarca de Imperatriz); Vara do Tribunal do Júri de Imperatriz; TJMA; MPMA",
+      "publico_afetado": "Familiares da vítima, comunidade jurídica e população de Imperatriz que acompanha a pauta de sessões do Tribunal do Júri",
+      "angulo_jornalistico": "Após 13 anos de espera (2013-2026), desfecho no Tribunal do Júri de Imperatriz ilustra o esforço de mutirões judiciais para julgar processos antigos de crimes dolosos contra a vida na comarca.",
+      "formato_sugerido": "Matéria jornalística",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Calendário das próximas sessões ordinárias e mutirões do Tribunal do Júri no Fórum de Imperatriz até o recesso forense de dezembro de 2026.",
+      "proxima_acao_recomendada": "Consultar a secretaria da Vara do Tribunal do Júri de Imperatriz sobre a pauta de julgamentos de novembro de 2026.",
+      "pontuacao_base": {
+        "impacto_populacao": 16,
+        "atualidade_novidade": 15,
+        "interesse_publico": 13,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 7,
+        "exclusividade_pouco_explorada": 7
+      }
+    },
+    {
+      "url": "https://g1.globo.com/ma/maranhao/noticia/2026/11/20/bombeiros-resgatam-homem-e-combatem-incendio-em-residencia-em-imperatriz.ghtml",
+      "fonte_nome": "Corpo de Bombeiros do MA",
+      "veiculo_instituicao": "Corpo de Bombeiros Militar do Maranhão (3º BBM) / G1 Maranhão",
+      "autor": "Redação G1 MA e CBMMA",
+      "titulo": "Corpo de Bombeiros combate incêndio residencial no bairro Nova Imperatriz e resgata morador",
+      "data_publicacao": "2026-11-20",
+      "data_acontecimento": "2026-11-20",
+      "consulta_origem": "Imperatriz interdição e emergência",
+      "tema_especifico": "Incêndio Residencial e Salvamento pelo 3º Batalhão de Bombeiros Militar",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": true,
+      "conteudo_integral": "O 3º Batalhão de Bombeiros Militar do Maranhão (3º BBM) atendeu a uma ocorrência de incêndio residencial de grandes proporções no bairro Nova Imperatriz, em Imperatriz (MA). Conforme os bombeiros, o fogo iniciou-se em uma motocicleta estacionada na sala e propagou-se rapidamente pela estrutura da residência. Um morador que se recusava a deixar o local em chamas precisou ser retirado à força e resgatado ileso pela equipe de salvamento. O fogo foi controlado impedindo que atingisse imóveis vizinhos.",
+      "fatos_confirmados": [
+        "Atuação do 3º Batalhão de Bombeiros Militar no combate a incêndio residencial no bairro Nova Imperatriz em novembro de 2026.",
+        "Resgate de morador retirado em segurança sem ferimentos graves.",
+        "Contenção das chamas evitando que o fogo se alastrasse para casas vizinhas."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo o 3º BBM, a rápida resposta impediu explosões adicionais e garantiu a integridade física do morador."
+      ],
+      "documentos_citados": [
+        "Boletim de Ocorrência do 3º BBM - Imperatriz (Novembro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Nova Imperatriz; 3º Batalhão de Bombeiros Militar (3º BBM)",
+      "publico_afetado": "Moradores do bairro Nova Imperatriz e vizinhança da área atingida",
+      "angulo_jornalistico": "Condições de segurança elétrica e combate a incêndios domésticos em bairros densos de Imperatriz e tempo de resposta do 3º BBM.",
+      "formato_sugerido": "Nota urgente",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Laudo pericial final sobre as causas do curto-circuito na motocicleta e avaliação estrutural da Defesa Civil no imóvel.",
+      "proxima_acao_recomendada": "Consultar a Defesa Civil de Imperatriz sobre eventual interdição do imóvel na Nova Imperatriz.",
+      "pontuacao_base": {
+        "impacto_populacao": 23,
+        "atualidade_novidade": 20,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://imperatriz.ma.gov.br/defesa-civil-alerta-inmet-tempestade-novembro-2026/",
+      "fonte_nome": "Defesa Civil de Imperatriz",
+      "veiculo_instituicao": "Superintendência Municipal de Proteção e Defesa Civil / INMET",
+      "autor": "Assessoria de Comunicação - Prefeitura de Imperatriz",
+      "titulo": "Defesa Civil e INMET emitem alerta amarelo para chuvas intensas e ventos de até 60 km/h em Imperatriz",
+      "data_publicacao": "2026-11-21",
+      "data_acontecimento": "2026-11-21",
+      "consulta_origem": "Imperatriz alagamento e drenagem",
+      "tema_especifico": "Alerta Meteorológico do INMET e Monitoramento Preventivo de Riscos em Novembro",
+      "categoria_sugerida": "Pautas urgentes",
+      "emergencia_confirmada": true,
+      "conteudo_integral": "O Instituto Nacional de Meteorologia (INMET) e a Superintendência de Proteção e Defesa Civil de Imperatriz emitiram aviso de perigo potencial (alerta amarelo) para chuvas intensas de até 50 mm/dia, ventos com rajadas de até 60 km/h e risco de corte de energia elétrica e queda de galhos na região Tocantina. A Defesa Civil intensificou o monitoramento preventivo nas bacias dos riachos Bacuri e Capivara e disponibilizou o plantão de emergência pelo WhatsApp (99) 99152-0832.",
+      "fatos_confirmados": [
+        "Emissão de alerta meteorológico amarelo pelo INMET para Imperatriz e Região Oeste do Maranhão em novembro de 2026.",
+        "Previsão de precipitação de até 50 mm/dia e ventos de até 60 km/h.",
+        "Plantão 24h da Defesa Civil Municipal ativo pelo WhatsApp (99) 99152-0832."
+      ],
+      "declaracoes_oficiais": [
+        "Conforme a Defesa Civil, a população deve evitar abrigar-se debaixo de árvores durante as rajadas de vento e não estacionar veículos próximos a torres de transmissão."
+      ],
+      "documentos_citados": [
+        "Aviso Meteorológico INMET nº 2026-11-AMARELO",
+        "Boletim de Alerta da Defesa Civil de Imperatriz (Novembro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Imperatriz; Riacho Bacuri; Riacho Capivara; Defesa Civil de Imperatriz; INMET",
+      "publico_afetado": "População urbana e ribeirinha de Imperatriz exposta a alagamentos e tempestades",
+      "angulo_jornalistico": "Preparo da cidade para o início do período chuvoso de novembro/dezembro: status dos bueiros desobstruídos e canais de socorro imediato.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Volume acumulado registrado nas primeiras 24 horas nas estações pluviométricas do CEMADEN em Imperatriz.",
+      "proxima_acao_recomendada": "Checar dados pluviométricos no portal do CEMADEN e contatar a Defesa Civil sobre ocorrências abertas.",
+      "pontuacao_base": {
+        "impacto_populacao": 25,
+        "atualidade_novidade": 20,
+        "interesse_publico": 15,
+        "qualidade_evidencias": 19,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://imperatriz.ma.gov.br/noticias/saude/vigilancia-sanitaria-implanta-novo-sistema-informatizado-2026/",
+      "fonte_nome": "Portal Oficial da Prefeitura de Imperatriz",
+      "veiculo_instituicao": "Prefeitura de Imperatriz / Vigilância Sanitária Municipal (SEMUS) / CRCMA",
+      "autor": "Assessoria de Comunicação SEMUS",
+      "titulo": "Vigilância Sanitária de Imperatriz implanta novo sistema informatizado para agilizar licenças e fiscalizações",
+      "data_publicacao": "2026-11-18",
+      "data_acontecimento": "2026-11-18",
+      "consulta_origem": "Imperatriz saúde",
+      "tema_especifico": "Informatização e Modernização da Vigilância Sanitária Municipal",
+      "categoria_sugerida": "Pautas de serviço público",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A Secretaria Municipal de Saúde de Imperatriz (SEMUS), por meio da coordenação de Vigilância Sanitária, apresentou e iniciou a operação de um novo sistema informatizado de licenciamento e processos sanitários, em reunião técnica com representantes do Conselho Regional de Contabilidade do Maranhão (CRCMA). A plataforma visa digitalizar 100% dos pedidos de alvará sanitário, renovações e consultas prévias, reduzindo o tempo médio de tramitação de processos para empresas e comerciantes de alimentos e medicamentos.",
+      "fatos_confirmados": [
+        "Implantação do novo sistema digital da Vigilância Sanitária em Imperatriz em novembro de 2026.",
+        "Reunião de alinhamento técnico com o CRCMA para capacitação de profissionais e contadores locais.",
+        "Digitalização de emissões de alvarás e fiscalizações sanitárias."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo a coordenação da Vigilância Sanitária, a informatização traz transparência ao trâmite de autos e agiliza a abertura de negócios regulares na cidade."
+      ],
+      "documentos_citados": [
+        "Termo de Apresentação Técnica SEMUS/Vigilância Sanitária e CRCMA (Novembro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Secretaria Municipal de Saúde (SEMUS); Vigilância Sanitária de Imperatriz; CRCMA; Centro Comercial de Imperatriz",
+      "publico_afetado": "Comerciantes, empresários, profissionais de contabilidade e consumidores de serviços regulados em Imperatriz",
+      "angulo_jornalistico": "Como o novo sistema digital da Vigilância Sanitária muda o prazo de abertura de empresas e a fiscalização de farmácias e restaurantes em Imperatriz.",
+      "formato_sugerido": "Serviço público",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Data limite para migração total dos processos físicos arquivados e link direto do portal para contribuintes.",
+      "proxima_acao_recomendada": "Consultar o portal da Prefeitura de Imperatriz para verificar o link de acesso dos contadores e agendar entrevista com a coordenação sanitária.",
+      "pontuacao_base": {
+        "impacto_populacao": 20,
+        "atualidade_novidade": 19,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    },
+    {
+      "url": "https://imperatriz.ma.gov.br/noticias/educacao/semana-da-consciencia-negra-e-21-dias-de-ativismo-imperatriz-2026/",
+      "fonte_nome": "Portal Oficial da Prefeitura de Imperatriz",
+      "veiculo_instituicao": "Prefeitura de Imperatriz / Secretaria Municipal de Educação (SEMED)",
+      "autor": "Assessoria SEMED",
+      "titulo": "Escolas municipais de Imperatriz mobilizam ações da XXV Semana da Consciência Negra e 21 Dias de Ativismo",
+      "data_publicacao": "2026-11-19",
+      "data_acontecimento": "2026-11-19",
+      "consulta_origem": "Imperatriz cultura e eventos",
+      "tema_especifico": "Educação Antirracista e Campanhas de Cidadania e Direitos Humanos",
+      "categoria_sugerida": "Pautas de cultura, economia e cidade",
+      "emergencia_confirmada": false,
+      "conteudo_integral": "A rede municipal de ensino de Imperatriz desenvolveu ao longo de novembro de 2026 uma programação especial comemorativa da XXV Semana Municipal da Consciência Negra e a abertura da campanha dos 21 Dias de Ativismo pelo Fim da Violência contra as Mulheres. As atividades integraram apresentações culturais de matriz africana, rodas de conversa com escritoras e lideranças comunitárias e projetos interdisciplinares de valorização da história e cultura afro-brasileira nas escolas dos bairros de Imperatriz.",
+      "fatos_confirmados": [
+        "Realização da XXV Semana Municipal da Consciência Negra nas escolas da rede pública de Imperatriz em novembro de 2026.",
+        "Integração com a campanha dos 21 Dias de Ativismo pelo Fim da Violência contra a Mulher.",
+        "Apresentações de projetos culturais e pedagógicos voltados a crianças e jovens da rede municipal."
+      ],
+      "declaracoes_oficiais": [
+        "Segundo a SEMED, as ações fortalecem a aplicação das Leis Federais 10.639/03 e o combate ao preconceito no ambiente escolar."
+      ],
+      "documentos_citados": [
+        "Calendário Escolar e Diretrizes Pedagógicas SEMED Imperatriz (Novembro/2026)"
+      ],
+      "bairros_locais_instituicoes": "Escolas da rede municipal de Imperatriz; SEMED; Conselho Municipal de Igualdade Racial",
+      "publico_afetado": "Estudantes, educadores, famílias e coletivos culturais de Imperatriz",
+      "angulo_jornalistico": "Projetos das escolas municipais de Imperatriz que ensinam história afro-brasileira e igualdade de gênero na prática.",
+      "formato_sugerido": "Carrossel",
+      "nivel_verificacao": "Confirmado",
+      "informacoes_pendentes": "Cronograma das exposições abertas ao público geral na Beira-Rio ou praças centrais.",
+      "proxima_acao_recomendada": "Visitar uma das escolas polos com projetos premiados na Semana da Consciência Negra para registrar fotos e depoimentos.",
+      "pontuacao_base": {
+        "impacto_populacao": 18,
+        "atualidade_novidade": 19,
+        "interesse_publico": 14,
+        "qualidade_evidencias": 18,
+        "potencial_desenvolvimento": 8,
+        "exclusividade_pouco_explorada": 8
+      }
+    }
+  ]
+}
