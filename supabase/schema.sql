@@ -142,6 +142,13 @@ CREATE TABLE IF NOT EXISTS public.pncp_retificacoes (
     atualizado_em TEXT NOT NULL
 );
 
+-- 6b. Contratos PNCP marcados como duplicados / ignorados
+CREATE TABLE IF NOT EXISTS public.pncp_ignorados (
+    numero_controle_pncp TEXT PRIMARY KEY,
+    motivo TEXT NOT NULL DEFAULT 'Contrato duplicado no PNCP',
+    atualizado_em TEXT NOT NULL
+);
+
 -- 7. Evidências documentais vinculadas às pautas
 CREATE TABLE IF NOT EXISTS public.evidencias (
     id BIGSERIAL PRIMARY KEY,
@@ -212,6 +219,7 @@ ALTER TABLE public.paginas_coletadas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pautas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pncp_contratos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pncp_retificacoes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pncp_ignorados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.evidencias ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.historico_atualizacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pendencias_apuracao ENABLE ROW LEVEL SECURITY;

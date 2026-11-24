@@ -1065,6 +1065,148 @@ class TestRadarPautasImperatriz(unittest.TestCase):
                 else:
                     os.environ[k] = old
 
+    def test_19_pncp_ignorar_duplicado_sqlite_supabase_e_stateless(self) -> None:
+        """Testa ignorar e restaurar contratos duplicados no SQLite, HTTP stateless e Supabase."""
+        from scripts.supabase_sync import sync_sqlite_to_supabase
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+        from src.web_server import RadarAPIHandler
+
+        c1 = {
+            "numero_controle_pncp": "DUP-01",
+            "orgao_cnpj": "06158455000116",
+            "orgao_sigla": "PMI",
+            "orgao_nome": "Município de Imperatriz",
+            "ano_contrato": 2026,
+            "numero_contrato": "006",
+            "processo": "02.10.00.054/2025",
+            "fornecedor_cnpj": "11111111000111",
+            "fornecedor_nome": "Empresa Duplicada LTDA",
+            "objeto": "Prestação de serviços contínuos",
+            "valor_inicial": 1000000.0,
+            "valor_global": 1000000.0,
+            "valor_acumulado": 1000000.0,
+            "data_publicacao": "2026-03-01",
+        }
+        c2 = dict(c1)
+        c2["numero_controle_pncp"] = "DUP-02"
+        c2["data_publicacao"] = "2026-03-02"
+        self.db.upsert_pncp_contratos_batch([c1, c2])
+
+        # 1. SQLite: ignorar DUP-02 remove de listas, resumo, estatísticas e sobrevive a re-sync
+        ign = self.db.ignorar_pncp_contrato("DUP-02", "Lançamento duplicado do processo 02.10.00.054/2025")
+        self.assertIsNotNone(ign)
+        self.assertTrue(ign["ignorado"])
+
+        q_ativos = self.db.query_pncp_contratos()
+        self.assertEqual(q_ativos["total"], 1)
+        self.assertEqual(q_ativos["total_ignorados"], 1)
+        self.assertEqual(q_ativos["items"][0]["numero_controle_pncp"], "DUP-01")
+
+        self.db.upsert_pncp_contratos_batch([c1, c2])
+        resumo = self.db.get_pncp_resumo()
+        self.assertEqual(resumo["total_contratos"], 1)
+        self.assertEqual(resumo["total_ignorados"], 1)
+        self.assertAlmostEqual(resumo["valor_total_global"], 1000000.0)
+
+        est = self.db.get_pncp_estatisticas()
+        self.assertEqual(est["resumo_geral"]["total_contratos"], 1)
+        self.assertEqual(est["resumo_geral"]["contratos_ignorados"], 1)
+        self.assertEqual(len(est["alertas_auditoria"]["possiveis_duplicidades"]), 0)
+
+        q_ign = self.db.query_pncp_contratos(somente_ignorados=True)
+        self.assertEqual(q_ign["total"], 1)
+        self.assertEqual(q_ign["items"][0]["numero_controle_pncp"], "DUP-02")
+
+        # 2. Sync incremental SQLite -> Supabase inclui pncp_ignorados
+        transport = self._build_fake_supabase_transport()
+        client = SupabaseRestClient("https://projeto.supabase.co", "service-role-key-secret", transport=transport)
+        sync_res = sync_sqlite_to_supabase(self.db, client)
+        self.assertEqual(sync_res["pncp_ignorados"]["novos_enviados"], 1)
+        self.assertEqual(sync_res["pncp_contratos"]["novos_enviados"], 2)
+
+        supa = SupabaseDatabase(client)
+        supa_ativos = supa.query_pncp_contratos()
+        self.assertEqual(supa_ativos["total"], 1)
+        self.assertEqual(supa_ativos["total_ignorados"], 1)
+        self.assertAlmostEqual(supa.get_pncp_resumo()["valor_total_global"], 1000000.0)
+        self.assertEqual(supa.get_pncp_estatisticas()["resumo_geral"]["contratos_ignorados"], 1)
+
+        supa_rest = supa.restaurar_pncp_ignorado("DUP-02")
+        self.assertIsNotNone(supa_rest)
+        self.assertFalse(supa_rest["ignorado"])
+        self.assertEqual(supa.query_pncp_contratos()["total"], 2)
+        self.assertIsNotNone(supa.ignorar_pncp_contrato("DUP-02", "Duplicado"))
+        self.assertEqual(supa.query_pncp_contratos()["total"], 1)
+
+        # Restaurar no SQLite local devolve aos 2 ativos
+        rest_local = self.db.restaurar_pncp_ignorado("DUP-02")
+        self.assertFalse(rest_local["ignorado"])
+        self.assertEqual(self.db.query_pncp_contratos()["total"], 2)
+
+        # 3. Endpoints HTTP e persistência stateless via header X-PNCP-Retificacoes
+        class _IgnHandler(RadarAPIHandler):
+            bound_db = self.db
+
+            @classmethod
+            def get_db(cls) -> Any:
+                return cls.bound_db
+
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                return
+
+        def call_http(method: str, req_path: str, req_headers: Dict[str, str], payload: Any = None) -> Tuple[int, bytes]:
+            body_bytes = json.dumps(payload).encode("utf-8") if payload is not None else b""
+            h = _IgnHandler.__new__(_IgnHandler)
+            h.command = method
+            h.path = req_path
+            h.request_version = "HTTP/1.1"
+            h.requestline = f"{method} {req_path} HTTP/1.1"
+            h.client_address = ("127.0.0.1", 0)
+            h.close_connection = True
+            h._headers_buffer = []
+            msg = email.message.Message()
+            for k, v in req_headers.items():
+                msg[k] = v
+            if payload is not None:
+                msg["Content-Length"] = str(len(body_bytes))
+            h.headers = msg
+            h.rfile = io.BytesIO(body_bytes)
+            h.wfile = io.BytesIO()
+            if method == "GET":
+                h.do_GET()
+            else:
+                h.do_POST()
+            raw = h.wfile.getvalue()
+            head, _, resp_body = raw.partition(b"\r\n\r\n")
+            return int(head.decode("latin-1").split("\r\n")[0].split(" ", 2)[1]), resp_body
+
+        st_post, _ = call_http("POST", "/api/pncp/ignorar", {}, {"numero_controle_pncp": "DUP-02", "motivo": "Duplicado HTTP"})
+        self.assertEqual(st_post, 200)
+        _, raw_only = call_http("GET", "/api/pncp/contratos?ignorados=only", {})
+        only_json = json.loads(raw_only.decode("utf-8"))
+        self.assertEqual(only_json["total"], 1)
+        self.assertEqual(only_json["items"][0]["numero_controle_pncp"], "DUP-02")
+
+        _, raw_ign_list = call_http("GET", "/api/pncp/ignorados", {})
+        self.assertEqual(len(json.loads(raw_ign_list.decode("utf-8"))), 1)
+
+        # Instância fria sincroniza {"i": 1} e {"u": 1} via X-PNCP-Retificacoes
+        cold_db = RadarDatabase(self.base_path / "cold_ign.db")
+        cold_db.upsert_pncp_contratos_batch([c1, c2])
+        _IgnHandler.bound_db = cold_db
+
+        wire_ign = base64.b64encode(json.dumps({"DUP-02": {"i": 1, "m": "Duplicado"}}).encode("utf-8")).decode("ascii")
+        _, raw_cold = call_http("GET", "/api/pncp/contratos", {"X-PNCP-Retificacoes": wire_ign})
+        cold_json = json.loads(raw_cold.decode("utf-8"))
+        self.assertEqual(cold_json["total"], 1)
+        self.assertEqual(cold_json["total_ignorados"], 1)
+
+        wire_unign = base64.b64encode(json.dumps({"DUP-02": {"u": 1}}).encode("utf-8")).decode("ascii")
+        _, raw_cold_rest = call_http("GET", "/api/pncp/contratos", {"X-PNCP-Retificacoes": wire_unign})
+        cold_rest_json = json.loads(raw_cold_rest.decode("utf-8"))
+        self.assertEqual(cold_rest_json["total"], 2)
+        self.assertEqual(cold_rest_json["total_ignorados"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

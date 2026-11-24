@@ -57,6 +57,12 @@ TABLE_SPECS: List[Dict[str, Any]] = [
         "strip_id": False,
     },
     {
+        "table": "pncp_ignorados",
+        "key_cols": ("numero_controle_pncp",),
+        "on_conflict": "numero_controle_pncp",
+        "strip_id": False,
+    },
+    {
         "table": "pncp_contratos",
         "key_cols": ("numero_controle_pncp",),
         "on_conflict": "numero_controle_pncp",
@@ -277,7 +283,7 @@ def main() -> int:
         return 1
 
     if args.only_pncp:
-        selected_tables = ["pncp_retificacoes", "pncp_contratos"]
+        selected_tables = ["pncp_retificacoes", "pncp_ignorados", "pncp_contratos"]
     elif args.tables.strip():
         selected_tables = [t.strip() for t in args.tables.split(",") if t.strip()]
     else:

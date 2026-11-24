@@ -444,20 +444,37 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             ctrl = str(raw_ctrl or "").strip()
             if not ctrl or not isinstance(entry, dict):
                 continue
+            item_norm: Dict[str, Any] = {}
+            if entry.get("i") or entry.get("ignorar"):
+                item_norm["i"] = 1
+                item_norm["m"] = (
+                    str(
+                        entry.get("m")
+                        or entry.get("motivo")
+                        or entry.get("motivo_ignorado")
+                        or "Contrato duplicado no PNCP"
+                    ).strip()[:160]
+                    or "Contrato duplicado no PNCP"
+                )
+            elif entry.get("u") or entry.get("designorar"):
+                item_norm["u"] = 1
+
             if entry.get("r") or entry.get("restaurar"):
-                normalized[ctrl] = {"r": 1}
-                continue
-            raw_val = entry["v"] if "v" in entry else entry.get("valor_corrigido")
-            val = parse_brl_number(raw_val)
-            if val is None:
-                continue
-            just = str(
-                entry.get("j")
-                or entry.get("justificativa")
-                or entry.get("justificativa_retificacao")
-                or ""
-            ).strip()[:240]
-            normalized[ctrl] = {"v": val, "j": just}
+                item_norm["r"] = 1
+            else:
+                raw_val = entry["v"] if "v" in entry else entry.get("valor_corrigido")
+                val = parse_brl_number(raw_val)
+                if val is not None:
+                    item_norm["v"] = val
+                    item_norm["j"] = str(
+                        entry.get("j")
+                        or entry.get("justificativa")
+                        or entry.get("justificativa_retificacao")
+                        or ""
+                    ).strip()[:240]
+
+            if item_norm:
+                normalized[ctrl] = item_norm
         if not normalized:
             return 0
         return int(db.sync_pncp_retificacoes_from_request(normalized) or 0)
@@ -492,6 +509,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             "/api/pncp/estatisticas",
             "/api/pncp/export/csv",
             "/api/pncp/retificacoes",
+            "/api/pncp/ignorados",
         ):
             self._apply_request_pncp_retificacoes(db)
 
@@ -627,6 +645,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             cat_val = query.get("categoria", [""])[0].strip() or None
             uni_val = query.get("unidade", [""])[0].strip() or None
             ordem_val = query.get("ordem", ["recentes"])[0].strip() or "recentes"
+            ign_mode = query.get("ignorados", ["hide"])[0].strip().lower()
             try:
                 pagina_val = int(query.get("pagina", ["1"])[0])
             except ValueError:
@@ -645,6 +664,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 ordem=ordem_val,
                 pagina=pagina_val,
                 limite=limite_val,
+                incluir_ignorados=(ign_mode == "all"),
+                somente_ignorados=(ign_mode == "only"),
             )
             self.send_json_response(result)
             return
@@ -674,6 +695,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             cat_val = query.get("categoria", [""])[0].strip() or None
             uni_val = query.get("unidade", [""])[0].strip() or None
             ordem_val = query.get("ordem", ["recentes"])[0].strip() or "recentes"
+            ign_mode = query.get("ignorados", ["hide"])[0].strip().lower()
 
             all_rows: List[Dict[str, Any]] = []
             pg = 1
@@ -688,6 +710,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     ordem=ordem_val,
                     pagina=pg,
                     limite=200,
+                    incluir_ignorados=(ign_mode == "all"),
+                    somente_ignorados=(ign_mode == "only"),
                 )
                 all_rows.extend(page_res["items"])
                 if pg >= page_res["total_paginas"]:
@@ -737,6 +761,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/pncp/retificacoes":
             self.send_json_response(db.get_all_pncp_retificacoes())
+            return
+
+        if path == "/api/pncp/ignorados":
+            self.send_json_response(db.get_all_pncp_ignorados())
             return
 
         # 4. Endpoint REST: Clipping diário em Markdown
@@ -932,7 +960,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"ok": True, "contrato": updated})
             return
 
-        # 2.2 Reaplicar retificações salvas em lote (reidratação serverless SQLite)
+        # 2.2 Reaplicar retificações e ignorados salvos em lote (reidratação serverless SQLite)
         if path == "/api/pncp/retificacoes/sync":
             backend_name = getattr(db, "backend_name", "sqlite")
             if backend_name != "sqlite":
@@ -941,6 +969,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 )
                 return
             lista = body.get("retificacoes")
+            ign_lista = body.get("ignorados")
+            if lista is None and isinstance(ign_lista, list):
+                lista = []
             if not isinstance(lista, list):
                 self.send_json_response(
                     {"erro": "Campo 'retificacoes' deve ser uma lista."},
@@ -964,9 +995,50 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         }
                     )
             aplicadas = db.apply_pncp_retificacoes_batch(normalizadas)
+            if isinstance(ign_lista, list):
+                for item in ign_lista[:200]:
+                    if not isinstance(item, dict):
+                        continue
+                    ctrl = str(item.get("numero_controle_pncp") or "").strip()
+                    motivo = str(item.get("motivo") or "Contrato duplicado no PNCP").strip()
+                    if ctrl and db.ignorar_pncp_contrato(ctrl, motivo):
+                        aplicadas += 1
             self.send_json_response(
                 {"ok": True, "aplicadas": aplicadas, "storage_backend": backend_name}
             )
+            return
+
+        # 2.3 Ignorar ou restaurar contrato duplicado do PNCP
+        if path == "/api/pncp/ignorar":
+            ctrl = str(body.get("numero_controle_pncp") or "").strip()
+            if not ctrl:
+                self.send_json_response(
+                    {"erro": "Informe numero_controle_pncp do contrato."},
+                    status=400,
+                )
+                return
+
+            if bool(body.get("restaurar")):
+                self._apply_request_pncp_retificacoes(db)
+                restored = db.restaurar_pncp_ignorado(ctrl)
+                if not restored:
+                    self.send_json_response(
+                        {"erro": "Contrato PNCP não encontrado."},
+                        status=404,
+                    )
+                    return
+                self.send_json_response({"ok": True, "restaurado": True, "contrato": restored})
+                return
+
+            motivo = str(body.get("motivo") or "Contrato duplicado no PNCP").strip()
+            updated = db.ignorar_pncp_contrato(ctrl, motivo)
+            if not updated:
+                self.send_json_response(
+                    {"erro": "Contrato PNCP não encontrado no banco."},
+                    status=404,
+                )
+                return
+            self.send_json_response({"ok": True, "ignorado": True, "contrato": updated})
             return
 
         # 3. Cadastrar nova fonte pela UI sem modificar código

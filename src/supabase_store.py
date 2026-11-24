@@ -838,7 +838,9 @@ class SupabaseDatabase:
 
     @staticmethod
     def _format_pncp_row(
-        row: Dict[str, Any], ret_row: Optional[Dict[str, Any]] = None
+        row: Dict[str, Any],
+        ret_row: Optional[Dict[str, Any]] = None,
+        ign_row: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         d = dict(row)
         d["retificado"] = ret_row is not None and ret_row.get("valor_corrigido") is not None
@@ -849,9 +851,27 @@ class SupabaseDatabase:
         d["justificativa_retificacao"] = str(
             (ret_row or {}).get("justificativa") or ""
         )
+        d["ignorado"] = ign_row is not None
+        d["motivo_ignorado"] = str((ign_row or {}).get("motivo") or "")
         d["is_cpf"] = is_fornecedor_cpf(str(d.get("fornecedor_cnpj") or ""))
         d["categoria_tematica"] = classify_pncp_contrato(d)
         return d
+
+    def _get_pncp_ignorado_single(self, ctrl: str) -> Optional[Dict[str, Any]]:
+        rows = self.client.select(
+            "pncp_ignorados",
+            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
+            fetch_all=False,
+        )
+        return rows[0] if rows else None
+
+    def _get_pncp_retificacao_single(self, ctrl: str) -> Optional[Dict[str, Any]]:
+        rows = self.client.select(
+            "pncp_retificacoes",
+            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
+            fetch_all=False,
+        )
+        return rows[0] if rows else None
 
     def retificar_pncp_contrato(
         self,
@@ -873,12 +893,7 @@ class SupabaseDatabase:
             return None
         cur_row = rows[0]
 
-        ret_rows = self.client.select(
-            "pncp_retificacoes",
-            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
-            fetch_all=False,
-        )
-        existing_ret = ret_rows[0] if ret_rows else None
+        existing_ret = self._get_pncp_retificacao_single(ctrl)
         orig_val = (
             float(existing_ret["valor_original_pncp"])
             if existing_ret and existing_ret.get("valor_original_pncp") is not None
@@ -916,21 +931,17 @@ class SupabaseDatabase:
                 "atualizado_em": now_iso,
             }
         )
-        return self._format_pncp_row(cur_row, ret_payload)
+        return self._format_pncp_row(cur_row, ret_payload, self._get_pncp_ignorado_single(ctrl))
 
     def restaurar_pncp_contrato(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
         ctrl = (numero_controle_pncp or "").strip()
         if not ctrl:
             return None
 
-        ret_rows = self.client.select(
-            "pncp_retificacoes",
-            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
-            fetch_all=False,
-        )
-        if not ret_rows:
+        existing_ret = self._get_pncp_retificacao_single(ctrl)
+        if not existing_ret:
             return None
-        orig_val = float(ret_rows[0].get("valor_original_pncp") or 0.0)
+        orig_val = float(existing_ret.get("valor_original_pncp") or 0.0)
         now_iso = datetime.now().isoformat(timespec="seconds")
 
         self.client.patch(
@@ -952,7 +963,7 @@ class SupabaseDatabase:
             params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
             fetch_all=False,
         )
-        return self._format_pncp_row(rows[0], None) if rows else None
+        return self._format_pncp_row(rows[0], None, self._get_pncp_ignorado_single(ctrl)) if rows else None
 
     def get_all_pncp_retificacoes(self) -> List[Dict[str, Any]]:
         rows = self.client.select(
@@ -980,6 +991,57 @@ class SupabaseDatabase:
                 applied += 1
         return applied
 
+    def ignorar_pncp_contrato(
+        self, numero_controle_pncp: str, motivo: str = "Contrato duplicado no PNCP"
+    ) -> Optional[Dict[str, Any]]:
+        ctrl = (numero_controle_pncp or "").strip()
+        if not ctrl:
+            return None
+        rows = self.client.select(
+            "pncp_contratos",
+            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
+            fetch_all=False,
+        )
+        if not rows:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Contrato duplicado no PNCP").strip()[:240] or "Contrato duplicado no PNCP"
+        ign_payload = {
+            "numero_controle_pncp": ctrl,
+            "motivo": motivo_clean,
+            "atualizado_em": now_iso,
+        }
+        self.client.upsert(
+            "pncp_ignorados",
+            [ign_payload],
+            on_conflict="numero_controle_pncp",
+        )
+        return self._format_pncp_row(rows[0], self._get_pncp_retificacao_single(ctrl), ign_payload)
+
+    def restaurar_pncp_ignorado(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
+        ctrl = (numero_controle_pncp or "").strip()
+        if not ctrl:
+            return None
+        rows = self.client.select(
+            "pncp_contratos",
+            params={"numero_controle_pncp": f"eq.{ctrl}", "limit": "1"},
+            fetch_all=False,
+        )
+        if not rows:
+            return None
+        self.client.delete(
+            "pncp_ignorados",
+            {"numero_controle_pncp": f"eq.{ctrl}"},
+        )
+        return self._format_pncp_row(rows[0], self._get_pncp_retificacao_single(ctrl), None)
+
+    def get_all_pncp_ignorados(self) -> List[Dict[str, Any]]:
+        rows = self.client.select(
+            "pncp_ignorados", params={"order": "atualizado_em.desc"}
+        )
+        rows.sort(key=lambda r: str(r.get("atualizado_em") or ""), reverse=True)
+        return rows
+
     def sync_pncp_retificacoes_from_request(self, overrides: Dict[str, Any]) -> int:
         """No Supabase o banco centralizado é autoritativo; cabeçalhos legados são ignorados."""
         return 0
@@ -992,8 +1054,10 @@ class SupabaseDatabase:
         q: Optional[str] = None,
         unidade: Optional[str] = None,
         categoria: Optional[str] = None,
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[int]]:
-        """Carrega contratos do Supabase com retificações e aplica filtros exatamente como SQLite."""
+        incluir_ignorados: bool = False,
+        somente_ignorados: bool = False,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[int], int]:
+        """Carrega contratos do Supabase com retificações e ignorados e aplica filtros como no SQLite."""
         all_rows = self.client.select("pncp_contratos")
         ret_rows = self.client.select("pncp_retificacoes")
         ret_map = {
@@ -1001,11 +1065,19 @@ class SupabaseDatabase:
             for r in ret_rows
             if r.get("numero_controle_pncp")
         }
+        ign_rows = self.client.select("pncp_ignorados")
+        ign_map = {
+            str(r["numero_controle_pncp"]): r
+            for r in ign_rows
+            if r.get("numero_controle_pncp")
+        }
 
         anos_set = {
             int(r["ano_contrato"])
             for r in all_rows
-            if str(r.get("ano_contrato") or "").isdigit() and int(r["ano_contrato"]) > 0
+            if str(r.get("numero_controle_pncp") or "") not in ign_map
+            and str(r.get("ano_contrato") or "").isdigit()
+            and int(r["ano_contrato"]) > 0
         }
         anos_disponiveis = sorted(anos_set, reverse=True)
 
@@ -1014,13 +1086,20 @@ class SupabaseDatabase:
 
         org_formatted: List[Dict[str, Any]] = []
         for raw in all_rows:
+            ctrl = str(raw.get("numero_controle_pncp") or "")
+            ign_row = ign_map.get(ctrl)
+            if somente_ignorados:
+                if ign_row is None:
+                    continue
+            elif not incluir_ignorados and ign_row is not None:
+                continue
+
             if filtrar_orgao:
                 sigla = str(raw.get("orgao_sigla") or "")
                 cnpj = str(raw.get("orgao_cnpj") or "")
                 if sigla.upper() != org_clean.upper() and cnpj != org_clean:
                     continue
-            ctrl = str(raw.get("numero_controle_pncp") or "")
-            org_formatted.append(self._format_pncp_row(raw, ret_map.get(ctrl)))
+            org_formatted.append(self._format_pncp_row(raw, ret_map.get(ctrl), ign_row))
 
         forn_clean = (fornecedor or "").strip()
         uni_clean = (unidade or "").strip()
@@ -1063,7 +1142,7 @@ class SupabaseDatabase:
                 continue
             filtered.append(item)
 
-        return filtered, org_formatted, anos_disponiveis
+        return filtered, org_formatted, anos_disponiveis, len(ign_map)
 
     def query_pncp_contratos(
         self,
@@ -1076,18 +1155,22 @@ class SupabaseDatabase:
         ordem: str = "recentes",
         pagina: int = 1,
         limite: int = 50,
+        incluir_ignorados: bool = False,
+        somente_ignorados: bool = False,
     ) -> Dict[str, Any]:
         pagina = max(1, int(pagina))
         limite = max(1, min(200, int(limite)))
         offset = (pagina - 1) * limite
 
-        filtered, _, _ = self._fetch_pncp_filtered(
+        filtered, _, _, total_ignorados = self._fetch_pncp_filtered(
             ano=ano,
             orgao=orgao,
             fornecedor=fornecedor,
             q=q,
             unidade=unidade,
             categoria=categoria,
+            incluir_ignorados=incluir_ignorados,
+            somente_ignorados=somente_ignorados,
         )
 
         ordem_clean = (ordem or "recentes").strip().lower()
@@ -1123,22 +1206,28 @@ class SupabaseDatabase:
             "pagina": pagina,
             "limite": limite,
             "total_paginas": total_paginas,
+            "total_ignorados": total_ignorados,
         }
 
     def get_pncp_estatisticas(
         self, ano: Optional[int] = None, orgao: Optional[str] = None
     ) -> Dict[str, Any]:
-        filtered, _, _ = self._fetch_pncp_filtered(ano=ano, orgao=orgao)
-        return build_pncp_estatisticas(filtered)
+        filtered, _, _, total_ignorados = self._fetch_pncp_filtered(ano=ano, orgao=orgao)
+        est = build_pncp_estatisticas(filtered)
+        est["total_ignorados"] = total_ignorados
+        if isinstance(est.get("resumo_geral"), dict):
+            est["resumo_geral"]["contratos_ignorados"] = total_ignorados
+        return est
 
     def get_pncp_resumo(
         self, ano: Optional[int] = None, orgao: Optional[str] = None
     ) -> Dict[str, Any]:
-        filtered, org_formatted, anos_disponiveis = self._fetch_pncp_filtered(
+        filtered, org_formatted, anos_disponiveis, total_ignorados = self._fetch_pncp_filtered(
             ano=ano, orgao=orgao
         )
         return build_pncp_resumo_from_rows(
             filtered_rows=filtered,
             org_rows=org_formatted,
             anos_disponiveis=anos_disponiveis,
+            total_ignorados=total_ignorados,
         )

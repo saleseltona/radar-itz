@@ -22,6 +22,8 @@
     { "source": "/api/pncp/retificar", "destination": "/api/index?__route=/api/pncp/retificar" },
     { "source": "/api/pncp/retificacoes", "destination": "/api/index?__route=/api/pncp/retificacoes" },
     { "source": "/api/pncp/retificacoes/sync", "destination": "/api/index?__route=/api/pncp/retificacoes/sync" },
+    { "source": "/api/pncp/ignorar", "destination": "/api/index?__route=/api/pncp/ignorar" },
+    { "source": "/api/pncp/ignorados", "destination": "/api/index?__route=/api/pncp/ignorados" },
     { "source": "/api/pendencias", "destination": "/api/index?__route=/api/pendencias" },
     { "source": "/api/telemetria", "destination": "/api/index?__route=/api/telemetria" }
   ],

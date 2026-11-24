@@ -170,6 +170,12 @@ class RadarDatabase:
                     atualizado_em TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS pncp_ignorados (
+                    numero_controle_pncp TEXT PRIMARY KEY,
+                    motivo TEXT NOT NULL DEFAULT 'Contrato duplicado no PNCP',
+                    atualizado_em TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS evidencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_pauta TEXT NOT NULL,
@@ -800,7 +806,7 @@ class RadarDatabase:
 
     @staticmethod
     def _format_pncp_row(row: sqlite3.Row) -> Dict[str, Any]:
-        """Converte linha PNCP enriquecida com JOIN de `pncp_retificacoes` e categoria temática."""
+        """Converte linha PNCP enriquecida com JOIN de retificações, ignorados e categoria temática."""
         d = dict(row)
         d["retificado"] = bool(d.pop("retificado_flag", 0))
         if d.get("valor_original_pncp") is not None:
@@ -808,6 +814,8 @@ class RadarDatabase:
         else:
             d["valor_original_pncp"] = None
         d["justificativa_retificacao"] = str(d.get("justificativa_retificacao") or "")
+        d["ignorado"] = bool(d.pop("ignorado_flag", 0))
+        d["motivo_ignorado"] = str(d.get("motivo_ignorado") or "")
         d["is_cpf"] = is_fornecedor_cpf(str(d.get("fornecedor_cnpj") or ""))
         d["categoria_tematica"] = classify_pncp_contrato(d)
         return d
@@ -820,9 +828,12 @@ class RadarDatabase:
             SELECT c.*,
                    CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
                    r.valor_original_pncp,
-                   COALESCE(r.justificativa, '') AS justificativa_retificacao
+                   COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                   CASE WHEN ig.numero_controle_pncp IS NOT NULL THEN 1 ELSE 0 END AS ignorado_flag,
+                   COALESCE(ig.motivo, '') AS motivo_ignorado
             FROM pncp_contratos c
             LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+            LEFT JOIN pncp_ignorados ig ON c.numero_controle_pncp = ig.numero_controle_pncp
             WHERE c.numero_controle_pncp = ?
             """,
             (numero_controle_pncp,),
@@ -936,8 +947,62 @@ class RadarDatabase:
                     applied += 1
         return applied
 
+    def ignorar_pncp_contrato(
+        self, numero_controle_pncp: str, motivo: str = "Contrato duplicado no PNCP"
+    ) -> Optional[Dict[str, Any]]:
+        """Marca um contrato do PNCP como ignorado/duplicado sem apagá-lo da memória histórica."""
+        ctrl = (numero_controle_pncp or "").strip()
+        if not ctrl:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Contrato duplicado no PNCP").strip()[:240] or "Contrato duplicado no PNCP"
+        with self.connect() as conn:
+            cur_row = conn.execute(
+                "SELECT numero_controle_pncp FROM pncp_contratos WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            ).fetchone()
+            if not cur_row:
+                return None
+            conn.execute(
+                """
+                INSERT INTO pncp_ignorados (numero_controle_pncp, motivo, atualizado_em)
+                VALUES (?, ?, ?)
+                ON CONFLICT(numero_controle_pncp) DO UPDATE SET
+                    motivo = excluded.motivo,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                (ctrl, motivo_clean, now_iso),
+            )
+            return self._select_pncp_single_row(conn, ctrl)
+
+    def restaurar_pncp_ignorado(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
+        """Remove a marcação de ignorado/duplicado devolvendo o contrato aos totais."""
+        ctrl = (numero_controle_pncp or "").strip()
+        if not ctrl:
+            return None
+        with self.connect() as conn:
+            cur_row = conn.execute(
+                "SELECT numero_controle_pncp FROM pncp_contratos WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            ).fetchone()
+            if not cur_row:
+                return None
+            conn.execute(
+                "DELETE FROM pncp_ignorados WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            )
+            return self._select_pncp_single_row(conn, ctrl)
+
+    def get_all_pncp_ignorados(self) -> List[Dict[str, Any]]:
+        """Lista todos os contratos do PNCP marcados como ignorados."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM pncp_ignorados ORDER BY atualizado_em DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def sync_pncp_retificacoes_from_request(self, overrides: Dict[str, Any]) -> int:
-        """Sincroniza retificações enviadas por header/cookie em uma única transação (stateless/serverless)."""
+        """Sincroniza retificações e ignorados enviados por header/cookie em uma única transação."""
         if not overrides or not isinstance(overrides, dict):
             return 0
 
@@ -965,6 +1030,16 @@ class RadarDatabase:
             ).fetchall()
             existing_ret = {r["numero_controle_pncp"]: r for r in ret_rows}
 
+            ign_rows = conn.execute(
+                f"""
+                SELECT numero_controle_pncp, motivo
+                FROM pncp_ignorados
+                WHERE numero_controle_pncp IN ({placeholders})
+                """,
+                ctrls,
+            ).fetchall()
+            existing_ign = {r["numero_controle_pncp"]: r for r in ign_rows}
+
             contract_rows = conn.execute(
                 f"""
                 SELECT numero_controle_pncp, valor_global
@@ -976,6 +1051,43 @@ class RadarDatabase:
             existing_contracts = {r["numero_controle_pncp"]: r for r in contract_rows}
 
             for ctrl, entry in entries:
+                contract_row = existing_contracts.get(ctrl)
+                if contract_row is None:
+                    continue
+
+                if entry.get("i") or entry.get("ignorar"):
+                    motivo_clean = (
+                        str(
+                            entry.get("m")
+                            or entry.get("motivo")
+                            or entry.get("motivo_ignorado")
+                            or "Contrato duplicado no PNCP"
+                        ).strip()[:160]
+                        or "Contrato duplicado no PNCP"
+                    )
+                    cur_ign = existing_ign.get(ctrl)
+                    if cur_ign is None or str(cur_ign["motivo"] or "") != motivo_clean:
+                        conn.execute(
+                            """
+                            INSERT INTO pncp_ignorados (numero_controle_pncp, motivo, atualizado_em)
+                            VALUES (?, ?, ?)
+                            ON CONFLICT(numero_controle_pncp) DO UPDATE SET
+                                motivo = excluded.motivo,
+                                atualizado_em = excluded.atualizado_em
+                            """,
+                            (ctrl, motivo_clean, now_iso),
+                        )
+                        existing_ign[ctrl] = {"numero_controle_pncp": ctrl, "motivo": motivo_clean}
+                        applied += 1
+                elif entry.get("u") or entry.get("designorar"):
+                    if ctrl in existing_ign:
+                        conn.execute(
+                            "DELETE FROM pncp_ignorados WHERE numero_controle_pncp = ?",
+                            (ctrl,),
+                        )
+                        existing_ign.pop(ctrl, None)
+                        applied += 1
+
                 if entry.get("r") or entry.get("restaurar"):
                     ret_row = existing_ret.pop(ctrl, None)
                     if ret_row is not None:
@@ -1001,10 +1113,6 @@ class RadarDatabase:
                 except (TypeError, ValueError):
                     continue
                 if val <= 0:
-                    continue
-
-                contract_row = existing_contracts.get(ctrl)
-                if contract_row is None:
                     continue
 
                 just_clean = str(
@@ -1058,9 +1166,19 @@ class RadarDatabase:
         fornecedor: Optional[str] = None,
         q: Optional[str] = None,
         unidade: Optional[str] = None,
+        incluir_ignorados: bool = False,
+        somente_ignorados: bool = False,
     ) -> tuple[str, List[Any]]:
         clauses: List[str] = []
         args: List[Any] = []
+        if somente_ignorados:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM pncp_ignorados ig_f WHERE ig_f.numero_controle_pncp = c.numero_controle_pncp)"
+            )
+        elif not incluir_ignorados:
+            clauses.append(
+                "NOT EXISTS (SELECT 1 FROM pncp_ignorados ig_f WHERE ig_f.numero_controle_pncp = c.numero_controle_pncp)"
+            )
         if ano:
             clauses.append(
                 "(c.ano_contrato = ? OR substr(c.data_publicacao, 1, 4) = ?)"
@@ -1106,12 +1224,20 @@ class RadarDatabase:
         ordem: str = "recentes",
         pagina: int = 1,
         limite: int = 50,
+        incluir_ignorados: bool = False,
+        somente_ignorados: bool = False,
     ) -> Dict[str, Any]:
         pagina = max(1, int(pagina))
         limite = max(1, min(200, int(limite)))
         offset = (pagina - 1) * limite
         where_sql, args = self._build_pncp_where(
-            ano=ano, orgao=orgao, fornecedor=fornecedor, q=q, unidade=unidade
+            ano=ano,
+            orgao=orgao,
+            fornecedor=fornecedor,
+            q=q,
+            unidade=unidade,
+            incluir_ignorados=incluir_ignorados,
+            somente_ignorados=somente_ignorados,
         )
         ordem_clean = (ordem or "recentes").strip().lower()
         if ordem_clean == "maior_valor":
@@ -1125,15 +1251,21 @@ class RadarDatabase:
         filtrar_categoria = bool(cat_clean and cat_clean.lower() not in ("todas", "all"))
 
         with self.connect() as conn:
+            ign_row = conn.execute("SELECT COUNT(*) AS cnt FROM pncp_ignorados").fetchone()
+            total_ignorados = int(ign_row["cnt"]) if ign_row else 0
+
             if filtrar_categoria:
                 rows = conn.execute(
                     f"""
                     SELECT c.*,
                            CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
                            r.valor_original_pncp,
-                           COALESCE(r.justificativa, '') AS justificativa_retificacao
+                           COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                           CASE WHEN ig.numero_controle_pncp IS NOT NULL THEN 1 ELSE 0 END AS ignorado_flag,
+                           COALESCE(ig.motivo, '') AS motivo_ignorado
                     FROM pncp_contratos c
                     LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+                    LEFT JOIN pncp_ignorados ig ON c.numero_controle_pncp = ig.numero_controle_pncp
                     {where_sql}
                     ORDER BY {order_clause}
                     """,
@@ -1156,9 +1288,12 @@ class RadarDatabase:
                     SELECT c.*,
                            CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
                            r.valor_original_pncp,
-                           COALESCE(r.justificativa, '') AS justificativa_retificacao
+                           COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                           CASE WHEN ig.numero_controle_pncp IS NOT NULL THEN 1 ELSE 0 END AS ignorado_flag,
+                           COALESCE(ig.motivo, '') AS motivo_ignorado
                     FROM pncp_contratos c
                     LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+                    LEFT JOIN pncp_ignorados ig ON c.numero_controle_pncp = ig.numero_controle_pncp
                     {where_sql}
                     ORDER BY {order_clause}
                     LIMIT ? OFFSET ?
@@ -1174,20 +1309,25 @@ class RadarDatabase:
             "pagina": pagina,
             "limite": limite,
             "total_paginas": total_paginas,
+            "total_ignorados": total_ignorados,
         }
 
     def get_pncp_estatisticas(
         self, ano: Optional[int] = None, orgao: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Retorna estatísticas analíticas completas e classificação por tema dos contratos PNCP."""
+        """Retorna estatísticas analíticas completas e classificação por tema dos contratos PNCP ativos."""
         where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao)
         with self.connect() as conn:
+            ign_row = conn.execute("SELECT COUNT(*) AS cnt FROM pncp_ignorados").fetchone()
+            total_ignorados = int(ign_row["cnt"]) if ign_row else 0
             rows = conn.execute(
                 f"""
                 SELECT c.*,
                        CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
                        r.valor_original_pncp,
-                       COALESCE(r.justificativa, '') AS justificativa_retificacao
+                       COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                       0 AS ignorado_flag,
+                       '' AS motivo_ignorado
                 FROM pncp_contratos c
                 LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
                 {where_sql}
@@ -1195,7 +1335,11 @@ class RadarDatabase:
                 args,
             ).fetchall()
         formatted_rows = [self._format_pncp_row(r) for r in rows]
-        return build_pncp_estatisticas(formatted_rows)
+        est = build_pncp_estatisticas(formatted_rows)
+        est["total_ignorados"] = total_ignorados
+        if isinstance(est.get("resumo_geral"), dict):
+            est["resumo_geral"]["contratos_ignorados"] = total_ignorados
+        return est
 
     def get_pncp_resumo(
         self, ano: Optional[int] = None, orgao: Optional[str] = None
@@ -1205,6 +1349,9 @@ class RadarDatabase:
         today = datetime.now().date()
 
         with self.connect() as conn:
+            ign_row = conn.execute("SELECT COUNT(*) AS cnt FROM pncp_ignorados").fetchone()
+            total_ignorados = int(ign_row["cnt"]) if ign_row else 0
+
             agg_row = conn.execute(
                 f"""
                 SELECT COUNT(*) AS total_contratos,
@@ -1223,7 +1370,14 @@ class RadarDatabase:
             ultima_sincronizacao = str(agg_row["ultima_sincronizacao"] or "")
 
             anos_rows = conn.execute(
-                "SELECT DISTINCT ano_contrato FROM pncp_contratos ORDER BY ano_contrato DESC"
+                """
+                SELECT DISTINCT c.ano_contrato
+                FROM pncp_contratos c
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM pncp_ignorados ig_f WHERE ig_f.numero_controle_pncp = c.numero_controle_pncp
+                )
+                ORDER BY c.ano_contrato DESC
+                """
             ).fetchall()
             anos_disponiveis = [int(r["ano_contrato"]) for r in anos_rows if r["ano_contrato"]]
 
@@ -1293,7 +1447,9 @@ class RadarDatabase:
                 SELECT c.*,
                        CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
                        r.valor_original_pncp,
-                       COALESCE(r.justificativa, '') AS justificativa_retificacao
+                       COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                       0 AS ignorado_flag,
+                       '' AS motivo_ignorado
                 FROM pncp_contratos c
                 LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
                 {where_sql}
@@ -1318,6 +1474,7 @@ class RadarDatabase:
                 "valor_total_global": valor_total_global,
                 "valor_total_inicial": valor_total_inicial,
                 "ultima_sincronizacao": ultima_sincronizacao,
+                "total_ignorados": total_ignorados,
             },
         )
 
@@ -1331,6 +1488,7 @@ def build_pncp_resumo_from_rows(
     por_ano_override: Optional[Dict[str, Dict[str, Any]]] = None,
     ultimos_contratos_override: Optional[List[Dict[str, Any]]] = None,
     agg_override: Optional[Dict[str, Any]] = None,
+    total_ignorados: int = 0,
 ) -> Dict[str, Any]:
     """Agrega KPIs, série mensal, fornecedores e contratos recentes de forma idêntica para SQLite e Supabase."""
     ref_today = today or datetime.now().date()
@@ -1340,6 +1498,7 @@ def build_pncp_resumo_from_rows(
         valor_total_global = float(agg_override.get("valor_total_global") or 0.0)
         valor_total_inicial = float(agg_override.get("valor_total_inicial") or 0.0)
         ultima_sincronizacao = str(agg_override.get("ultima_sincronizacao") or "")
+        ign_count = int(agg_override.get("total_ignorados") or total_ignorados or 0)
     else:
         total_contratos = len(filtered_rows)
         valor_total_global = sum(float(r.get("valor_global") or 0.0) for r in filtered_rows)
@@ -1348,6 +1507,7 @@ def build_pncp_resumo_from_rows(
             (str(r.get("atualizado_em") or "") for r in filtered_rows),
             default="",
         )
+        ign_count = int(total_ignorados or 0)
 
     if por_ano_override is not None:
         por_ano = por_ano_override
@@ -1509,6 +1669,7 @@ def build_pncp_resumo_from_rows(
         "top_fornecedores": top_fornecedores,
         "ultimos_contratos": ultimos_contratos,
         "ultima_sincronizacao": ultima_sincronizacao,
+        "total_ignorados": ign_count,
     }
 
 

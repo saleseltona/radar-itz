@@ -948,6 +948,13 @@
           <span>Filtrando secretaria: <strong id="pncp-modal-unidade-lbl" class="text-primary"></strong></span>
           <button onclick="clearPncpModalUnidade()" class="text-error font-bold hover:underline" type="button">Limpar secretaria</button>
         </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] pt-0.5">
+          <span class="text-on-surface-variant">Encontrou contrato lançado em duplicidade no PNCP? Clique em <strong>Ignorar</strong> para removê-lo dos totais (reversível a qualquer momento).</span>
+          <button id="btn-pncp-toggle-ignorados" onclick="togglePncpIgnoradosView()" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-900 font-bold transition-colors shrink-0" type="button">
+            <span class="material-symbols-outlined text-[14px]">visibility_off</span>
+            <span>Ignorados (0)</span>
+          </button>
+        </div>
       </div>
 
       <!-- Lista / Tabela PNCP -->
@@ -1105,9 +1112,15 @@
         </div>
 
         <div class="pt-2 border-t border-surface-container flex flex-wrap items-center justify-between gap-2">
-          <button id="btn-pncp-restaurar" onclick="restaurarPncpContrato()" class="hidden px-3.5 py-2 rounded-full bg-error-container text-on-error-container hover:opacity-90 text-xs font-bold transition-all" type="button">
-            Restaurar original PNCP
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="btn-pncp-restaurar" onclick="restaurarPncpContrato()" class="hidden px-3.5 py-2 rounded-full bg-error-container text-on-error-container hover:opacity-90 text-xs font-bold transition-all" type="button">
+              Restaurar original PNCP
+            </button>
+            <button id="btn-pncp-ignorar-modal" onclick="ignorarPncpDoModalEdit()" class="px-3.5 py-2 rounded-full bg-surface-container hover:bg-error-container hover:text-on-error-container text-on-surface text-xs font-bold transition-colors inline-flex items-center gap-1" type="button" title="Ignorar contrato duplicado e remover dos totais">
+              <span class="material-symbols-outlined text-[14px]">visibility_off</span>
+              <span>Ignorar duplicado</span>
+            </button>
+          </div>
           <div class="flex items-center gap-2 ml-auto">
             <button onclick="closeModal('pncp-edit-modal')" class="px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors" type="button">Cancelar</button>
             <button id="btn-pncp-salvar-edit" type="submit" class="px-5 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary text-xs font-bold shadow-sm transition-colors">
@@ -1137,6 +1150,7 @@
     let pncpStatsLoaded = false;
     let pncpModalPage = 1;
     let pncpModalTimer = null;
+    let pncpShowOnlyIgnored = false;
     let currentStorageBackend = 'sqlite';
     const pncpContractsCache = {};
 
@@ -1719,6 +1733,9 @@
             <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center justify-center p-1 rounded-full hover:bg-tertiary-fixed text-on-surface-variant hover:text-on-surface transition-colors align-middle" title="Editar / retificar valor deste contrato">
               <span class="material-symbols-outlined text-[15px]">edit</span>
             </button>
+            <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="ignorarPncpContrato(this.dataset.ctrl)" class="inline-flex items-center justify-center p-1 rounded-full hover:bg-error-container text-on-surface-variant hover:text-on-error-container transition-colors align-middle" title="Ignorar contrato duplicado (remove dos totais)">
+              <span class="material-symbols-outlined text-[15px]">visibility_off</span>
+            </button>
           </td>
         </tr>
       `;
@@ -1748,7 +1765,24 @@
       loadPncpModal(1);
     }
 
-    function openPncpModal(ano = '', orgao = '', fornecedorQuery = '', categoria = '', ordem = 'recentes', unidade = '') {
+    function updatePncpIgnoradosToggle(totalIgnorados = 0) {
+      const btn = document.getElementById('btn-pncp-toggle-ignorados');
+      if (!btn) return;
+      if (pncpShowOnlyIgnored) {
+        btn.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-950 border border-amber-300 font-bold transition-colors shrink-0';
+        btn.innerHTML = `<span class="material-symbols-outlined text-[14px]">visibility</span><span>Mostrando ignorados (${totalIgnorados}) • Voltar aos ativos</span>`;
+      } else {
+        btn.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-900 font-bold transition-colors shrink-0';
+        btn.innerHTML = `<span class="material-symbols-outlined text-[14px]">visibility_off</span><span>Ignorados (${totalIgnorados})</span>`;
+      }
+    }
+
+    function togglePncpIgnoradosView() {
+      pncpShowOnlyIgnored = !pncpShowOnlyIgnored;
+      loadPncpModal(1);
+    }
+
+    function openPncpModal(ano = '', orgao = '', fornecedorQuery = '', categoria = '', ordem = 'recentes', unidade = '', onlyIgnored = false) {
       const anoSel = document.getElementById('pncp-modal-ano');
       const orgSel = document.getElementById('pncp-modal-orgao');
       const searchIn = document.getElementById('pncp-modal-search');
@@ -1760,7 +1794,9 @@
       if (catSel) catSel.value = categoria || '';
       if (ordSel) ordSel.value = ordem || 'recentes';
       currentPncpModalUnidade = unidade || '';
+      pncpShowOnlyIgnored = Boolean(onlyIgnored);
       updatePncpModalUnidadeBar();
+      updatePncpIgnoradosToggle(0);
 
       document.getElementById('pncp-modal').classList.remove('hidden');
       document.body.style.overflow = 'hidden';
@@ -1790,6 +1826,7 @@
       if (orgao) params.set('orgao', orgao);
       if (categoria) params.set('categoria', categoria);
       if (currentPncpModalUnidade) params.set('unidade', currentPncpModalUnidade);
+      if (pncpShowOnlyIgnored) params.set('ignorados', 'only');
 
       const expLink = document.getElementById('pncp-modal-export-link');
       if (expLink) expLink.href = '/api/pncp/export/csv?' + params.toString();
@@ -1801,9 +1838,11 @@
         const res = await pncpFetch('/api/pncp/contratos?' + params.toString());
         const data = await res.json();
         const items = data.items || [];
+        updatePncpIgnoradosToggle(data.total_ignorados || 0);
 
-        document.getElementById('pncp-modal-subtitle').innerText =
-          `${data.total || 0} contrato(s) encontrado(s) no PNCP para os filtros atuais`;
+        document.getElementById('pncp-modal-subtitle').innerText = pncpShowOnlyIgnored
+          ? `${data.total || 0} contrato(s) ignorado(s) / marcado(s) como duplicado no PNCP`
+          : `${data.total || 0} contrato(s) ativo(s) encontrado(s) no PNCP para os filtros atuais`;
         document.getElementById('pncp-modal-page-info').innerText =
           `Página ${data.pagina} de ${data.total_paginas} (${data.total} registros)`;
 
@@ -1813,7 +1852,9 @@
         if (nextBtn) nextBtn.disabled = data.pagina >= data.total_paginas;
 
         if (!items.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Nenhum contrato encontrado com esses critérios.</td></tr>';
+          tbody.innerHTML = pncpShowOnlyIgnored
+            ? '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Nenhum contrato ignorado até o momento.</td></tr>'
+            : '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Nenhum contrato encontrado com esses critérios.</td></tr>';
           return;
         }
 
@@ -1825,7 +1866,27 @@
           const retInfo = c.retificado
             ? `<div class="mt-0.5 flex flex-col items-end gap-0.5"><span class="px-1.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold" title="${escapeHtml(c.justificativa_retificacao || 'Valor retificado manualmente')}">Retificado</span>${c.valor_original_pncp ? `<span class="text-[10px] text-on-surface-variant line-through font-normal">Orig.: ${formatBRL(c.valor_original_pncp)}</span>` : ''}</div>`
             : '';
+          const ignInfo = c.ignorado
+            ? `<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold" title="${escapeHtml(c.motivo_ignorado || 'Contrato duplicado no PNCP')}">Ignorado</span></div>`
+            : '';
           const cpfBadge = c.is_cpf ? '<span class="ml-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">CPF</span>' : '';
+          const actionBtns = c.ignorado
+            ? `
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="restaurarPncpIgnorado(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-bold transition-colors" title="Remover marcação de ignorado e devolver contrato aos totais">
+                  <span class="material-symbols-outlined text-[14px]">restore</span>
+                  <span>Restaurar</span>
+                </button>
+              `
+            : `
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-tertiary-fixed text-on-surface font-bold transition-colors" title="Corrigir valor deste contrato">
+                  <span class="material-symbols-outlined text-[14px]">edit</span>
+                  <span>Editar</span>
+                </button>
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="ignorarPncpContrato(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-error-container text-on-surface-variant hover:text-on-error-container font-bold transition-colors" title="Ignorar contrato duplicado (remove dos totais)">
+                  <span class="material-symbols-outlined text-[14px]">visibility_off</span>
+                  <span>Ignorar</span>
+                </button>
+              `;
           return `
           <tr class="hover:bg-surface-container-low/60">
             <td class="py-2.5 pr-3 whitespace-nowrap">
@@ -1850,6 +1911,7 @@
             <td class="py-2.5 pr-3 text-right font-bold text-on-surface whitespace-nowrap">
               <div>${formatBRL(c.valor_global)}</div>
               ${retInfo}
+              ${ignInfo}
             </td>
             <td class="py-2.5 text-right whitespace-nowrap">
               <div class="inline-flex items-center justify-end gap-1.5">
@@ -1857,10 +1919,7 @@
                   <span>Abrir</span>
                   <span class="material-symbols-outlined text-[14px]">open_in_new</span>
                 </a>
-                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-tertiary-fixed text-on-surface font-bold transition-colors" title="Corrigir valor deste contrato">
-                  <span class="material-symbols-outlined text-[14px]">edit</span>
-                  <span>Editar</span>
-                </button>
+                ${actionBtns}
               </div>
             </td>
           </tr>
@@ -1908,20 +1967,50 @@
 
     function saveLocalPncpRetificacao(ctrl, valorCorrigido, justificativa) {
       const map = getSavedPncpRetificacoes();
-      map[ctrl] = {
-        valor_corrigido: valorCorrigido,
-        justificativa: justificativa || '',
-        atualizado_em: new Date().toISOString(),
-      };
+      const prev = (map[ctrl] && typeof map[ctrl] === 'object') ? Object.assign({}, map[ctrl]) : {};
+      delete prev.r;
+      delete prev.restaurar;
+      prev.valor_corrigido = valorCorrigido;
+      prev.justificativa = justificativa || '';
+      prev.atualizado_em = new Date().toISOString();
+      map[ctrl] = prev;
       try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
     }
 
     function markLocalPncpRestauracao(ctrl) {
       const map = getSavedPncpRetificacoes();
-      map[ctrl] = {
-        r: 1,
-        atualizado_em: new Date().toISOString(),
-      };
+      const prev = (map[ctrl] && typeof map[ctrl] === 'object') ? Object.assign({}, map[ctrl]) : {};
+      delete prev.valor_corrigido;
+      delete prev.v;
+      delete prev.justificativa;
+      delete prev.j;
+      prev.r = 1;
+      prev.atualizado_em = new Date().toISOString();
+      map[ctrl] = prev;
+      try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    function saveLocalPncpIgnorado(ctrl, motivo) {
+      const map = getSavedPncpRetificacoes();
+      const prev = (map[ctrl] && typeof map[ctrl] === 'object') ? Object.assign({}, map[ctrl]) : {};
+      delete prev.u;
+      delete prev.designorar;
+      prev.i = 1;
+      prev.m = String(motivo || 'Contrato duplicado no PNCP').trim().slice(0, 80);
+      prev.atualizado_em = new Date().toISOString();
+      map[ctrl] = prev;
+      try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    function markLocalPncpDesignorado(ctrl) {
+      const map = getSavedPncpRetificacoes();
+      const prev = (map[ctrl] && typeof map[ctrl] === 'object') ? Object.assign({}, map[ctrl]) : {};
+      delete prev.i;
+      delete prev.ignorar;
+      delete prev.m;
+      prev.u = 1;
+      prev.atualizado_em = new Date().toISOString();
+      map[ctrl] = prev;
       try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
     }
 
@@ -1939,14 +2028,25 @@
       const compact = {};
       for (const [ctrl, item] of entries) {
         if (!ctrl || !item || typeof item !== 'object') continue;
-        if (item.r || item.restaurar) {
-          compact[ctrl] = { r: 1 };
-          continue;
+        const obj = {};
+        if (item.i || item.ignorar) {
+          obj.i = 1;
+          const mot = String(item.m || item.motivo || '').trim().slice(0, 80);
+          if (mot && mot !== 'Contrato duplicado no PNCP') obj.m = mot;
+        } else if (item.u || item.designorar) {
+          obj.u = 1;
         }
-        const val = parseBrlInput(item.valor_corrigido !== undefined ? item.valor_corrigido : item.v);
-        if (val === null) continue;
-        const just = String(item.justificativa || item.j || '').trim().slice(0, 80);
-        compact[ctrl] = just ? { v: val, j: just } : { v: val };
+        if (item.r || item.restaurar) {
+          obj.r = 1;
+        } else {
+          const val = parseBrlInput(item.valor_corrigido !== undefined ? item.valor_corrigido : item.v);
+          if (val !== null) {
+            obj.v = val;
+            const just = String(item.justificativa || item.j || '').trim().slice(0, 80);
+            if (just) obj.j = just;
+          }
+        }
+        if (Object.keys(obj).length) compact[ctrl] = obj;
       }
       if (!Object.keys(compact).length) return '';
       try {
@@ -2012,12 +2112,18 @@
           valor_corrigido: v.valor_corrigido !== undefined ? v.valor_corrigido : v.v,
           justificativa: v.justificativa || v.j || '',
         }));
-      if (!lista.length) return;
+      const ignLista = Object.entries(map)
+        .filter(([, v]) => v && typeof v === 'object' && (v.i || v.ignorar))
+        .map(([ctrl, v]) => ({
+          numero_controle_pncp: ctrl,
+          motivo: v.m || v.motivo || 'Contrato duplicado no PNCP',
+        }));
+      if (!lista.length && !ignLista.length) return;
       try {
         const res = await pncpFetch('/api/pncp/retificacoes/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ retificacoes: lista }),
+          body: JSON.stringify({ retificacoes: lista, ignorados: ignLista }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -2180,6 +2286,74 @@
         alert(`Erro ao restaurar valor original: ${err.message}`);
       } finally {
         if (btn) btn.disabled = false;
+      }
+    }
+
+    async function ignorarPncpContrato(ctrl) {
+      if (!ctrl) return false;
+      const c = pncpContractsCache[ctrl] || {};
+      const fornTxt = c.fornecedor_nome || ctrl;
+      const valTxt = c.valor_global !== undefined ? formatBRL(c.valor_global) : '';
+      const confirmed = confirm(
+        `Ignorar este contrato duplicado?\n\n• Fornecedor: ${fornTxt}\n${valTxt ? '• Valor: ' + valTxt + '\n' : ''}• Controle PNCP: ${ctrl}\n\nEle será ocultado das listas e removido dos totais, gráficos e estatísticas (você pode restaurá-lo depois no botão "Ignorados").`
+      );
+      if (!confirmed) return false;
+
+      const motivo = 'Contrato duplicado no PNCP';
+      try {
+        const res = await pncpFetch('/api/pncp/ignorar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero_controle_pncp: ctrl, motivo }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível ignorar o contrato.');
+          return false;
+        }
+        if (currentStorageBackend !== 'supabase') {
+          saveLocalPncpIgnorado(ctrl, motivo);
+          syncPncpRetificacoesCookie();
+        }
+        if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
+        await refreshAfterPncpEdit();
+        showPncpToast('Contrato ignorado e removido dos totais!');
+        return true;
+      } catch (err) {
+        alert(`Erro ao ignorar contrato: ${err.message}`);
+        return false;
+      }
+    }
+
+    async function ignorarPncpDoModalEdit() {
+      const ctrl = document.getElementById('pncp-edit-ctrl')?.value.trim();
+      if (!ctrl) return;
+      const ok = await ignorarPncpContrato(ctrl);
+      if (ok) closeModal('pncp-edit-modal');
+    }
+
+    async function restaurarPncpIgnorado(ctrl) {
+      if (!ctrl) return;
+      try {
+        const res = await pncpFetch('/api/pncp/ignorar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero_controle_pncp: ctrl, restaurar: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível restaurar o contrato.');
+          return;
+        }
+        if (currentStorageBackend !== 'supabase') {
+          markLocalPncpDesignorado(ctrl);
+          syncPncpRetificacoesCookie();
+        }
+        if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
+        await refreshAfterPncpEdit();
+        showPncpToast('Contrato restaurado aos totais ativos!');
+      } catch (err) {
+        alert(`Erro ao restaurar contrato: ${err.message}`);
       }
     }
 
@@ -2602,7 +2776,8 @@
         setTxt('stats-kpi-emerg-valor', formatBRLCompact(emg.valor_total || 0));
         setTxt('stats-kpi-emerg-qtd', `${emg.total_contratos || 0} contratos citados`);
         setTxt('stats-kpi-ativos', `${r.contratos_ativos || 0} ativos`);
-        setTxt('stats-kpi-retif', `${r.contratos_vencendo_60d || 0} venc. 60d • ${r.contratos_retificados || 0} retificados`);
+        const ignTxt = (r.contratos_ignorados || 0) > 0 ? ` • ${r.contratos_ignorados} ignorado(s)` : '';
+        setTxt('stats-kpi-retif', `${r.contratos_vencendo_60d || 0} venc. 60d • ${r.contratos_retificados || 0} retificados${ignTxt}`);
 
         renderStatsCategorias(data.por_categoria || []);
         renderStatsAudit(data.alertas_auditoria || {});
@@ -2868,6 +3043,10 @@
                 <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-tertiary-fixed text-on-surface font-bold transition-colors">
                   <span class="material-symbols-outlined text-[14px]">edit</span>
                   <span>Editar</span>
+                </button>
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="ignorarPncpContrato(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-error-container text-on-surface-variant hover:text-on-error-container font-bold transition-colors" title="Ignorar contrato duplicado (remove dos totais)">
+                  <span class="material-symbols-outlined text-[14px]">visibility_off</span>
+                  <span>Ignorar</span>
                 </button>
               </div>
             </td>
