@@ -13,7 +13,13 @@
     { "source": "/api/clipping", "destination": "/api/index?__route=/api/clipping" },
     { "source": "/api/export/csv", "destination": "/api/index?__route=/api/export/csv" },
     { "source": "/api/fontes", "destination": "/api/index?__route=/api/fontes" },
-    { "source": "/api/executar", "destination": "/api/index?__route=/api/executar" }
+    { "source": "/api/executar", "destination": "/api/index?__route=/api/executar" },
+    { "source": "/api/pncp/contratos", "destination": "/api/index?__route=/api/pncp/contratos" },
+    { "source": "/api/pncp/resumo", "destination": "/api/index?__route=/api/pncp/resumo" },
+    { "source": "/api/pncp/sync", "destination": "/api/index?__route=/api/pncp/sync" },
+    { "source": "/api/pncp/export/csv", "destination": "/api/index?__route=/api/pncp/export/csv" },
+    { "source": "/api/pendencias", "destination": "/api/index?__route=/api/pendencias" },
+    { "source": "/api/telemetria", "destination": "/api/index?__route=/api/telemetria" }
   ],
   "functions": {
     "api/index.py": {

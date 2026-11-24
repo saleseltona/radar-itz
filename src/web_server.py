@@ -13,13 +13,22 @@ import mimetypes
 import os
 import sys
 import urllib.parse
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from main import run_radar_cycle
-from src.config import BASE_DIR, DB_PATH, OUTPUT_DIR, ensure_runtime_files
+from src.config import (
+    ANA_ESTACAO_IMPERATRIZ_CODIGO,
+    BASE_DIR,
+    DB_PATH,
+    FONTES_CSV_PATH,
+    OUTPUT_DIR,
+    ensure_runtime_files,
+)
 from src.database import RadarDatabase
+from src.pncp_client import PncpClient
 from src.source_manager import SourceManager
 
 logger = logging.getLogger("radar_imperatriz.web")
@@ -438,17 +447,50 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Clipping não encontrado")
             return
 
-        # 2. Endpoint REST: Listar pautas
+        # 2. Endpoint REST: Listar pautas (suporta ?sort=recentes|score e ?dias=N)
         if path == "/api/pautas":
-            pautas = db.get_all_pautas()
+            sort_mode = query.get("sort", ["recentes"])[0]
+            dias_str = query.get("dias", ["0"])[0]
+            pautas = db.get_all_pautas(order_by=sort_mode)
+            try:
+                dias = int(dias_str)
+            except ValueError:
+                dias = 0
+            if dias > 0:
+                today = datetime.now().date()
+                filtradas = []
+                for p in pautas:
+                    dt_str = (p.get("data_publicacao") or p.get("data_hora_coleta") or "")[:10]
+                    try:
+                        d = datetime.strptime(dt_str, "%Y-%m-%d").date()
+                        if (today - d).days <= dias:
+                            filtradas.append(p)
+                    except ValueError:
+                        pass
+                pautas = filtradas
             self.send_json_response(pautas)
             return
 
-        # 3. Endpoint REST: Estatísticas
+        # 3. Endpoint REST: Estatísticas consolidadas
         if path == "/api/stats":
             pautas = db.get_all_pautas()
             execucoes = db.get_all_execucoes()
             fontes = db.get_all_fontes()
+            pendencias = db.get_all_pendencias()
+            pncp_resumo = db.get_pncp_resumo()
+            today = datetime.now().date()
+            pautas_48h = 0
+            pautas_7d = 0
+            for p in pautas:
+                dt_str = (p.get("data_publicacao") or p.get("data_hora_coleta") or "")[:10]
+                try:
+                    age = (today - datetime.strptime(dt_str, "%Y-%m-%d").date()).days
+                    if age <= 2:
+                        pautas_48h += 1
+                    if age <= 7:
+                        pautas_7d += 1
+                except ValueError:
+                    pass
             stats = {
                 "total_pautas": len(pautas),
                 "emergencias": sum(
@@ -458,9 +500,108 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 ),
                 "em_apuracao": sum(1 for p in pautas if p.get("nivel_verificacao") != "Confirmado"),
                 "total_execucoes": len(execucoes),
+                "ultima_execucao": execucoes[-1]["data_horario"] if execucoes else "",
                 "total_fontes": len(fontes),
+                "total_pendencias": len(pendencias),
+                "pautas_48h": pautas_48h,
+                "pautas_7d": pautas_7d,
+                "total_contratos_pncp": pncp_resumo.get("total_contratos", 0),
+                "valor_total_pncp": pncp_resumo.get("valor_total_global", 0.0),
+                "por_ano_pncp": pncp_resumo.get("por_ano", {}),
             }
             self.send_json_response(stats)
+            return
+
+        # 3.1 Endpoints PNCP (Contratos 2024-2026)
+        if path == "/api/pncp/contratos":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str.isdigit() else None
+            orgao_val = query.get("orgao", [""])[0].strip() or None
+            forn_val = query.get("fornecedor", [""])[0].strip() or None
+            q_val = query.get("q", [""])[0].strip() or None
+            try:
+                pagina_val = int(query.get("pagina", ["1"])[0])
+            except ValueError:
+                pagina_val = 1
+            try:
+                limite_val = int(query.get("limite", ["50"])[0])
+            except ValueError:
+                limite_val = 50
+            result = db.query_pncp_contratos(
+                ano=ano_val,
+                orgao=orgao_val,
+                fornecedor=forn_val,
+                q=q_val,
+                pagina=pagina_val,
+                limite=limite_val,
+            )
+            self.send_json_response(result)
+            return
+
+        if path == "/api/pncp/resumo":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str.isdigit() else None
+            orgao_val = query.get("orgao", [""])[0].strip() or None
+            resumo = db.get_pncp_resumo(ano=ano_val, orgao=orgao_val)
+            self.send_json_response(resumo)
+            return
+
+        if path == "/api/pncp/export/csv":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str.isdigit() else None
+            orgao_val = query.get("orgao", [""])[0].strip() or None
+            forn_val = query.get("fornecedor", [""])[0].strip() or None
+            q_val = query.get("q", [""])[0].strip() or None
+
+            all_rows: List[Dict[str, Any]] = []
+            pg = 1
+            while True:
+                page_res = db.query_pncp_contratos(
+                    ano=ano_val,
+                    orgao=orgao_val,
+                    fornecedor=forn_val,
+                    q=q_val,
+                    pagina=pg,
+                    limite=200,
+                )
+                all_rows.extend(page_res["items"])
+                if pg >= page_res["total_paginas"]:
+                    break
+                pg += 1
+
+            buf = io.StringIO()
+            writer = csv.writer(buf, delimiter=";")
+            cols = [
+                "numero_controle_pncp",
+                "ano_contrato",
+                "orgao_sigla",
+                "orgao_nome",
+                "unidade_nome",
+                "numero_contrato",
+                "processo",
+                "tipo_contrato",
+                "fornecedor_cnpj",
+                "fornecedor_nome",
+                "objeto",
+                "valor_inicial",
+                "valor_global",
+                "data_assinatura",
+                "data_publicacao",
+                "data_vigencia_inicio",
+                "data_vigencia_fim",
+                "url_pncp",
+            ]
+            writer.writerow(cols)
+            for row in all_rows:
+                writer.writerow([row.get(c, "") for c in cols])
+
+            data = buf.getvalue().encode("utf-8-sig")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", 'attachment; filename="pncp_contratos_imperatriz.csv"')
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
             return
 
         # 4. Endpoint REST: Clipping diário em Markdown
@@ -501,21 +642,159 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(fontes)
             return
 
+        # 7. Endpoint REST: Dossiês / Pendências de apuração
+        if path == "/api/pendencias":
+            pendencias = db.get_pendencias_detalhadas()
+            self.send_json_response(pendencias)
+            return
+
+        # 8. Endpoint REST: Telemetria honesta do Rio Tocantins (Estação ANA 23800000)
+        if path == "/api/telemetria":
+            ana_token = os.environ.get("ANA_TELEMETRIA_TOKEN", "").strip()
+            pautas = db.get_all_pautas(order_by="recentes")
+            alertas_rio = []
+            for p in pautas:
+                txt = f"{p.get('titulo_jornalistico', '')} {p.get('resumo_3_linhas', '')} {p.get('bairros_locais_instituicoes', '')}".lower()
+                if any(k in txt for k in ("rio tocantins", "defesa civil", "alagamento", "inmet", "chuva", "enchente")):
+                    alertas_rio.append(
+                        {
+                            "id_pauta": p.get("id_pauta", ""),
+                            "titulo_jornalistico": p.get("titulo_jornalistico", ""),
+                            "data_publicacao": p.get("data_publicacao", ""),
+                            "url_original": p.get("url_original", ""),
+                        }
+                    )
+                if len(alertas_rio) >= 3:
+                    break
+
+            self.send_json_response(
+                {
+                    "estacao_codigo": ANA_ESTACAO_IMPERATRIZ_CODIGO,
+                    "estacao_nome": "Estação Fluviométrica Imperatriz (Rio Tocantins)",
+                    "configurada_api_ana": bool(ana_token),
+                    "status": (
+                        "Credencial ANA detectada — consulte portal oficial para validação de série telemétrica."
+                        if ana_token
+                        else "Aguardando credencial ANA (ANA_TELEMETRIA_TOKEN)"
+                    ),
+                    "nivel_atual": None,
+                    "nota_transparencia": (
+                        "A API automática do HidroWeb/ANA exige cadastro prévio via telemetria@ana.gov.br. "
+                        "Nenhum nível fictício é exibido sem leitura oficial autenticada."
+                    ),
+                    "url_oficial": "https://www.snirh.gov.br/hidrotelemetria/gerarGrafico.aspx",
+                    "url_defesa_civil": "https://imperatriz.ma.gov.br/defesa-civil",
+                    "alertas_locais": alertas_rio,
+                }
+            )
+            return
+
         # Rota não encontrada
         self.send_error(404, "Endpoint não encontrado")
 
+    def _read_json_body(self) -> Dict[str, Any]:
+        """Lê com segurança payload JSON opcional do corpo da requisição POST."""
+        rfile = getattr(self, "rfile", None)
+        if not rfile:
+            return {}
+        try:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            length = 0
+        if length <= 0:
+            return {}
+        try:
+            raw = rfile.read(min(length, 262_144)).decode("utf-8", errors="replace").strip()
+            if not raw:
+                return {}
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+
     def do_POST(self) -> None:
         path, _ = self._resolve_route()
-        self.get_db()
+        db = self.get_db()
+        body = self._read_json_body()
 
-        # Disparar ciclo sob demanda
+        # 1. Disparar ciclo de pautas sob demanda
         if path == "/api/executar":
             try:
-                res = run_radar_cycle(modo="web")
+                consultas = body.get("consultas_adicionais")
+                if not isinstance(consultas, list):
+                    consultas = None
+                res = run_radar_cycle(modo="web", consultas_adicionais=consultas)
                 self.send_json_response(res)
             except Exception as e:
                 logger.error("Erro ao executar ciclo via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
+            return
+
+        # 2. Sincronizar contratos do PNCP sob demanda
+        if path == "/api/pncp/sync":
+            try:
+                anos = body.get("anos")
+                if not isinstance(anos, list) or not all(isinstance(a, int) for a in anos):
+                    anos = [2024, 2025, 2026]
+                mode = str(body.get("mode") or "recent").strip().lower()
+                if mode not in ("recent", "full"):
+                    mode = "recent"
+                timeout_sec = 28 if mode == "recent" else 40
+                max_pages = 4 if mode == "recent" else 8
+                res = PncpClient(db, timeout=timeout_sec).sync_imperatriz(
+                    anos=anos,
+                    max_pages_per_window=max_pages,
+                    mode=mode,
+                )
+                self.send_json_response(res)
+            except Exception as e:
+                logger.error("Erro ao sincronizar PNCP via web: %s", e, exc_info=True)
+                self.send_json_response({"erro": str(e)}, status=500)
+            return
+
+        # 3. Cadastrar nova fonte pela UI sem modificar código
+        if path == "/api/fontes":
+            nome = str(body.get("nome") or "").strip()
+            tipo = str(body.get("tipo") or "Portal Web").strip()
+            url = str(body.get("url") or "").strip()
+            prioridade = str(body.get("prioridade") or "Média").strip()
+            temas = str(body.get("temas") or "Imperatriz;notícias").strip()
+
+            if not nome or not SourceManager.validate_url(url):
+                self.send_json_response(
+                    {"erro": "Informe nome válido e URL completa com http:// ou https://."},
+                    status=400,
+                )
+                return
+
+            sm = SourceManager(db, FONTES_CSV_PATH)
+            ok = sm.register_new_source(
+                nome=nome,
+                tipo=tipo,
+                url=url,
+                prioridade=prioridade,
+                temas=temas,
+                persist_csv=True,
+            )
+            if not ok:
+                self.send_json_response(
+                    {"erro": "Não foi possível cadastrar a fonte informada."},
+                    status=400,
+                )
+                return
+            self.send_json_response(
+                {
+                    "ok": True,
+                    "fonte": {
+                        "nome": nome,
+                        "tipo": tipo,
+                        "url": url,
+                        "prioridade": prioridade,
+                        "temas": temas,
+                    },
+                },
+                status=201,
+            )
             return
 
         self.send_error(404, "Endpoint POST não encontrado")

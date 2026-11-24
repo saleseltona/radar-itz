@@ -19,7 +19,9 @@ from src.deduplicator import Deduplicator
 from src.editorial_classifier import EditorialClassifier
 from src.evidence_verifier import EvidenceVerifier
 from src.exporter import CSVExporter
+from src.live_news import LiveNewsFetcher
 from src.page_collector import PageCollector
+from src.pncp_client import PncpClient
 from src.report_generator import ReportGenerator
 from src.source_manager import SourceManager
 
@@ -257,6 +259,152 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertIn("# Radar de Pautas de Imperatriz", md_text)
         self.assertIn("## 2. Pautas de serviço público", md_text)
         self.assertIn("Recomendação Editorial: Três Pautas que Merecem Apuração Primeiro", md_text)
+
+    def test_10_extracao_imagem_capa_e_migracao_sqlite(self) -> None:
+        """Testa extração de meta og:image/twitter:image e persistência de imagem_capa no SQLite."""
+        html_og = '<html><head><meta content="/uploads/capa.jpg" property="og:image"/></head></html>'
+        capa = ContentExtractor.extract_cover_image(html_og, base_url="https://imperatriz.ma.gov.br/noticias")
+        self.assertEqual(capa, "https://imperatriz.ma.gov.br/uploads/capa.jpg")
+
+        html_tw = '<html><head><meta name="twitter:image" content="https://s2.glbimg.com/foto.jpg"></head></html>'
+        self.assertEqual(ContentExtractor.extract_cover_image(html_tw), "https://s2.glbimg.com/foto.jpg")
+
+        self.db.insert_pauta(
+            {
+                "id_pauta": "PAUTA-CAPA-01",
+                "categoria": "Pautas de serviço público",
+                "tema_especifico": "Obras",
+                "titulo_jornalistico": "Obra na Beira-Rio",
+                "titulo_normalizado": "obra na beira rio",
+                "resumo_3_linhas": "Resumo.",
+                "descricao_detalhada": "Detalhes.",
+                "fonte_principal": "Prefeitura",
+                "url_original": "https://imperatriz.ma.gov.br/obra-beira-rio",
+                "veiculo_instituicao": "PMI",
+                "evidencias_verificadas": "Nota oficial",
+                "angulo_jornalistico": "Impacto urbano",
+                "publico_afetado": "Moradores",
+                "bairros_locais_instituicoes": "Beira-Rio",
+                "formato_sugerido": "Serviço público",
+                "nivel_verificacao": "Confirmado",
+                "situacao_editorial": "Sugerida",
+                "data_publicacao": "2026-11-24",
+                "imagem_capa": capa,
+            },
+            "EXEC-CAPA",
+        )
+        pautas = self.db.get_all_pautas(order_by="recentes")
+        self.assertEqual(pautas[0]["imagem_capa"], "https://imperatriz.ma.gov.br/uploads/capa.jpg")
+
+    def test_11_pncp_normalizacao_e_agregacao_2024_2026(self) -> None:
+        """Testa normalização PNCP, filtro por ano (2024/2025/2026) e agregação de fornecedores."""
+        raw_2025 = {
+            "numeroControlePNCP": "06158455000116-2-000010/2025",
+            "orgaoEntidade": {"cnpj": "06158455000116", "razaoSocial": "Município de Imperatriz"},
+            "unidadeOrgao": {"nomeUnidade": "Secretaria Municipal de Infraestrutura"},
+            "anoContrato": 2025,
+            "sequencialContrato": 10,
+            "numeroContratoEmpenho": "010/2025",
+            "niFornecedor": "11222333000144",
+            "nomeRazaoSocialFornecedor": "Construtora Tocantina Ltda",
+            "objetoContrato": "Pavimentação asfáltica em ruas de Imperatriz",
+            "valorInicial": 1000000.0,
+            "valorGlobal": 1200000.0,
+            "dataPublicacaoPncp": "2025-05-10T10:00:00",
+            "dataVigenciaInicio": "2025-05-10",
+            "dataVigenciaFim": "2026-05-10",
+        }
+        raw_2026 = {
+            "numeroControlePNCP": "00939023000166-2-000004/2026",
+            "orgaoEntidade": {"cnpj": "00939023000166", "razaoSocial": "Fundo Municipal de Saúde de Imperatriz"},
+            "unidadeOrgao": {"nomeUnidade": "SEMUS"},
+            "anoContrato": 2026,
+            "sequencialContrato": 4,
+            "numeroContratoEmpenho": "004/2026",
+            "niFornecedor": "55666777000188",
+            "nomeRazaoSocialFornecedor": "MedSul Insumos Hospitalares",
+            "objetoContrato": "Aquisição de medicamentos para o Socorrão",
+            "valorInicial": 800000.0,
+            "valorGlobal": 800000.0,
+            "dataPublicacaoPncp": "2026-11-05T14:20:00",
+            "dataVigenciaInicio": "2026-11-05",
+            "dataVigenciaFim": "2027-11-05",
+        }
+
+        c25 = PncpClient.normalize_contrato(raw_2025, {"cnpj": "06158455000116", "sigla": "PMI", "nome": "Prefeitura"})
+        c26 = PncpClient.normalize_contrato(raw_2026, {"cnpj": "00939023000166", "sigla": "FMS", "nome": "Saúde"})
+        self.db.upsert_pncp_contratos_batch([c25, c26])
+
+        res_all = self.db.get_pncp_resumo()
+        self.assertEqual(res_all["total_contratos"], 2)
+        self.assertAlmostEqual(res_all["valor_total_global"], 2000000.0)
+        self.assertEqual(res_all["top_fornecedores"][0]["fornecedor_nome"], "Construtora Tocantina Ltda")
+
+        q26 = self.db.query_pncp_contratos(ano=2026)
+        self.assertEqual(q26["total"], 1)
+        self.assertEqual(q26["items"][0]["orgao_sigla"], "FMS")
+
+    def test_12_live_news_rss_parser(self) -> None:
+        """Testa parsing de RSS do Google News e G1 MA com filtro geográfico e extração de capa."""
+        sample_xml = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+          <channel>
+            <item>
+              <title>Prefeitura de Imperatriz abre processo de licitação para drenagem no Bacuri - Imirante</title>
+              <link>https://imirante.com/imperatriz/drenagem-bacuri</link>
+              <pubDate>Tue, 24 Nov 2026 09:30:00 GMT</pubDate>
+              <source url="https://imirante.com">Imirante</source>
+              <media:content url="https://imirante.com/media/bacuri.jpg" medium="image"/>
+              <description>Serviços no Riacho Bacuri em Imperatriz foram anunciados nesta terça-feira.</description>
+            </item>
+            <item>
+              <title>Evento cultural em São Luís atrai visitantes - Jornal Local</title>
+              <link>https://example.com/slz-evento</link>
+              <pubDate>Tue, 24 Nov 2026 08:00:00 GMT</pubDate>
+              <description>Feira acontece exclusivamente na capital São Luís sem relação com outra cidade.</description>
+            </item>
+            <item>
+              <title>Motorista fica preso às ferragens em capotamento na BR-135, em São Luís - Jornal Imperatriz</title>
+              <link>https://jornalimperatriz.com.br/capotamento-br-135-sao-luis</link>
+              <pubDate>Tue, 24 Nov 2026 07:30:00 GMT</pubDate>
+              <source url="https://jornalimperatriz.com.br">Jornal Imperatriz</source>
+              <description>Motorista fica preso às ferragens em capotamento na BR-135, em São Luís Jornal Imperatriz</description>
+            </item>
+          </channel>
+        </rss>"""
+        parsed = LiveNewsFetcher.parse_rss_xml(sample_xml, require_imperatriz_filter=True)
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["data_publicacao"], "2026-11-24")
+        self.assertEqual(parsed[0]["imagem_capa"], "https://imirante.com/media/bacuri.jpg")
+        self.assertEqual(parsed[0]["fonte_nome"], "Imirante")
+        self.assertIn("Bacuri", parsed[0]["bairros_locais_instituicoes"])
+
+        pref_html = """
+        <section class="post-list"><div class="post-list__list">
+          <article class="post-list__list__item">
+            <a class="post-list__list__item__link" href="/noticias/sedec-oferece-curso-gratuito-em-imperatriz.html">
+              <p class="post-list__list__item__date">23/11/2026</p>
+              <div class="post-list__list__item__image">
+                <img src="http://media.imperatriz.ma.gov.br/abc/120x90/novo.imperatriz.ma.gov.br/media/foto.jpg" alt="">
+              </div>
+              <div class="post-list__list__item__content">
+                <h4 class="post-list__list__item__content__title">SEDEC oferece curso gratuito em Imperatriz</h4>
+              </div>
+            </a>
+          </article>
+        </div></section>
+        """
+        pref_items = LiveNewsFetcher.parse_prefeitura_html(pref_html, max_items=5)
+        self.assertEqual(len(pref_items), 1)
+        self.assertEqual(pref_items[0]["data_publicacao"], "2026-11-23")
+        self.assertEqual(
+            pref_items[0]["url"],
+            "https://imperatriz.ma.gov.br/noticias/sedec-oferece-curso-gratuito-em-imperatriz.html",
+        )
+        self.assertEqual(
+            pref_items[0]["imagem_capa"],
+            "https://media.imperatriz.ma.gov.br/abc/120x90/novo.imperatriz.ma.gov.br/media/foto.jpg",
+        )
 
 
 if __name__ == "__main__":

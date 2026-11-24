@@ -1,971 +1,1943 @@
 <!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>Radar de Pautas de Imperatriz (MA) | Inteligência Editorial &amp; PNCP</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <style>
+    @layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(115, 118, 135, 0.35); border-radius: 9999px; }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "secondary-fixed-dim": "#bec6e0",
+            "surface-container": "#edeef1",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f2f3f6",
+            "outline-variant": "#c3c5d8",
+            "secondary": "#565e74",
+            "primary-fixed-dim": "#b7c4ff",
+            "tertiary-container": "#925c00",
+            "surface-tint": "#004deb",
+            "error-container": "#ffdad6",
+            "surface-bright": "#f8f9fc",
+            "on-secondary": "#ffffff",
+            "surface-dim": "#d9dadd",
+            "tertiary-fixed-dim": "#ffb95f",
+            "primary-container": "#1d58f5",
+            "surface-variant": "#e1e2e5",
+            "on-primary-fixed": "#001551",
+            "on-surface": "#191c1e",
+            "secondary-fixed": "#dae2fd",
+            "on-tertiary": "#ffffff",
+            "inverse-surface": "#2e3133",
+            "on-secondary-fixed": "#131b2e",
+            "surface": "#f8f9fc",
+            "on-primary": "#ffffff",
+            "background": "#f8f9fc",
+            "primary": "#0041ca",
+            "surface-container-high": "#e7e8eb",
+            "primary-fixed": "#dce1ff",
+            "on-error": "#ffffff",
+            "on-tertiary-fixed": "#2a1700",
+            "on-secondary-container": "#5c647a",
+            "on-primary-container": "#e4e7ff",
+            "surface-container-highest": "#e1e2e5",
+            "on-tertiary-container": "#ffe3c6",
+            "on-error-container": "#93000a",
+            "error": "#ba1a1a",
+            "on-background": "#191c1e",
+            "tertiary-fixed": "#ffddb8",
+            "inverse-on-surface": "#f0f1f4",
+            "tertiary": "#714600",
+            "on-secondary-fixed-variant": "#3f465c",
+            "on-tertiary-fixed-variant": "#653e00",
+            "on-primary-fixed-variant": "#0039b4",
+            "outline": "#737687",
+            "inverse-primary": "#b7c4ff",
+            "secondary-container": "#dae2fd",
+            "on-surface-variant": "#434656"
+          },
+          "borderRadius": { "DEFAULT": "1rem", "lg": "1.5rem", "xl": "2rem", "full": "9999px" },
+          "spacing": {
+            "space-xl": "1.75rem",
+            "space-xs": "0.25rem",
+            "space-md": "0.75rem",
+            "space-2xl": "2.5rem",
+            "gutter": "1rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.25rem",
+            "gutter-desktop": "1.5rem",
+            "margin-desktop": "2.5rem",
+            "margin": "1rem"
+          },
+          "fontFamily": {
+            "sans": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-sm": ["Plus Jakarta Sans", "sans-serif"],
+            "label-sm": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-lg-mobile": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-xl": ["Plus Jakarta Sans", "sans-serif"],
+            "body-md": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-md": ["Plus Jakarta Sans", "sans-serif"],
+            "label-md": ["Plus Jakarta Sans", "sans-serif"],
+            "body-sm": ["Plus Jakarta Sans", "sans-serif"],
+            "headline-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "body-lg": ["Plus Jakarta Sans", "sans-serif"],
+            "label-lg": ["Plus Jakarta Sans", "sans-serif"]
+          },
+          "fontSize": {
+            "headline-sm": ["16px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "700" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-xl": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.03em", "fontWeight": "800" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-lg": ["26px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-lg": ["15px", { "lineHeight": "22px", "fontWeight": "500" }],
+            "label-lg": ["14px", { "lineHeight": "18px", "fontWeight": "600" }]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased">
 
-<html lang="pt-BR"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "secondary-fixed-dim": "#bec6e0", "surface-container": "#edeef1", "surface-container-lowest": "#ffffff", "surface-container-low": "#f2f3f6", "outline-variant": "#c3c5d8", "secondary": "#565e74", "primary-fixed-dim": "#b7c4ff", "tertiary-container": "#925c00", "surface-tint": "#004deb", "error-container": "#ffdad6", "surface-bright": "#f8f9fc", "on-secondary": "#ffffff", "surface-dim": "#d9dadd", "tertiary-fixed-dim": "#ffb95f", "primary-container": "#1d58f5", "surface-variant": "#e1e2e5", "on-primary-fixed": "#001551", "on-surface": "#191c1e", "secondary-fixed": "#dae2fd", "on-tertiary": "#ffffff", "inverse-surface": "#2e3133", "on-secondary-fixed": "#131b2e", "surface": "#f8f9fc", "on-primary": "#ffffff", "background": "#f8f9fc", "primary": "#0041ca", "surface-container-high": "#e7e8eb", "primary-fixed": "#dce1ff", "on-error": "#ffffff", "on-tertiary-fixed": "#2a1700", "on-secondary-container": "#5c647a", "on-primary-container": "#e4e7ff", "surface-container-highest": "#e1e2e5", "on-tertiary-container": "#ffe3c6", "on-error-container": "#93000a", "error": "#ba1a1a", "on-background": "#191c1e", "tertiary-fixed": "#ffddb8", "inverse-on-surface": "#f0f1f4", "tertiary": "#714600", "on-secondary-fixed-variant": "#3f465c", "on-tertiary-fixed-variant": "#653e00", "on-primary-fixed-variant": "#0039b4", "outline": "#737687", "inverse-primary": "#b7c4ff", "secondary-container": "#dae2fd", "on-surface-variant": "#434656" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "space-xl": "1.75rem", "space-xs": "0.25rem", "space-md": "0.75rem", "space-2xl": "2.5rem", "gutter": "1rem", "space-sm": "0.5rem", "space-lg": "1.25rem", "gutter-desktop": "1.5rem", "margin-desktop": "2.5rem", "margin": "1rem" }, "fontFamily": { "headline-sm": [ "Plus Jakarta Sans" ], "label-sm": [ "Plus Jakarta Sans" ], "headline-lg-mobile": [ "Plus Jakarta Sans" ], "headline-xl": [ "Plus Jakarta Sans" ], "body-md": [ "Plus Jakarta Sans" ], "headline-md": [ "Plus Jakarta Sans" ], "label-md": [ "Plus Jakarta Sans" ], "body-sm": [ "Plus Jakarta Sans" ], "headline-lg": [ "Plus Jakarta Sans" ], "body-lg": [ "Plus Jakarta Sans" ], "label-lg": [ "Plus Jakarta Sans" ] }, "fontSize": { "headline-sm": [ "16px", { "lineHeight": "24px", "fontWeight": "600" } ], "label-sm": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "700" } ], "headline-lg-mobile": [ "24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "headline-xl": [ "36px", { "lineHeight": "44px", "letterSpacing": "-0.03em", "fontWeight": "800" } ], "body-md": [ "14px", { "lineHeight": "20px", "fontWeight": "400" } ], "headline-md": [ "20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "label-md": [ "12px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" } ], "body-sm": [ "12px", { "lineHeight": "16px", "fontWeight": "400" } ], "headline-lg": [ "28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" } ], "body-lg": [ "15px", { "lineHeight": "22px", "fontWeight": "500" } ], "label-lg": [ "14px", { "lineHeight": "18px", "fontWeight": "600" } ] } } } };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-50 flex flex-col justify-between p-space-md"><div class="flex flex-col gap-space-lg"><div class="flex items-center gap-space-sm px-space-xs py-space-xs"><img alt="Radar de Pautas de Imperatriz Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrA1hfOQvNMKqFkUTzZdU2mbH4Cevm5RlpUf1CHtfcBrTQVfHjrUtxnRwV0JDsMHUk9nGDVSh3psDT2g60b0flrE0QV5RSlUjHsOQRJ7HkFsR-npv_rHXIoBAu9R2dxsKTizCK_jEGm2hZjH3pvZTifa22SJUXEX0kuVqHl-oz_yGHXudPLPgB3gNxfOEaP6q0wuqnT6ZJ-HXwELa0SQsEytgy15_fYaOV0PyyQXOZEdgg"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-tight">Radar de Pautas</span><span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Imperatriz • MA</span></div></div><div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container"></span></span><span class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Varredura Ativa</span></div><span class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full">22 Fontes ON</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-primary-container text-on-primary font-bold shadow-sm"><a aria-current="page" class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT transition-all bg-primary-container text-on-primary font-bold shadow-sm" data-path="feed-de-pautas" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">dynamic_feed</span><span class="font-body-md text-body-md">Feed de Pautas</span></div><span class="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full">14</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="auditoria-pncp-e-contratos" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">verified</span><span class="font-body-md text-body-md">Auditoria PNCP &amp; Contratos</span></div><span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">Alerta</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="evolucao-de-gastos-orcamento" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">trending_up</span><span class="font-body-md text-body-md">Evolução de Gastos</span></div></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="monitor-de-fontes" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">sensors</span><span class="font-body-md text-body-md">Monitor de Fontes</span></div><span class="bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2 py-0.5 rounded-full">22</span></a><a class="flex items-center justify-between px-space-md py-space-sm rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="dossies-investigativos" href="#"><div class="flex items-center gap-space-md"><span class="material-symbols-outlined text-[20px]">folder_special</span><span class="font-body-md text-body-md">Dossiês Investigativos</span></div><span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">6</span></a></nav></div><div class="flex flex-col gap-space-sm"><div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-space-xs"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Sincronismo TCE-MA</span><span class="font-label-sm text-label-sm text-primary font-bold">Há 3 min</span></div><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Base PNCP Diário</span><span class="font-label-sm text-label-sm text-primary font-bold">100% OK</span></div></div><div class="flex items-center justify-between p-space-xs rounded-DEFAULT hover:bg-surface-container-high transition-colors"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="flex flex-col"><span class="font-label-lg text-label-lg text-on-surface leading-tight">Redação Investigativa</span><span class="font-label-sm text-label-sm text-on-surface-variant">Chefe de Pauta • ITZ</span></div></div><span class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-gutter-desktop flex items-center justify-between"><div class="flex items-center gap-space-sm flex-1 max-w-xl"><div class="relative w-full flex items-center"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px]">search</span><input id="stitch-search-input" oninput="filterPautas()" class="w-full h-10 pl-10 pr-12 rounded-full bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary-container shadow-sm" placeholder="Pesquisar licitações, contratos, bairros, secretarias ou palavras-chave..." type="text"/><kbd class="absolute right-3 px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm border-0">ESC</kbd></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs bg-surface-container-lowest px-3 py-1.5 rounded-full shadow-sm"><span class="material-symbols-outlined text-primary text-[18px]">sync</span><span class="font-label-sm text-label-sm text-on-surface font-medium">TCE-MA / PNCP Sincronizados</span></div><button aria-label="Notificações de Alertas" class="relative p-2 rounded-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface shadow-sm transition-colors" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-error"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-surface min-h-screen w-full px-gutter-desktop py-space-lg"><div class="flex flex-col w-full gap-space-lg pb-space-2xl">
-<!-- ========================================== -->
-<!-- 1. HERO COBALT EDITORIAL INTELLIGENCE RADAR -->
-<!-- ========================================== -->
-<section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary shadow-xl p-space-xl flex flex-col gap-space-lg">
-<!-- Atmospheric subtle glows -->
-<div class="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
-<div class="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-primary/30 blur-2xl pointer-events-none"></div>
-<!-- Header bar within hero -->
-<div class="relative z-10 flex flex-wrap items-center justify-between gap-space-md">
-<div class="flex flex-col gap-1">
-<div class="flex items-center gap-space-sm flex-wrap">
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm uppercase tracking-wider">
-<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Varredura Ativa • 22 Fontes Oficiais
-          </span>
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[15px]">verified_user</span>
-            TCE-MA / PNCP Sincronizado
-          </span>
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[15px]">water</span>
-            Rio Tocantins: 4,12m (Estável)
-          </span>
-<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[15px]">calendar_today</span>
-            Exercício 2024/2025
-          </span>
-</div>
-<h1 class="font-headline-xl text-headline-xl tracking-tight text-white mt-space-xs">
-          Centro de Inteligência &amp; Auditoria Municipal de Imperatriz
-        </h1>
-<p class="font-body-md text-body-md text-on-primary-container max-w-4xl">
-          Triagem algorítmica de diários oficiais, dispensas de licitação, contratos do PNCP e empenhos da Prefeitura de Imperatriz em tempo real.
-        </p>
-</div>
-<!-- Action Buttons -->
-<div class="flex items-center gap-space-sm flex-wrap">
-<a href="/api/clipping" target="_blank" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-surface-container-lowest text-primary font-label-lg text-label-lg shadow-md hover:bg-surface-bright transition-all transform active:scale-95" id="btn-nova-pauta">
-<span class="material-symbols-outlined text-[18px]">newspaper</span>
-          Ver Clipping Diário
-</a>
-<button class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/15 backdrop-blur-md text-white hover:bg-white/25 font-label-lg text-label-lg transition-all" id="btn-sync-manual" type="button" onclick="triggerManualSync()">
-<span class="material-symbols-outlined text-[18px] sync-icon" id="sync-icon-spin">refresh</span>
-          Disparar Varredura Manual
-</button>
-<a href="/api/export/csv" class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-full bg-white/15 backdrop-blur-md text-white hover:bg-white/25 font-label-md text-label-md transition-all" title="Exportar Relatório CSV">
-<span class="material-symbols-outlined text-[18px]">download</span>
-          Exportar CSV
-</a>
-</div>
-</div>
-<!-- 4 KPI Metrics Block inside Hero -->
-<div class="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md pt-space-xs">
-<!-- KPI 1 -->
-<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
-<div class="flex items-center justify-between text-white/80">
-<span class="font-label-md text-label-md uppercase tracking-wider">Total Auditado (24/25)</span>
-<span class="material-symbols-outlined text-[20px]">account_balance</span>
-</div>
-<div class="mt-space-sm">
-<span class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">R$ 684,2 MI</span>
-<div class="flex items-center gap-1 mt-1 text-emerald-300 font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
-<span>+14,8% vs período homólogo</span>
-</div>
-</div>
-</div>
-<!-- KPI 2 -->
-<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
-<div class="flex items-center justify-between text-white/80">
-<span class="font-label-md text-label-md uppercase tracking-wider">PNCP Homologados</span>
-<span class="material-symbols-outlined text-[20px]">contract</span>
-</div>
-<div class="mt-space-sm">
-<span class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">R$ 142,8 MI</span>
-<div class="flex items-center gap-1 mt-1 text-tertiary-fixed font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[16px]">warning</span>
-<span>184 contratos • <strong>29 em alerta</strong></span>
-</div>
-</div>
-</div>
-<!-- KPI 3 -->
-<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
-<div class="flex items-center justify-between text-white/80">
-<span class="font-label-md text-label-md uppercase tracking-wider">Total de Pautas</span>
-<span class="material-symbols-outlined text-[20px]">pending_actions</span>
-</div>
-<div class="mt-space-sm">
-<span id="kpi-total-pautas" class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">18 Ativas</span>
-<div class="flex items-center gap-1 mt-1 text-on-primary-container font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[16px]">flag</span>
-<span id="kpi-emergencias-sub">4 em prioridade de emergência</span>
-</div>
-</div>
-</div>
-<!-- KPI 4 -->
-<div class="bg-white/10 backdrop-blur-md rounded-lg p-space-md flex flex-col justify-between hover:bg-white/15 transition-all">
-<div class="flex items-center justify-between text-white/80">
-<span class="font-label-md text-label-md uppercase tracking-wider">Fontes Monitoradas</span>
-<span class="material-symbols-outlined text-[20px]">sensors</span>
-</div>
-<div class="mt-space-sm">
-<span id="kpi-total-fontes" class="font-headline-lg text-headline-lg text-white font-extrabold tracking-tight">22 Fontes</span>
-<div class="flex items-center gap-1 mt-1 text-emerald-300 font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[16px]">check_circle</span>
-<span>100% catalogadas no sistema</span>
-</div>
-</div>
-</div>
-</div>
-</section>
-<!-- ========================================== -->
-<!-- 2. DESKTOP 3-COLUMN INVESTIGATIVE WORKSPACE -->
-<!-- 12 COLS: 4 (Feed) + 5 (Auditoria/Gráficos) + 3 (Fontes/Telemetria) -->
-<!-- ========================================== -->
-<div class="grid grid-cols-12 gap-space-lg items-start">
-<!-- ==================================================== -->
-<!-- COLUNA ESQUERDA: FEED DE PAUTAS & INVESTIGAÇÃO (4 COLS) -->
-<!-- ==================================================== -->
-<div class="col-span-12 lg:col-span-4 flex flex-col gap-space-md">
-<!-- Seção Cabeçalho & Filtros -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-primary text-[22px]">feed</span>
-<h2 class="font-headline-md text-headline-md text-on-surface">Radar de Pautas</h2>
-</div>
-<span id="pautas-count-badge" class="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">Carregando...</span>
-</div>
-<!-- Filtros interativos -->
-<div class="flex items-center gap-1 overflow-x-auto py-1 text-nowrap" id="filter-buttons-bar">
-<button onclick="setCategoryFilter('todas')" class="filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all" data-cat="todas" type="button">Todas (<span id="count-todas">0</span>)</button>
-<button onclick="setCategoryFilter('Pautas urgentes')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas urgentes" type="button">🚨 Urgentes (<span id="count-urgentes">0</span>)</button>
-<button onclick="setCategoryFilter('Pautas de denúncia e apuração')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de denúncia e apuração" type="button">🔍 Denúncias (<span id="count-denuncias">0</span>)</button>
-<button onclick="setCategoryFilter('Pautas de serviço público')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de serviço público" type="button">🏛️ Serviço Público (<span id="count-servico">0</span>)</button>
-<button onclick="setCategoryFilter('Pautas de cultura, economia e cidade')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de cultura, economia e cidade" type="button">🎭 Cidade (<span id="count-cidade">0</span>)</button>
-</div>
-</div>
+  <!-- Backdrop Mobile Sidebar -->
+  <div id="sidebar-backdrop" onclick="toggleMobileSidebar(false)" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden"></div>
 
-<!-- Container dinâmico das pautas reais -->
-<div id="pautas-cards-container" class="flex flex-col gap-space-md">
-  <div class="p-8 text-center text-on-surface-variant text-body-md bg-surface-container-lowest rounded-lg">
-    <span class="material-symbols-outlined text-primary text-[32px] animate-spin">refresh</span>
-    <p class="mt-2 font-medium">Carregando pautas do banco de inteligência...</p>
-  </div>
-</div>
-</div>
-<!-- ==================================================== -->
-<!-- COLUNA CENTRAL: AUDITORIA ORÇAMENTÁRIA & GRÁFICOS (5 COLS) -->
-<!-- ==================================================== -->
-<div class="col-span-12 lg:col-span-5 flex flex-col gap-space-md">
-<!-- Bloco Gráfico: Evolução Mensal de Desembolsos com Anomalia Pré-Eleitoral -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-md">
-<div class="flex flex-wrap items-center justify-between gap-space-xs">
-<div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">ssid_chart</span>
-<h2 class="font-headline-md text-headline-md text-on-surface">Evolução de Desembolsos da Prefeitura</h2>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Série histórica 2024-2025 consolidada (TCE-MA &amp; SIAFIC)</p>
-</div>
-<div class="flex items-center gap-3">
-<span class="inline-flex items-center gap-1 text-on-surface font-label-sm text-label-sm">
-<span class="w-3 h-3 rounded-sm bg-primary"></span> Liquidado
-            </span>
-<span class="inline-flex items-center gap-1 text-on-surface font-label-sm text-label-sm">
-<span class="w-3 h-3 rounded-sm bg-secondary-fixed"></span> Empenhado
-            </span>
-<span class="inline-flex items-center gap-1 text-error font-label-sm text-label-sm">
-<span class="w-2.5 h-2.5 rounded-full bg-error"></span> Anomalia Auditada
-            </span>
-</div>
-</div>
-<!-- Inline SVG Data Visualization Chart (Desembolso por Mês + Spike em Outubro) -->
-<div class="relative w-full h-64 bg-surface-container-low rounded-DEFAULT p-3 flex flex-col justify-end overflow-hidden">
-<!-- Subtle Grid Lines -->
-<div class="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none opacity-40">
-<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 90 MI</span></div>
-<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 60 MI</span></div>
-<div class="w-full border-b border-outline-variant/30 flex justify-between text-[10px] text-on-surface-variant"><span>R$ 30 MI</span></div>
-<div class="w-full flex justify-between text-[10px] text-on-surface-variant"><span>R$ 0</span></div>
-</div>
-<!-- Chart Visual Bars & Anomaly Pin -->
-<div class="relative z-10 w-full h-44 flex items-end justify-between gap-1.5 px-2">
-<!-- Jan -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-20"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Jan</span>
-</div>
-<!-- Fev -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-24"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Fev</span>
-</div>
-<!-- Mar -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-28"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Mar</span>
-</div>
-<!-- Abr -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-26"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Abr</span>
-</div>
-<!-- Mai -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-32"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Mai</span>
-</div>
-<!-- Jun -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-36"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Jun</span>
-</div>
-<!-- Jul -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-30"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Jul</span>
-</div>
-<!-- Ago -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-34"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Ago</span>
-</div>
-<!-- Set -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-38"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Set</span>
-</div>
-<!-- Out (Pico Pré-Eleitoral Anômalo) -->
-<div class="flex-1 flex flex-col items-center gap-1 relative group cursor-pointer">
-<!-- Floating Tooltip Box -->
-<div class="absolute -top-16 bg-on-surface text-surface px-2.5 py-1.5 rounded-DEFAULT text-center shadow-lg pointer-events-none z-20 whitespace-nowrap">
-<span class="font-label-sm text-label-sm block font-bold text-error-container">Out/24: R$ 82,4 MI</span>
-<span class="text-[9px] block text-surface-container">+28% dispensas SINFRA</span>
-</div>
-<div class="w-full bg-error rounded-t-sm h-40 shadow-sm ring-2 ring-error-container"></div>
-<span class="text-[10px] font-label-sm text-error font-extrabold">Out</span>
-</div>
-<!-- Nov -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-28"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Nov</span>
-</div>
-<!-- Dez -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all h-32"></div>
-<span class="text-[10px] font-label-sm text-on-surface-variant">Dez</span>
-</div>
-<!-- Jan/25 -->
-<div class="flex-1 flex flex-col items-center gap-1 group">
-<div class="w-full bg-primary hover:bg-primary-container rounded-t-sm transition-all h-22"></div>
-<span class="text-[10px] font-label-sm text-primary font-bold">Jan/25</span>
-</div>
-</div>
-</div>
-<div class="flex items-center justify-between bg-surface-container-low p-space-sm rounded-DEFAULT">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-error text-[20px]">crisis_alert</span>
-<span class="font-body-sm text-body-sm text-on-surface">
-<strong>Nota Analítica:</strong> O salto de R$ 82,4 MI em outubro/2024 coincide com 12 termos de dispensa emergencial emitidos no período eleitoral.
-            </span>
-</div>
-<button class="text-primary font-label-sm text-label-sm font-bold hover:underline shrink-0" type="button">
-            Cruzar Empenhos
-          </button>
-</div>
-</div>
-<!-- Ranking: Maiores Credores Municipais (Estilo Active Savings) -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-md">
-<div class="flex items-center justify-between">
-<div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Quem Mais Recebeu Recursos Públicos</h3>
-<p class="font-body-sm text-body-sm text-on-surface-variant">Principais fornecedores e taxa de execução de empenhos (2024-2025)</p>
-</div>
-<span class="font-label-sm text-label-sm text-on-surface-variant">Top 4 Credores</span>
-</div>
-<div class="flex flex-col gap-space-sm">
-<!-- Credor 1 -->
-<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="w-6 h-6 rounded-full bg-primary text-on-primary font-label-sm text-label-sm flex items-center justify-center font-bold">1</span>
-<div>
-<span class="font-label-lg text-label-lg text-on-surface font-semibold">Construtora Rio Tocantins Ltda</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 04.981.332/0001-90</span>
-</div>
-</div>
-<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 28.450.000,00</span>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>8 contratos ativos • SINFRA • Pavimentação</span>
-<span class="font-bold text-primary">78% executado</span>
-</div>
-<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 78%;"></div>
-</div>
-</div>
-<!-- Credor 2 -->
-<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">2</span>
-<div>
-<span class="font-label-lg text-label-lg text-on-surface font-semibold">MedHosp Distribuidora e Logística Ltda</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 12.339.810/0001-44</span>
-</div>
-</div>
-<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 19.320.000,00</span>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>SEMUS • Hospital Municipal (Socorrão) e Farmácia Básica</span>
-<span class="font-bold text-primary">89% executado</span>
-</div>
-<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 89%;"></div>
-</div>
-</div>
-<!-- Credor 3 -->
-<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">3</span>
-<div>
-<span class="font-label-lg text-label-lg text-on-surface font-semibold">LimpaBem Serviços Urbanos &amp; Resíduos</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 08.411.750/0001-02</span>
-</div>
-</div>
-<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 14.800.000,00</span>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>Coleta domiciliar, aterro sanitário e caçambas</span>
-<span class="font-bold text-primary">62% executado</span>
-</div>
-<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 62%;"></div>
-</div>
-</div>
-<!-- Credor 4 -->
-<div class="bg-surface-container-low p-space-sm rounded-DEFAULT flex flex-col gap-1.5 hover:bg-surface-container transition-all">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="w-6 h-6 rounded-full bg-surface-container-high text-on-surface font-label-sm text-label-sm flex items-center justify-center font-bold">4</span>
-<div>
-<span class="font-label-lg text-label-lg text-on-surface font-semibold">Tecnologia &amp; Gestão Escolar Brasil</span>
-<span class="font-label-sm text-label-sm text-on-surface-variant ml-2">CNPJ 33.109.444/0001-11</span>
-</div>
-</div>
-<span class="font-headline-sm text-headline-sm text-on-surface font-bold">R$ 9.150.000,00</span>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
-<span>SEMED • Softwares de frequência e lousas digitais</span>
-<span class="font-bold text-primary">45% executado</span>
-</div>
-<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
-<div class="h-full bg-primary rounded-full" style="width: 45%;"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- Tabela Compacta de Últimos Contratos PNCP -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">history_edu</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Últimos Contratos Publicados no PNCP</h3>
-</div>
-<a class="text-primary font-label-sm text-label-sm font-semibold hover:underline" href="#">Ver todos (184)</a>
-</div>
-<div class="overflow-x-auto">
-<table class="w-full text-left font-body-sm text-body-sm">
-<thead>
-<tr class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
-<th class="py-2">Objeto / Empresa</th>
-<th class="py-2">Secretaria</th>
-<th class="py-2">Valor</th>
-<th class="py-2 text-right">Status</th>
-</tr>
-</thead>
-<tbody class="divide-y divide-surface-container-low text-on-surface">
-<tr class="hover:bg-surface-container-low/50 transition-colors">
-<td class="py-2.5">
-<div class="font-semibold text-on-surface">Locação de Caminhões Pipa</div>
-<div class="text-on-surface-variant text-[11px]">TransNorte Serviços • Dispensa nº 04/25</div>
-</td>
-<td class="py-2.5 text-on-surface-variant">SEMED</td>
-<td class="py-2.5 font-bold text-on-surface">R$ 890.000</td>
-<td class="py-2.5 text-right">
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-semibold">Regular</span>
-</td>
-</tr>
-<tr class="hover:bg-surface-container-low/50 transition-colors">
-<td class="py-2.5">
-<div class="font-semibold text-on-surface">Manutenção Preventiva de Bombas</div>
-<div class="text-on-surface-variant text-[11px]">HidroImperatriz Ltda • Pregão 002/25</div>
-</td>
-<td class="py-2.5 text-on-surface-variant">SINFRA</td>
-<td class="py-2.5 font-bold text-on-surface">R$ 1.240.000</td>
-<td class="py-2.5 text-right">
-<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-label-sm text-label-sm font-semibold">Sub Judice</span>
-</td>
-</tr>
-<tr class="hover:bg-surface-container-low/50 transition-colors">
-<td class="py-2.5">
-<div class="font-semibold text-on-surface">Oxigênio Hospitalar Medicinal</div>
-<div class="text-on-surface-variant text-[11px]">Oxigás Tocantins • Registro de Preço</div>
-</td>
-<td class="py-2.5 text-on-surface-variant">SEMUS</td>
-<td class="py-2.5 font-bold text-on-surface">R$ 3.100.000</td>
-<td class="py-2.5 text-right">
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-semibold">Homologado</span>
-</td>
-</tr>
-</tbody>
-</table>
-</div>
-</div>
-</div>
-<!-- ==================================================== -->
-<!-- COLUNA DIREITA: MONITOR DE FONTES & TELEMETRIA (3 COLS) -->
-<!-- ==================================================== -->
-<div class="col-span-12 lg:col-span-3 flex flex-col gap-space-md">
-<!-- Card Telemetria Ambiental: Rio Tocantins & Beira-Rio -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm relative overflow-hidden">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">water</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Telemetria do Rio Tocantins</h3>
-</div>
-<span class="font-label-sm text-label-sm bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">Estável</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant">
-          Estação Fluviométrica Cais do Porto de Imperatriz (ANA &amp; Defesa Civil).
-        </p>
-<!-- Régua Fluviométrica Visual -->
-<div class="bg-surface-container-low rounded-DEFAULT p-space-sm flex items-center justify-between">
-<div>
-<span class="font-label-sm text-label-sm text-on-surface-variant block uppercase">Nível Atual</span>
-<span class="font-headline-lg text-headline-lg font-extrabold text-primary">4,12 metros</span>
-</div>
-<div class="text-right">
-<span class="font-label-sm text-label-sm text-on-surface-variant block">Alerta Cheia: 8,00m</span>
-<span class="text-emerald-700 font-label-sm text-label-sm font-semibold flex items-center justify-end gap-0.5">
-<span class="material-symbols-outlined text-[15px]">trending_up</span>
-              +0,18m em 12h
-            </span>
-</div>
-</div>
-<!-- Mini Mapa / Ponto de Monitoramento -->
-<div class="w-full h-28 bg-cover bg-center rounded-DEFAULT relative overflow-hidden" data-location="Imperatriz, Maranhão" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAi8B2wKFT8kMVmilEcPto6LEPkxbQKmBcalnM6xAqtQsKssmg85Co4oKw7KQ-SlfPiu6aEnoB73B-dvdf5NTvnDEfcIMvlYwxtL1zP8fjvpE5ii2zrXOxdZweoZQs37NVtS00ai3EwQkUURxfAm8rJoMewFgEGgeDcNxyL9M9JrYrsTCcX5szHZkhLUiQa3CFwUrn65fs_vlsGCxAb-k31mN1pfkheB4vO6ssWujg2')">
-<div class="absolute inset-0 bg-primary/20 backdrop-blur-[1px] flex items-center justify-center">
-<span class="px-2.5 py-1 rounded-full bg-on-surface/80 text-surface font-label-sm text-label-sm flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-primary-fixed">pin_drop</span>
-              Beira-Rio • Cais Fluvial
-            </span>
-</div>
-</div>
-</div>
-<!-- Monitor de Fontes Oficiais em Tempo Real -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">sensors</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Fontes Monitoradas</h3>
-</div>
-<span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">22 Ativas</span>
-</div>
-<div class="flex flex-col gap-2 mt-1">
-<!-- Fonte 1: DOM -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">Diário Oficial (DOM-ITZ)</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Ed. nº 2.842 • lido há 30 min</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-<!-- Fonte 2: Portal da Transparência ITZ -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">Portal Transparência ITZ</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">API JSON • 68 empenhos hoje</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-<!-- Fonte 3: DOEMA -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">DOEMA / Maranhão</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Convênios AGEMSUL</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-<!-- Fonte 4: TCE-MA -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">TCE-MA Acórdãos</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">2 processos indexados</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-<!-- Fonte 5: MPMA & Varas -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">MPMA &amp; PJe Fazenda ITZ</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Varredura de intimações</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-<!-- Fonte 6: Bombeiros Militar -->
-<div class="p-2.5 rounded-DEFAULT bg-surface-container-low flex items-center justify-between hover:bg-surface-container transition-colors">
-<div class="flex flex-col">
-<span class="font-label-md text-label-md text-on-surface font-semibold">3º BBM • Corpo de Bombeiros</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Despachos operacionais</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-label-sm text-label-sm font-bold flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ONLINE
-            </span>
-</div>
-</div>
-</div>
-<!-- Radar de Palavras-Chave & Alertas Customizados -->
-<div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">filter_alt</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Termos Sob Alerta</h3>
-</div>
-<span class="text-on-surface-variant font-label-sm text-label-sm">5 ativos</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant">
-          Disparam notificação imediata quando encontrados nas edições diárias.
-        </p>
-<!-- Chips de Palavras-chave com botão remover -->
-<div class="flex flex-wrap gap-1.5 pt-1" id="keyword-container">
-<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-<span>dispensa</span>
-<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</span>
-<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-<span>inexigibilidade</span>
-<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</span>
-<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-<span>alagamento</span>
-<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</span>
-<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-<span>socorrão</span>
-<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</span>
-<span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
-<span>interdição</span>
-<button aria-label="Remover termo" class="remove-tag text-on-surface-variant hover:text-error" type="button">
-<span class="material-symbols-outlined text-[14px]">close</span>
-</button>
-</span>
-</div>
-<!-- Input para Inserção Rápida de Palavra-chave -->
-<div class="relative mt-2">
-<input class="w-full h-9 pl-3 pr-8 rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="input-keyword" placeholder="+ Adicionar palavra-chave..." type="text"/>
-<button aria-label="Adicionar" class="absolute right-2 top-1.5 text-primary hover:text-primary-container" id="btn-add-keyword" type="button">
-<span class="material-symbols-outlined text-[20px]">add_circle</span>
-</button>
-</div>
-</div>
-</div>
-</div>
-<!-- ========================================== -->
-<!-- MODAL DE DOSSIÊ / INVESTIGAÇÃO DE PAUTA    -->
-<!-- ========================================== -->
-<div id="stitch-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
-  <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-outline-variant/30 p-space-lg flex flex-col gap-space-md animate-in fade-in zoom-in-95 duration-150">
-    <!-- Cabeçalho do Modal -->
-    <div class="flex items-start justify-between border-b border-surface-container pb-space-sm">
-      <div class="flex flex-col gap-1 pr-4">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span id="modal-badge-prio" class="px-2.5 py-0.5 text-xs font-bold rounded-full"></span>
-          <span id="modal-categoria" class="text-xs text-on-surface-variant font-medium"></span>
-          <span id="modal-score" class="text-xs font-bold text-primary"></span>
+  <!-- ========================================== -->
+  <!-- SIDEBAR LATERAL                            -->
+  <!-- ========================================== -->
+  <aside id="app-sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest shadow-[0_1px_8px_rgba(0,0,0,0.06)] z-50 -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col justify-between p-4">
+    <div class="flex flex-col gap-5">
+      <div class="flex items-center justify-between px-1 py-1">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-sm">
+            <span class="material-symbols-outlined text-[20px]">radar</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-headline-sm text-headline-sm text-on-surface leading-tight">Radar de Pautas</span>
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Imperatriz • MA</span>
+          </div>
         </div>
-        <h3 id="modal-title" class="font-headline-md text-headline-md text-on-surface mt-1 leading-snug"></h3>
-      </div>
-      <button onclick="closeModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container transition-colors" title="Fechar (ESC)">
-        <span class="material-symbols-outlined text-[24px]">close</span>
-      </button>
-    </div>
-
-    <!-- Conteúdo do Modal -->
-    <div class="flex flex-col gap-space-sm text-body-md text-on-surface">
-      <div>
-        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Resumo Editorial</h4>
-        <p id="modal-resumo" class="mt-1 leading-relaxed text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container"></p>
-      </div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-container-low p-3 rounded-lg border border-surface-container text-xs">
-        <div><span class="font-semibold text-on-surface-variant">Fonte Principal:</span> <span id="modal-fonte" class="text-on-surface font-medium"></span></div>
-        <div><span class="font-semibold text-on-surface-variant">Nível de Verificação:</span> <span id="modal-nivel" class="font-bold"></span></div>
-        <div><span class="font-semibold text-on-surface-variant">Data da Publicação:</span> <span id="modal-data-pub" class="text-on-surface"></span></div>
-        <div><span class="font-semibold text-on-surface-variant">Data do Fato:</span> <span id="modal-data-fato" class="text-on-surface"></span></div>
-        <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Locais e Envolvidos:</span> <span id="modal-locais" class="text-on-surface font-medium"></span></div>
-        <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Status do Contraditório:</span> <span id="modal-contraditorio" class="text-on-surface"></span></div>
-      </div>
-
-      <div>
-        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Evidências Primárias, Documentos e Citações</h4>
-        <div id="modal-evidencias" class="mt-1 text-xs font-mono bg-surface-container-low p-3 rounded-lg border border-surface-container text-on-surface leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap"></div>
-      </div>
-
-      <div>
-        <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Pauta Recomendada & Ângulo Investigativo</h4>
-        <p id="modal-angulo" class="mt-1 text-sm text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container leading-relaxed"></p>
-      </div>
-
-      <div class="pt-space-sm border-t border-surface-container flex items-center justify-between flex-wrap gap-2">
-        <a id="modal-link-original" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-primary font-label-lg text-label-lg font-bold hover:underline">
-          <span>Acessar Documento / Matéria Original</span>
-          <span class="material-symbols-outlined text-[16px]">open_in_new</span>
-        </a>
-        <button onclick="closeModal()" class="px-5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
-          Fechar Dossiê
+        <button onclick="toggleMobileSidebar(false)" class="lg:hidden p-1 rounded-full hover:bg-surface-container text-on-surface-variant" type="button" aria-label="Fechar menu">
+          <span class="material-symbols-outlined text-[20px]">close</span>
         </button>
       </div>
+
+      <div class="bg-surface-container-low p-2.5 rounded-xl flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-container"></span>
+          </span>
+          <span class="font-label-sm text-label-sm text-on-surface-variant font-semibold">Monitoramento</span>
+        </div>
+        <span id="sidebar-fontes-pill" class="font-label-sm text-label-sm bg-primary-fixed text-on-primary-fixed px-2 py-0.5 rounded-full">22 Fontes</span>
+      </div>
+
+      <nav class="flex flex-col gap-1" id="sidebar-nav">
+        <button onclick="navigateSection('sec-capa-e-feed', this)" class="nav-item active-nav flex items-center justify-between px-3 py-2.5 rounded-xl transition-all bg-primary-container text-on-primary font-bold shadow-sm text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">dynamic_feed</span>
+            <span class="font-body-md text-body-md">Capa &amp; Feed de Pautas</span>
+          </span>
+          <span id="nav-badge-pautas" class="bg-error text-on-error font-label-sm text-label-sm px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button onclick="navigateModal('pncp', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">verified</span>
+            <span class="font-body-md text-body-md">Auditoria PNCP (24–26)</span>
+          </span>
+          <span id="nav-badge-pncp" class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button onclick="navigateSection('sec-evolucao-gastos', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">trending_up</span>
+            <span class="font-body-md text-body-md">Evolução &amp; Credores</span>
+          </span>
+        </button>
+
+        <button onclick="navigateModal('fontes', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">sensors</span>
+            <span class="font-body-md text-body-md">Monitor de Fontes</span>
+          </span>
+          <span id="nav-badge-fontes" class="bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2 py-0.5 rounded-full">22</span>
+        </button>
+
+        <button onclick="navigateModal('pendencias', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">folder_special</span>
+            <span class="font-body-md text-body-md">Dossiês Investigativos</span>
+          </span>
+          <span id="nav-badge-pendencias" class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full">0</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="flex flex-col gap-3">
+      <div class="bg-surface-container-low p-3 rounded-xl flex flex-col gap-1.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Última Varredura</span>
+          <span id="sidebar-last-run" class="font-label-sm text-label-sm text-primary font-bold truncate max-w-[125px]">-</span>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Base PNCP Oficial</span>
+          <span id="sidebar-pncp-status" class="font-label-sm text-label-sm text-primary font-bold">2024–2026</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between p-1.5 rounded-xl bg-surface-container-low/60">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-on-primary text-[18px]">edit_note</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="font-label-lg text-label-lg text-on-surface leading-tight">Redação Investigativa</span>
+            <span class="font-label-sm text-label-sm text-on-surface-variant">Chefe de Pauta • ITZ</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========================================== -->
+  <!-- ÁREA PRINCIPAL (DESKTOP PL-72, MOBILE FULL) -->
+  <!-- ========================================== -->
+  <div class="lg:pl-72">
+    <!-- HEADER SUPERIOR -->
+    <header class="fixed top-0 left-0 lg:left-72 right-0 h-16 bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] z-40 px-4 lg:px-gutter-desktop flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2 flex-1 max-w-2xl">
+        <button onclick="toggleMobileSidebar(true)" class="lg:hidden p-2 rounded-full bg-surface-container-lowest text-on-surface shadow-sm" type="button" aria-label="Abrir menu">
+          <span class="material-symbols-outlined text-[20px]">menu</span>
+        </button>
+        <div class="relative w-full flex items-center">
+          <span class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px]">search</span>
+          <input id="stitch-search-input" oninput="filterPautas()" class="w-full h-10 pl-10 pr-16 rounded-full bg-surface-container-lowest text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary-container shadow-sm" placeholder="Buscar pautas, bairros, órgãos, contratos ou palavras-chave..." type="text"/>
+          <kbd class="hidden sm:inline-block absolute right-3 px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">Ctrl+K</kbd>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 relative">
+        <button onclick="openPncpModal()" class="hidden md:flex items-center gap-1.5 bg-surface-container-lowest hover:bg-surface-container-high px-3 py-1.5 rounded-full shadow-sm transition-colors" type="button">
+          <span class="material-symbols-outlined text-primary text-[18px]">contract</span>
+          <span id="header-pncp-pill" class="font-label-sm text-label-sm text-on-surface font-semibold">PNCP 2024–2026</span>
+        </button>
+
+        <div class="relative">
+          <button id="btn-notifications" onclick="toggleNotificationsDropdown()" aria-label="Alertas e Pautas Recentes" class="relative p-2 rounded-full bg-surface-container-lowest hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface shadow-sm transition-colors" type="button">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span id="notif-dot" class="hidden absolute top-1 right-1 w-2 h-2 rounded-full bg-error"></span>
+          </button>
+          <div id="notifications-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-surface-container-lowest rounded-2xl shadow-2xl border border-outline-variant/40 p-3 z-50">
+            <div class="flex items-center justify-between border-b border-surface-container pb-2 mb-2">
+              <span class="font-label-lg text-label-lg text-on-surface font-bold">Alertas &amp; Últimas 48h</span>
+              <button onclick="toggleNotificationsDropdown(false)" class="text-on-surface-variant hover:text-on-surface text-xs" type="button">Fechar</button>
+            </div>
+            <div id="notifications-list" class="flex flex-col gap-2 max-h-72 overflow-y-auto text-xs"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="relative pt-20 bg-surface min-h-screen w-full px-4 lg:px-gutter-desktop pb-12">
+      <div class="flex flex-col w-full gap-5">
+
+        <!-- ========================================== -->
+        <!-- 1. HERO COBALT COMPACTO (ACIMA DA DOBRA)   -->
+        <!-- ========================================== -->
+        <section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary shadow-lg p-5 lg:p-6 flex flex-col gap-4">
+          <div class="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+          <div class="relative z-10 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 text-white font-label-sm text-label-sm uppercase tracking-wider">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Ao Vivo • <span id="hero-fontes-count">22</span> Fontes
+                </span>
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/15 text-white font-label-sm text-label-sm">
+                  <span class="material-symbols-outlined text-[14px]">verified_user</span>
+                  PNCP 2024–2026 Oficial
+                </span>
+                <button onclick="scrollToElement('card-telemetria')" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm transition-colors" type="button">
+                  <span class="material-symbols-outlined text-[14px]">water</span>
+                  <span id="hero-rio-badge">ANA Estação 23800000</span>
+                </button>
+              </div>
+              <h1 class="font-headline-lg lg:font-headline-xl text-headline-lg lg:text-headline-xl tracking-tight text-white mt-1">
+                Centro de Inteligência &amp; Auditoria de Imperatriz
+              </h1>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <a href="/clipping" target="_blank" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-container-lowest text-primary font-label-md text-label-md font-bold shadow hover:bg-surface-bright transition-all">
+                <span class="material-symbols-outlined text-[17px]">newspaper</span>
+                Clipping Diário
+              </a>
+              <button id="btn-sync-manual" onclick="triggerManualSync()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white font-label-md text-label-md font-semibold transition-all" type="button">
+                <span id="sync-icon-spin" class="material-symbols-outlined text-[17px]">refresh</span>
+                Buscar Recentes
+              </button>
+              <button id="btn-sync-pncp" onclick="triggerPncpSync()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md font-semibold transition-all" type="button">
+                <span id="pncp-sync-spin" class="material-symbols-outlined text-[17px]">sync</span>
+                Atualizar PNCP
+              </button>
+              <a href="/api/export/csv" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md transition-all" title="Baixar Pautas em CSV">
+                <span class="material-symbols-outlined text-[17px]">download</span>
+                CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- 4 KPIs Reais -->
+          <div class="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div onclick="openPncpModal()" class="cursor-pointer bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl p-3 flex flex-col justify-between transition-all">
+              <div class="flex items-center justify-between text-white/85">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">PNCP (2024–2026)</span>
+                <span class="material-symbols-outlined text-[18px]">account_balance</span>
+              </div>
+              <div class="mt-1">
+                <span id="kpi-pncp-valor" class="font-headline-md text-headline-md text-white font-extrabold">Carregando...</span>
+                <p id="kpi-pncp-qtd" class="text-[11px] text-emerald-200 mt-0.5">0 contratos indexados</p>
+              </div>
+            </div>
+
+            <div onclick="openPncpModal(2026)" class="cursor-pointer bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl p-3 flex flex-col justify-between transition-all">
+              <div class="flex items-center justify-between text-white/85">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Contratos 2026</span>
+                <span class="material-symbols-outlined text-[18px]">contract</span>
+              </div>
+              <div class="mt-1">
+                <span id="kpi-pncp-2026-valor" class="font-headline-md text-headline-md text-white font-extrabold">Carregando...</span>
+                <p id="kpi-pncp-2026-qtd" class="text-[11px] text-tertiary-fixed mt-0.5">0 contratos em 2026</p>
+              </div>
+            </div>
+
+            <div onclick="scrollToElement('sec-capa-e-feed')" class="cursor-pointer bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl p-3 flex flex-col justify-between transition-all">
+              <div class="flex items-center justify-between text-white/85">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Pautas &amp; Recentes</span>
+                <span class="material-symbols-outlined text-[18px]">feed</span>
+              </div>
+              <div class="mt-1">
+                <span id="kpi-total-pautas" class="font-headline-md text-headline-md text-white font-extrabold">0 Ativas</span>
+                <p id="kpi-emergencias-sub" class="text-[11px] text-on-primary-container mt-0.5">Carregando janela...</p>
+              </div>
+            </div>
+
+            <div onclick="openPendenciasModal()" class="cursor-pointer bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl p-3 flex flex-col justify-between transition-all">
+              <div class="flex items-center justify-between text-white/85">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider">Fontes &amp; Dossiês</span>
+                <span class="material-symbols-outlined text-[18px]">folder_special</span>
+              </div>
+              <div class="mt-1">
+                <span id="kpi-total-fontes" class="font-headline-md text-headline-md text-white font-extrabold">22 Fontes</span>
+                <p id="kpi-pendencias-sub" class="text-[11px] text-emerald-200 mt-0.5">0 dossiês em apuração</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 2. CAPA DO DIA / MANCHETE EM DESTAQUE      -->
+        <!-- ========================================== -->
+        <section id="sec-capa-e-feed" class="flex flex-col gap-3">
+          <div id="capa-principal-card" class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden border border-outline-variant/25">
+            <!-- Renderizado dinamicamente com a matéria mais recente -->
+            <div class="p-6 text-center text-on-surface-variant text-sm">Carregando capa editorial...</div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- 3. WORKSPACE PRINCIPAL EM 3 COLUNAS        -->
+        <!-- ========================================== -->
+        <div class="grid grid-cols-12 gap-5 items-start">
+
+          <!-- ==================================================== -->
+          <!-- COLUNA ESQUERDA: FEED DE PAUTAS & FILTRO TEMPORAL (4) -->
+          <!-- ==================================================== -->
+          <div class="col-span-12 lg:col-span-4 flex flex-col gap-4">
+            <div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-primary text-[22px]">feed</span>
+                  <h2 class="font-headline-md text-headline-md text-on-surface">Feed de Pautas</h2>
+                </div>
+                <span id="pautas-count-badge" class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">0 exibidas</span>
+              </div>
+
+              <!-- Filtro Temporal & Ordenação -->
+              <div class="flex flex-wrap items-center justify-between gap-2 bg-surface-container-low p-2 rounded-xl">
+                <div class="flex items-center gap-1 flex-wrap" id="time-filter-bar">
+                  <button onclick="setTimeFilter(2)" class="time-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-days="2" type="button">48h</button>
+                  <button onclick="setTimeFilter(7)" class="time-btn px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all" data-days="7" type="button">7 dias</button>
+                  <button onclick="setTimeFilter(30)" class="time-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-days="30" type="button">30 dias</button>
+                  <button onclick="setTimeFilter(0)" class="time-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-days="0" type="button">Arquivo</button>
+                </div>
+                <select id="sort-order-select" onchange="setSortOrder(this.value)" class="text-xs font-semibold bg-surface-container-lowest text-on-surface rounded-full px-2.5 py-1 border border-outline-variant/40 focus:outline-none">
+                  <option value="recentes">Mais recentes</option>
+                  <option value="score">Maior score</option>
+                </select>
+              </div>
+
+              <!-- Aviso caso fallback temporal seja acionado -->
+              <div id="temporal-fallback-banner" class="hidden text-xs bg-tertiary-fixed/60 text-on-tertiary-fixed px-3 py-2 rounded-xl flex items-center justify-between gap-2">
+                <span id="temporal-fallback-text">Exibindo também arquivo histórico porque não há itens suficientes nesta janela.</span>
+                <button onclick="triggerManualSync()" class="underline font-bold shrink-0" type="button">Buscar novas</button>
+              </div>
+
+              <!-- Filtros de Categoria -->
+              <div class="flex items-center gap-1.5 overflow-x-auto py-0.5 text-nowrap" id="filter-buttons-bar">
+                <button onclick="setCategoryFilter('todas')" class="filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all" data-cat="todas" type="button">Todas (<span id="count-todas">0</span>)</button>
+                <button onclick="setCategoryFilter('Pautas urgentes')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas urgentes" type="button">Urgentes (<span id="count-urgentes">0</span>)</button>
+                <button onclick="setCategoryFilter('Pautas de denúncia e apuração')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de denúncia e apuração" type="button">Denúncias (<span id="count-denuncias">0</span>)</button>
+                <button onclick="setCategoryFilter('Pautas de serviço público')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de serviço público" type="button">Serviço Público (<span id="count-servico">0</span>)</button>
+                <button onclick="setCategoryFilter('Pautas de cultura, economia e cidade')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de cultura, economia e cidade" type="button">Cidade (<span id="count-cidade">0</span>)</button>
+              </div>
+            </div>
+
+            <!-- Container Dinâmico das Pautas -->
+            <div id="pautas-cards-container" class="flex flex-col gap-3">
+              <div class="p-8 text-center text-on-surface-variant text-body-md bg-surface-container-lowest rounded-lg">
+                <span class="material-symbols-outlined text-primary text-[32px] animate-spin">refresh</span>
+                <p class="mt-2 font-medium">Carregando pautas...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================================================== -->
+          <!-- COLUNA CENTRAL: AUDITORIA REAL PNCP 2024–2026 (5)    -->
+          <!-- ==================================================== -->
+          <div id="sec-auditoria-pncp" class="col-span-12 lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Seletor Global Ano (2024-2026) & Órgão Municipal -->
+            <div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-1.5 flex-wrap" id="pncp-year-bar">
+                <span class="font-label-sm text-label-sm text-on-surface-variant mr-1 uppercase">Exercício:</span>
+                <button onclick="setPncpYear('')" class="pncp-year-btn px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all" data-year="" type="button">2024–2026</button>
+                <button onclick="setPncpYear('2026')" class="pncp-year-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-year="2026" type="button">2026</button>
+                <button onclick="setPncpYear('2025')" class="pncp-year-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-year="2025" type="button">2025</button>
+                <button onclick="setPncpYear('2024')" class="pncp-year-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all" data-year="2024" type="button">2024</button>
+              </div>
+              <select id="pncp-orgao-filter" onchange="setPncpOrgao(this.value)" class="text-xs font-semibold bg-surface-container-low text-on-surface rounded-full px-3 py-1.5 border border-outline-variant/40 focus:outline-none">
+                <option value="">Todos órgãos de Imperatriz</option>
+                <option value="PMI">Prefeitura (PMI)</option>
+                <option value="FMS">Fundo de Saúde (FMS)</option>
+                <option value="FME">Fundo de Educação (FME)</option>
+                <option value="CMI">Câmara Municipal (CMI)</option>
+              </select>
+            </div>
+
+            <!-- Bloco Gráfico Real: Evolução Mensal de Contratações (2024-2026) -->
+            <div id="sec-evolucao-gastos" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-[20px]">ssid_chart</span>
+                    <h2 class="font-headline-md text-headline-md text-on-surface">Evolução de Contratações no PNCP</h2>
+                  </div>
+                  <p id="pncp-chart-subtitle" class="font-body-sm text-body-sm text-on-surface-variant">Série histórica oficial 2024–2026 • Prefeitura, Câmara e Fundos de Imperatriz</p>
+                </div>
+                <span id="pncp-chart-total-badge" class="font-label-sm text-label-sm bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-bold">R$ 0</span>
+              </div>
+
+              <div id="pncp-chart-area" class="relative w-full h-56 bg-surface-container-low rounded-xl p-3 flex flex-col justify-end overflow-hidden">
+                <div class="m-auto text-xs text-on-surface-variant">Carregando série histórica do PNCP...</div>
+              </div>
+
+              <div class="flex items-center justify-between bg-surface-container-low p-3 rounded-xl gap-2">
+                <span id="pncp-chart-note" class="font-body-sm text-body-sm text-on-surface">
+                  Dados extraídos diretamente dos contratos públicos homologados em pncp.gov.br (2024–2026).
+                </span>
+                <button onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="text-primary font-label-sm text-label-sm font-bold hover:underline shrink-0" type="button">
+                  Cruzar Contratos
+                </button>
+              </div>
+            </div>
+
+            <!-- Ranking Real: Principais Fornecedores Contratados (2024-2026) -->
+            <div id="sec-fornecedores" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface">Principais Fornecedores Contratados</h3>
+                  <p id="pncp-fornecedores-subtitle" class="font-body-sm text-body-sm text-on-surface-variant">Volume contratado e participação no PNCP (2024–2026)</p>
+                </div>
+                <span class="font-label-sm text-label-sm text-on-surface-variant">Dados PNCP</span>
+              </div>
+
+              <div id="pncp-fornecedores-list" class="flex flex-col gap-2.5">
+                <div class="p-4 text-center text-xs text-on-surface-variant">Carregando fornecedores...</div>
+              </div>
+            </div>
+
+            <!-- Tabela Real: Últimos Contratos Publicados no PNCP -->
+            <div id="sec-contratos-pncp" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-[20px]">history_edu</span>
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface">Últimos Contratos Publicados no PNCP</h3>
+                </div>
+                <button id="btn-ver-todos-pncp" onclick="openPncpModal(currentPncpYear, currentPncpOrgao)" class="px-3 py-1 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed font-label-sm text-label-sm font-bold transition-colors" type="button">
+                  Ver todos (0)
+                </button>
+              </div>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-left font-body-sm text-body-sm">
+                  <thead>
+                    <tr class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider border-b border-surface-container">
+                      <th class="py-2 pr-2">Objeto / Fornecedor</th>
+                      <th class="py-2 pr-2">Órgão</th>
+                      <th class="py-2 pr-2">Valor</th>
+                      <th class="py-2 text-right">Data / Link</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pncp-ultimos-tbody" class="divide-y divide-surface-container-low text-on-surface">
+                    <tr><td colspan="4" class="py-4 text-center text-xs text-on-surface-variant">Carregando contratos do PNCP...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ==================================================== -->
+          <!-- COLUNA DIREITA: TELEMETRIA, FONTES & ALERTAS (3)     -->
+          <!-- ==================================================== -->
+          <div id="sec-telemetria-fontes" class="col-span-12 lg:col-span-3 flex flex-col gap-4">
+
+            <!-- Card Telemetria Honesta: Estação ANA 23800000 -->
+            <div id="card-telemetria" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-[20px]">water</span>
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface">Rio Tocantins (ANA)</h3>
+                </div>
+                <span id="telemetria-status-badge" class="font-label-sm text-label-sm bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full font-bold">Estação 23800000</span>
+              </div>
+
+              <p id="telemetria-desc" class="font-body-sm text-body-sm text-on-surface-variant">
+                Estação Fluviométrica de Imperatriz (Código HidroWeb: <strong>23800000</strong>).
+              </p>
+
+              <div id="telemetria-box" class="bg-surface-container-low rounded-xl p-3 text-xs text-on-surface-variant flex flex-col gap-2">
+                <span>Consultando status da telemetria...</span>
+              </div>
+
+              <div id="telemetria-alertas" class="flex flex-col gap-1.5"></div>
+
+              <div class="flex items-center gap-2 pt-1">
+                <a id="link-ana-oficial" href="https://www.snirh.gov.br/hidrotelemetria/gerarGrafico.aspx" target="_blank" class="flex-1 text-center px-3 py-1.5 rounded-full bg-primary-fixed hover:bg-primary hover:text-on-primary text-on-primary-fixed font-label-sm text-label-sm font-bold transition-colors">
+                  SNIRH / ANA
+                </a>
+                <a id="link-defesa-civil" href="https://imperatriz.ma.gov.br/defesa-civil" target="_blank" class="flex-1 text-center px-3 py-1.5 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors">
+                  Defesa Civil
+                </a>
+              </div>
+            </div>
+
+            <!-- Monitor Real de Fontes (Preview de /api/fontes) -->
+            <div id="card-fontes" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-[20px]">sensors</span>
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface">Fontes Monitoradas</h3>
+                </div>
+                <span id="fontes-right-badge" class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">22</span>
+              </div>
+
+              <div id="fontes-preview-list" class="flex flex-col gap-2">
+                <div class="p-3 text-center text-xs text-on-surface-variant">Carregando fontes...</div>
+              </div>
+
+              <button onclick="openFontesModal()" class="w-full py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold transition-colors flex items-center justify-center gap-1" type="button">
+                <span>Ver todas &amp; Cadastrar Fonte</span>
+                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </button>
+            </div>
+
+            <!-- Termos Sob Alerta (Persistência localStorage + filtro clique + scan extra) -->
+            <div id="card-alertas" class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-primary text-[20px]">filter_alt</span>
+                  <h3 class="font-headline-sm text-headline-sm text-on-surface">Termos Sob Alerta</h3>
+                </div>
+                <span id="kw-count-label" class="text-on-surface-variant font-label-sm text-label-sm">5 ativos</span>
+              </div>
+              <p class="font-body-sm text-body-sm text-on-surface-variant">
+                Clique em um termo para filtrar agora ou inclua na próxima varredura ao vivo.
+              </p>
+
+              <div class="flex flex-wrap gap-1.5" id="keyword-container"></div>
+
+              <div class="relative mt-1">
+                <input class="w-full h-9 pl-3 pr-9 rounded-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary shadow-inner" id="input-keyword" placeholder="+ Adicionar palavra-chave..." type="text"/>
+                <button aria-label="Adicionar" class="absolute right-2 top-1.5 text-primary hover:text-primary-container" id="btn-add-keyword" type="button">
+                  <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 1: DOSSIÊ DA PAUTA INVESTIGATIVA     -->
+  <!-- ========================================== -->
+  <div id="stitch-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-outline-variant/30 p-6 flex flex-col gap-4">
+      <div class="flex items-start justify-between border-b border-surface-container pb-3">
+        <div class="flex flex-col gap-1 pr-4">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="modal-badge-prio" class="px-2.5 py-0.5 text-xs font-bold rounded-full"></span>
+            <span id="modal-categoria" class="text-xs text-on-surface-variant font-medium"></span>
+            <span id="modal-score" class="text-xs font-bold text-primary"></span>
+          </div>
+          <h3 id="modal-title" class="font-headline-md text-headline-md text-on-surface mt-1 leading-snug"></h3>
+        </div>
+        <button onclick="closeModal('stitch-modal')" class="text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container transition-colors" type="button" title="Fechar (ESC)">
+          <span class="material-symbols-outlined text-[24px]">close</span>
+        </button>
+      </div>
+
+      <div id="modal-cover-wrap" class="hidden w-full max-h-64 overflow-hidden rounded-xl bg-surface-container-low"></div>
+
+      <div class="flex flex-col gap-3 text-body-md text-on-surface">
+        <div>
+          <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Resumo Editorial</h4>
+          <p id="modal-resumo" class="mt-1 leading-relaxed text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container"></p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-container-low p-3 rounded-lg border border-surface-container text-xs">
+          <div><span class="font-semibold text-on-surface-variant">Fonte Principal:</span> <span id="modal-fonte" class="text-on-surface font-medium"></span></div>
+          <div><span class="font-semibold text-on-surface-variant">Nível de Verificação:</span> <span id="modal-nivel" class="font-bold"></span></div>
+          <div><span class="font-semibold text-on-surface-variant">Data da Publicação:</span> <span id="modal-data-pub" class="text-on-surface"></span></div>
+          <div><span class="font-semibold text-on-surface-variant">Data do Fato:</span> <span id="modal-data-fato" class="text-on-surface"></span></div>
+          <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Locais e Envolvidos:</span> <span id="modal-locais" class="text-on-surface font-medium"></span></div>
+          <div class="sm:col-span-2"><span class="font-semibold text-on-surface-variant">Pendências / Contraditório:</span> <span id="modal-contraditorio" class="text-on-surface"></span></div>
+        </div>
+
+        <div>
+          <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Evidências Primárias, Documentos e Citações</h4>
+          <div id="modal-evidencias" class="mt-1 text-xs font-mono bg-surface-container-low p-3 rounded-lg border border-surface-container text-on-surface leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap"></div>
+        </div>
+
+        <div>
+          <h4 class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Pauta Recomendada &amp; Ângulo Investigativo</h4>
+          <p id="modal-angulo" class="mt-1 text-sm text-on-surface bg-surface-container-low p-3 rounded-lg border border-surface-container leading-relaxed"></p>
+        </div>
+
+        <div class="pt-3 border-t border-surface-container flex items-center justify-between flex-wrap gap-2">
+          <a id="modal-link-original" href="#" target="_blank" class="inline-flex items-center gap-1.5 text-primary font-label-lg text-label-lg font-bold hover:underline">
+            <span>Acessar Documento / Matéria Original</span>
+            <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+          </a>
+          <button onclick="closeModal('stitch-modal')" class="px-5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors" type="button">
+            Fechar Dossiê
+          </button>
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ========================================== -->
-<!-- SCRIPTS DE INTEGRAÇÃO COM BACKEND REST API -->
-<!-- ========================================== -->
-<script>
-  let pautasData = [];
-  let currentCategory = 'todas';
+  <!-- ========================================== -->
+  <!-- MODAL 2: EXPLORADOR DE CONTRATOS PNCP      -->
+  <!-- ========================================== -->
+  <div id="pncp-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-outline-variant/30 overflow-hidden">
+      <div class="p-5 border-b border-surface-container flex flex-wrap items-center justify-between gap-3 bg-surface-container-low/60">
+        <div>
+          <h3 class="font-headline-md text-headline-md text-on-surface">Contratos Publicados no PNCP — Imperatriz (2024–2026)</h3>
+          <p id="pncp-modal-subtitle" class="text-xs text-on-surface-variant mt-0.5">Consulta oficial integrada aos CNPJs da Prefeitura, Câmara, Saúde (FMS) e Educação (FME)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a id="pncp-modal-export-link" href="/api/pncp/export/csv" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold hover:bg-primary hover:text-on-primary transition-colors">
+            <span class="material-symbols-outlined text-[16px]">download</span>
+            Exportar CSV
+          </a>
+          <button onclick="triggerPncpSync(true)" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-bold hover:bg-primary-container transition-colors" type="button">
+            <span class="material-symbols-outlined text-[16px]">sync</span>
+            Sincronizar
+          </button>
+          <button onclick="closeModal('pncp-modal')" class="p-1 rounded-full hover:bg-surface-container text-on-surface-variant" type="button">
+            <span class="material-symbols-outlined text-[24px]">close</span>
+          </button>
+        </div>
+      </div>
 
-  // 1. Carregar pautas e estatísticas da API REST nativa
-  async function loadData() {
-    try {
-      const res = await fetch('/api/pautas');
-      pautasData = await res.json();
-      
-      const statsRes = await fetch('/api/stats');
-      if (statsRes.ok) {
-        const stats = await statsRes.json();
-        updateKpis(stats);
-      }
-      
-      updateCounts();
-      filterPautas();
-    } catch (err) {
-      console.error("Erro ao carregar dados do Radar:", err);
-      const container = document.getElementById('pautas-cards-container');
-      if (container) {
-        container.innerHTML = '<div class="p-6 text-center text-error bg-surface-container-lowest rounded-lg">Erro ao conectar com o Radar de Pautas. Verifique se o servidor está ativo.</div>';
+      <!-- Barra de Filtros do Modal PNCP -->
+      <div class="p-4 border-b border-surface-container grid grid-cols-1 sm:grid-cols-12 gap-2.5 bg-surface-container-lowest">
+        <input id="pncp-modal-search" oninput="debouncedLoadPncpModal(1)" class="sm:col-span-6 h-9 px-3.5 rounded-full bg-surface-container-low text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Pesquisar objeto, fornecedor, CNPJ ou nº contrato..." type="text"/>
+        <select id="pncp-modal-ano" onchange="loadPncpModal(1)" class="sm:col-span-3 h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+          <option value="">Todos os anos (2024–2026)</option>
+          <option value="2026">Ano 2026</option>
+          <option value="2025">Ano 2025</option>
+          <option value="2024">Ano 2024</option>
+        </select>
+        <select id="pncp-modal-orgao" onchange="loadPncpModal(1)" class="sm:col-span-3 h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold focus:outline-none">
+          <option value="">Todos os órgãos</option>
+          <option value="PMI">Prefeitura (PMI)</option>
+          <option value="FMS">Fundo Saúde (FMS)</option>
+          <option value="FME">Fundo Educação (FME)</option>
+          <option value="CMI">Câmara (CMI)</option>
+        </select>
+      </div>
+
+      <!-- Lista / Tabela PNCP -->
+      <div class="flex-1 overflow-y-auto p-4">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="text-on-surface-variant uppercase border-b border-surface-container">
+                <th class="py-2 pr-3">Publicação</th>
+                <th class="py-2 pr-3">Órgão</th>
+                <th class="py-2 pr-3">Fornecedor / CNPJ</th>
+                <th class="py-2 pr-3">Objeto / Nº Contrato</th>
+                <th class="py-2 pr-3 text-right">Valor Global</th>
+                <th class="py-2 text-right">PNCP</th>
+              </tr>
+            </thead>
+            <tbody id="pncp-modal-tbody" class="divide-y divide-surface-container-low"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Paginação PNCP -->
+      <div class="p-3.5 border-t border-surface-container flex items-center justify-between text-xs bg-surface-container-low/50">
+        <span id="pncp-modal-page-info" class="text-on-surface-variant font-medium">Página 1 de 1</span>
+        <div class="flex items-center gap-2">
+          <button id="pncp-prev-btn" onclick="loadPncpModal(pncpModalPage - 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Anterior</button>
+          <button id="pncp-next-btn" onclick="loadPncpModal(pncpModalPage + 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Próxima</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 3: MONITOR DE FONTES & CADASTRO      -->
+  <!-- ========================================== -->
+  <div id="fontes-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-outline-variant/30 overflow-hidden">
+      <div class="p-5 border-b border-surface-container flex items-center justify-between bg-surface-container-low/60">
+        <div>
+          <h3 class="font-headline-md text-headline-md text-on-surface">Fontes Monitoradas &amp; Diagnóstico Real</h3>
+          <p class="text-xs text-on-surface-variant">Perfis Meta/Instagram exibem transparência sobre login wall quando sem token oficial.</p>
+        </div>
+        <button onclick="closeModal('fontes-modal')" class="p-1 rounded-full hover:bg-surface-container text-on-surface-variant" type="button">
+          <span class="material-symbols-outlined text-[24px]">close</span>
+        </button>
+      </div>
+
+      <!-- Formulário para Cadastrar Nova Fonte sem alterar código -->
+      <form id="form-add-fonte" onsubmit="submitNovaFonte(event)" class="p-4 border-b border-surface-container bg-surface-container-low/40 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+        <div class="sm:col-span-3">
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Nome da Fonte</label>
+          <input id="fonte-nome" required class="w-full h-9 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/40 text-xs" placeholder="Ex.: Portal SINFRA" type="text"/>
+        </div>
+        <div class="sm:col-span-4">
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">URL Completa (https://...)</label>
+          <input id="fonte-url" required class="w-full h-9 px-3 rounded-xl bg-surface-container-lowest border border-outline-variant/40 text-xs" placeholder="https://imperatriz.ma.gov.br/..." type="url"/>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-[11px] font-bold text-on-surface-variant mb-1">Tipo</label>
+          <select id="fonte-tipo" class="w-full h-9 px-2 rounded-xl bg-surface-container-lowest border border-outline-variant/40 text-xs">
+            <option value="Portal Oficial">Portal Oficial</option>
+            <option value="Veículo Jornalístico">Veículo Jornalístico</option>
+            <option value="Órgão de Controle">Órgão de Controle</option>
+            <option value="Instagram">Instagram</option>
+          </select>
+        </div>
+        <div class="sm:col-span-3 flex gap-2">
+          <select id="fonte-prio" class="h-9 px-2 rounded-xl bg-surface-container-lowest border border-outline-variant/40 text-xs">
+            <option value="Alta">Alta</option>
+            <option value="Média">Média</option>
+          </select>
+          <button type="submit" class="flex-1 h-9 px-3 rounded-xl bg-primary hover:bg-primary-container text-on-primary text-xs font-bold transition-colors">
+            + Cadastrar
+          </button>
+        </div>
+      </form>
+
+      <div id="fontes-modal-list" class="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 4: DOSSIÊS INVESTIGATIVOS / PENDÊNCIAS -->
+  <!-- ========================================== -->
+  <div id="pendencias-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-outline-variant/30 overflow-hidden">
+      <div class="p-5 border-b border-surface-container flex items-center justify-between bg-surface-container-low/60">
+        <div>
+          <h3 class="font-headline-md text-headline-md text-on-surface">Dossiês Investigativos &amp; Pendências de Apuração</h3>
+          <p class="text-xs text-on-surface-variant">Pautas que exigem resposta oficial, contraditório ou checagem documental complementar.</p>
+        </div>
+        <button onclick="closeModal('pendencias-modal')" class="p-1 rounded-full hover:bg-surface-container text-on-surface-variant" type="button">
+          <span class="material-symbols-outlined text-[24px]">close</span>
+        </button>
+      </div>
+      <div id="pendencias-modal-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3"></div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- SCRIPTS DE INTEGRAÇÃO COMPLETA COM APIs     -->
+  <!-- ========================================== -->
+  <script>
+    let pautasData = [];
+    let fontesData = [];
+    let pendenciasData = [];
+    let currentCategory = 'todas';
+    let currentTimeDays = 7;
+    let currentSortOrder = 'recentes';
+    let currentPncpYear = '';
+    let currentPncpOrgao = '';
+    let pncpModalPage = 1;
+    let pncpModalTimer = null;
+
+    const DEFAULT_KEYWORDS = ['dispensa', 'inexigibilidade', 'alagamento', 'socorrão', 'interdição'];
+
+    // ---------------------------
+    // Utilitários
+    // ---------------------------
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatBRL(val) {
+      const n = Number(val || 0);
+      return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 });
+    }
+
+    function formatBRLCompact(val) {
+      const n = Number(val || 0);
+      if (n >= 1_000_000_000) return 'R$ ' + (n / 1_000_000_000).toFixed(2).replace('.', ',') + ' BI';
+      if (n >= 1_000_000) return 'R$ ' + (n / 1_000_000).toFixed(1).replace('.', ',') + ' MI';
+      if (n >= 1_000) return 'R$ ' + (n / 1_000).toFixed(1).replace('.', ',') + ' mil';
+      return formatBRL(n);
+    }
+
+    function parsePautaDate(p) {
+      const raw = (p.data_publicacao || p.data_hora_coleta || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { raw: '', days: 9999, label: 'Sem data', badgeClass: 'bg-surface-container text-on-surface-variant' };
+      const [y, m, d] = raw.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffDays = Math.round((today - dt) / 86400000);
+      const brDate = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+      if (diffDays <= 0) return { raw, days: 0, label: `HOJE • ${brDate}`, badgeClass: 'bg-emerald-100 text-emerald-800' };
+      if (diffDays <= 2) return { raw, days: diffDays, label: `HÁ ${diffDays}D • ${brDate}`, badgeClass: 'bg-emerald-100 text-emerald-800' };
+      if (diffDays <= 7) return { raw, days: diffDays, label: `HÁ ${diffDays}D • ${brDate}`, badgeClass: 'bg-primary-fixed text-on-primary-fixed' };
+      if (diffDays <= 15) return { raw, days: diffDays, label: brDate, badgeClass: 'bg-surface-container text-on-surface-variant' };
+      return { raw, days: diffDays, label: `Arquivo • ${brDate}`, badgeClass: 'bg-amber-100 text-amber-900' };
+    }
+
+    // ---------------------------
+    // Carregamento Inicial
+    // ---------------------------
+    async function loadAllData() {
+      await Promise.all([
+        loadPautasAndStats(),
+        loadPncpSummary(),
+        loadFontes(),
+        loadPendencias(),
+        loadTelemetria(),
+      ]);
+      renderKeywords();
+    }
+
+    async function loadPautasAndStats() {
+      try {
+        const [resPautas, resStats] = await Promise.all([
+          fetch(`/api/pautas?sort=${encodeURIComponent(currentSortOrder)}`),
+          fetch('/api/stats'),
+        ]);
+        pautasData = await resPautas.json();
+        const stats = resStats.ok ? await resStats.json() : null;
+        if (stats) updateHeroAndSidebarStats(stats);
+
+        // Se filtro inicial 7 dias não tiver itens recentes, ajusta automaticamente para Arquivo (0) com aviso claro
+        if (currentTimeDays > 0) {
+          const hasRecent = pautasData.some(p => parsePautaDate(p).days <= currentTimeDays);
+          const fallbackEl = document.getElementById('temporal-fallback-banner');
+          if (!hasRecent && pautasData.length > 0) {
+            currentTimeDays = 0;
+            syncTimeButtons();
+            if (fallbackEl) {
+              document.getElementById('temporal-fallback-text').innerText =
+                'Sem matérias nos últimos 7 dias no cache atual; exibindo histórico completo. Clique em "Buscar Recentes" para varrer feeds ao vivo.';
+              fallbackEl.classList.remove('hidden');
+            }
+          } else if (fallbackEl) {
+            fallbackEl.classList.add('hidden');
+          }
+        }
+
+        renderCapaPrincipal();
+        updateCategoryCounts();
+        filterPautas();
+        renderNotifications();
+      } catch (err) {
+        console.error('Erro ao carregar pautas:', err);
+        const container = document.getElementById('pautas-cards-container');
+        if (container) {
+          container.innerHTML = '<div class="p-6 text-center text-error bg-surface-container-lowest rounded-lg">Erro ao carregar pautas do servidor.</div>';
+        }
       }
     }
-  }
 
-  // 2. Atualizar KPIs do Hero
-  function updateKpis(stats) {
-    const elTotal = document.getElementById('kpi-total-pautas');
-    if (elTotal) elTotal.innerText = `${stats.total_pautas} Ativas`;
+    function updateHeroAndSidebarStats(stats) {
+      const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+      setTxt('kpi-total-pautas', `${stats.total_pautas} Pautas`);
+      setTxt('kpi-emergencias-sub', `${stats.pautas_48h || 0} últimas 48h • ${stats.pautas_7d || 0} em 7d • ${stats.emergencias || 0} emergências`);
+      setTxt('kpi-total-fontes', `${stats.total_fontes || 22} Fontes`);
+      setTxt('kpi-pendencias-sub', `${stats.total_pendencias || 0} dossiês em apuração`);
+      setTxt('hero-fontes-count', String(stats.total_fontes || 22));
+      setTxt('sidebar-fontes-pill', `${stats.total_fontes || 22} Fontes`);
+      setTxt('nav-badge-pautas', String(stats.total_pautas || 0));
+      setTxt('nav-badge-fontes', String(stats.total_fontes || 22));
+      setTxt('nav-badge-pendencias', String(stats.total_pendencias || 0));
+      setTxt('nav-badge-pncp', String(stats.total_contratos_pncp || 0));
 
-    const elEmerg = document.getElementById('kpi-emergencias-sub');
-    if (elEmerg) elEmerg.innerText = `${stats.emergencias} em prioridade de emergência`;
-
-    const elFontes = document.getElementById('kpi-total-fontes');
-    if (elFontes) elFontes.innerText = `${stats.total_fontes || 22} Fontes`;
-  }
-
-  // 3. Atualizar contadores das abas de filtro
-  function updateCounts() {
-    const total = pautasData.length;
-    const urgentes = pautasData.filter(p => p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes').length;
-    const denuncias = pautasData.filter(p => p.categoria === 'Pautas de denúncia e apuração').length;
-    const servico = pautasData.filter(p => p.categoria === 'Pautas de serviço público').length;
-    const cidade = pautasData.filter(p => p.categoria === 'Pautas de cultura, economia e cidade').length;
-
-    const elBadge = document.getElementById('pautas-count-badge');
-    if (elBadge) elBadge.innerText = `${total} Na Base`;
-
-    if (document.getElementById('count-todas')) document.getElementById('count-todas').innerText = total;
-    if (document.getElementById('count-urgentes')) document.getElementById('count-urgentes').innerText = urgentes;
-    if (document.getElementById('count-denuncias')) document.getElementById('count-denuncias').innerText = denuncias;
-    if (document.getElementById('count-servico')) document.getElementById('count-servico').innerText = servico;
-    if (document.getElementById('count-cidade')) document.getElementById('count-cidade').innerText = cidade;
-  }
-
-  // 4. Seleção de categoria de filtro
-  function setCategoryFilter(cat) {
-    currentCategory = cat;
-    document.querySelectorAll('#filter-buttons-bar .filter-btn').forEach(btn => {
-      if (btn.dataset.cat === cat) {
-        btn.className = 'filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all';
-      } else {
-        btn.className = 'filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all';
-      }
-    });
-    filterPautas();
-  }
-
-  // 5. Filtragem em tempo real (categoria + busca textual)
-  function filterPautas() {
-    const searchEl = document.getElementById('stitch-search-input');
-    const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
-
-    const filtered = pautasData.filter(p => {
-      let matchCat = true;
-      if (currentCategory === 'Pautas urgentes') {
-        matchCat = (p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes');
-      } else if (currentCategory !== 'todas') {
-        matchCat = (p.categoria === currentCategory);
+      if (stats.ultima_execucao) {
+        setTxt('sidebar-last-run', stats.ultima_execucao.replace('T', ' ').slice(0, 16));
       }
 
-      const matchQ = (!q ||
-        (p.titulo_jornalistico && p.titulo_jornalistico.toLowerCase().includes(q)) ||
-        (p.resumo_3_linhas && p.resumo_3_linhas.toLowerCase().includes(q)) ||
-        (p.bairros_locais_instituicoes && p.bairros_locais_instituicoes.toLowerCase().includes(q)) ||
-        (p.fonte_principal && p.fonte_principal.toLowerCase().includes(q)) ||
-        (p.angulo_jornalistico && p.angulo_jornalistico.toLowerCase().includes(q)) ||
-        (p.pauta_sugerida && p.pauta_sugerida.toLowerCase().includes(q))
-      );
+      const p2026 = (stats.por_ano_pncp && stats.por_ano_pncp['2026']) || { contratos: 0, valor_global: 0 };
+      setTxt('kpi-pncp-2026-valor', formatBRLCompact(p2026.valor_global));
+      setTxt('kpi-pncp-2026-qtd', `${p2026.contratos} contratos em 2026`);
+    }
 
-      return matchCat && matchQ;
-    });
+    // ---------------------------
+    // Capa do Dia (Em destaque logo abaixo do Hero)
+    // ---------------------------
+    function renderCapaPrincipal() {
+      const card = document.getElementById('capa-principal-card');
+      if (!card) return;
+      if (!pautasData.length) {
+        card.innerHTML = '<div class="p-6 text-center text-on-surface-variant text-sm">Nenhuma pauta cadastrada.</div>';
+        return;
+      }
 
-    renderCards(filtered);
-  }
+      // Prioriza matérias recentes (últimos 7 dias) com foto de capa real; fallback para a mais recente geral
+      const withRecentImg = pautasData.filter(p => parsePautaDate(p).days <= 7 && p.imagem_capa);
+      const recentAny = pautasData.filter(p => parsePautaDate(p).days <= 7);
+      const pool = withRecentImg.length ? withRecentImg : (recentAny.length ? recentAny : pautasData);
 
-  // 6. Renderizar cards na coluna esquerda com estética exata do Stitch
-  function renderCards(list) {
-    const container = document.getElementById('pautas-cards-container');
-    if (!container) return;
+      const sortedByRecency = [...pool].sort((a, b) => {
+        const da = parsePautaDate(a).raw || '0000-00-00';
+        const db = parsePautaDate(b).raw || '0000-00-00';
+        if (db !== da) return db.localeCompare(da);
+        const hasImgA = a.imagem_capa ? 1 : 0;
+        const hasImgB = b.imagem_capa ? 1 : 0;
+        if (hasImgB !== hasImgA) return hasImgB - hasImgA;
+        return (b.pontuacao_editorial || 0) - (a.pontuacao_editorial || 0);
+      });
+      const top = sortedByRecency[0];
+      const dtInfo = parsePautaDate(top);
+      const pautaId = top.id_pauta || top.id || '';
+      const score = top.pontuacao_editorial ?? top.score_relevancia ?? 0;
 
-    if (list.length === 0) {
-      container.innerHTML = `
-        <div class="bg-surface-container-lowest rounded-lg p-space-lg text-center shadow-sm">
-          <span class="material-symbols-outlined text-[36px] text-on-surface-variant">search_off</span>
-          <p class="font-headline-sm text-headline-sm text-on-surface mt-2">Nenhuma pauta encontrada</p>
-          <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Ajuste os filtros ou o termo de busca.</p>
+      const mediaHtml = top.imagem_capa
+        ? `<div class="lg:col-span-5 relative min-h-[220px] lg:min-h-[270px] bg-surface-container-high overflow-hidden">
+             <img src="${escapeHtml(top.imagem_capa)}" alt="Capa: ${escapeHtml(top.titulo_jornalistico)}" data-cat="${escapeHtml(top.categoria)}" data-fonte="${escapeHtml(top.fonte_principal)}" data-date="${escapeHtml(dtInfo.label)}" class="w-full h-full object-cover" onerror="handleCapaImgError(this)"/>
+             <div class="absolute top-3 left-3 px-3 py-1 rounded-full bg-on-surface/80 backdrop-blur-md text-surface font-label-sm text-label-sm font-bold uppercase tracking-wider">
+               Capa do Radar
+             </div>
+           </div>`
+        : `<div class="lg:col-span-5 min-h-[220px] lg:min-h-[270px]">
+             ${buildFallbackCapaVisual(top.categoria || '', top.fonte_principal || '', dtInfo.label)}
+           </div>`;
+
+      card.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-12 items-stretch">
+          ${mediaHtml}
+          <div class="lg:col-span-7 p-5 lg:p-6 flex flex-col justify-between gap-4">
+            <div class="flex flex-col gap-2.5">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-bold uppercase tracking-wider">Manchete Mais Recente</span>
+                <span class="px-2.5 py-0.5 rounded-full ${dtInfo.badgeClass} font-label-sm text-label-sm font-bold">${escapeHtml(dtInfo.label)}</span>
+                <span class="px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-bold">${escapeHtml(top.prioridade)} • ${score}/100</span>
+                <span class="text-xs font-semibold text-primary">${escapeHtml(top.fonte_principal)}</span>
+              </div>
+              <h2 onclick="openModal('${escapeHtml(pautaId)}')" class="cursor-pointer font-headline-lg text-headline-lg text-on-surface hover:text-primary transition-colors leading-snug">
+                ${escapeHtml(top.titulo_jornalistico)}
+              </h2>
+              <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                ${escapeHtml(top.resumo_3_linhas)}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-surface-container">
+              <div class="flex items-center gap-1.5 text-xs text-on-surface-variant font-medium">
+                <span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+                <span>${escapeHtml(top.bairros_locais_instituicoes || 'Imperatriz - MA')}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <a href="${escapeHtml(top.url_original || '#')}" target="_blank" class="px-3.5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1 transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                  Matéria Original
+                </a>
+                <button onclick="openModal('${escapeHtml(pautaId)}')" class="px-4 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-sm flex items-center gap-1 transition-colors" type="button">
+                  <span>Abrir Dossiê Completo</span>
+                  <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       `;
-      return;
     }
 
-    container.innerHTML = list.map(p => {
-      const pautaId = p.id_pauta || p.id || '';
-      const score = p.pontuacao_editorial ?? p.score_relevancia ?? 0;
+    function handleCapaImgError(imgEl) {
+      if (!imgEl || !imgEl.parentElement) return;
+      imgEl.parentElement.innerHTML = buildFallbackCapaVisual(
+        imgEl.dataset.cat || '',
+        imgEl.dataset.fonte || '',
+        imgEl.dataset.date || ''
+      );
+    }
 
-      let borderClass = 'bg-outline-variant';
-      let badgeClass = 'bg-surface-container text-on-surface-variant';
+    function buildFallbackCapaVisual(categoria, fonte, dataLabel) {
+      return `
+        <div class="w-full h-full min-h-[220px] bg-gradient-to-br from-primary to-primary-container text-on-primary p-6 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex items-center justify-between">
+            <span class="px-3 py-1 rounded-full bg-white/15 text-white font-label-sm text-label-sm font-bold uppercase tracking-wider">Capa Editorial • Imperatriz</span>
+            <span class="material-symbols-outlined text-white/80 text-[26px]">breaking_news</span>
+          </div>
+          <div class="my-4">
+            <p class="text-xs uppercase tracking-widest text-on-primary-container font-bold">${escapeHtml(categoria || 'Jornalismo Público')}</p>
+            <p class="font-headline-md text-headline-md text-white font-extrabold mt-1">${escapeHtml(fonte || 'Radar de Pautas ITZ')}</p>
+          </div>
+          <div class="flex items-center justify-between text-xs text-white/85">
+            <span>${escapeHtml(dataLabel)}</span>
+            <span>Fonte sem imagem og:image pública</span>
+          </div>
+        </div>
+      `;
+    }
 
-      if (p.prioridade === 'Emergência') {
-        borderClass = 'bg-error';
-        badgeClass = 'bg-error-container text-on-error-container';
-      } else if (p.prioridade === 'Alta') {
-        borderClass = 'bg-tertiary';
-        badgeClass = 'bg-tertiary-fixed text-on-tertiary-fixed';
-      } else if (p.prioridade === 'Média') {
-        borderClass = 'bg-primary';
-        badgeClass = 'bg-secondary-container text-on-secondary-container';
+    // ---------------------------
+    // Filtros & Feed de Pautas
+    // ---------------------------
+    function syncTimeButtons() {
+      document.querySelectorAll('#time-filter-bar .time-btn').forEach(btn => {
+        const d = Number(btn.dataset.days);
+        if (d === currentTimeDays) {
+          btn.className = 'time-btn px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all';
+        } else {
+          btn.className = 'time-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all';
+        }
+      });
+    }
+
+    function setTimeFilter(days) {
+      currentTimeDays = Number(days);
+      const fallbackEl = document.getElementById('temporal-fallback-banner');
+      if (fallbackEl) fallbackEl.classList.add('hidden');
+      syncTimeButtons();
+      updateCategoryCounts();
+      filterPautas();
+    }
+
+    function setSortOrder(mode) {
+      currentSortOrder = mode;
+      loadPautasAndStats();
+    }
+
+    function setCategoryFilter(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('#filter-buttons-bar .filter-btn').forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = 'filter-btn active-filter px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all';
+        } else {
+          btn.className = 'filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all';
+        }
+      });
+      filterPautas();
+    }
+
+    function getTimeFilteredPautas() {
+      if (currentTimeDays <= 0) return pautasData;
+      return pautasData.filter(p => parsePautaDate(p).days <= currentTimeDays);
+    }
+
+    function updateCategoryCounts() {
+      const base = getTimeFilteredPautas();
+      const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+      setTxt('count-todas', base.length);
+      setTxt('count-urgentes', base.filter(p => p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes').length);
+      setTxt('count-denuncias', base.filter(p => p.categoria === 'Pautas de denúncia e apuração').length);
+      setTxt('count-servico', base.filter(p => p.categoria === 'Pautas de serviço público').length);
+      setTxt('count-cidade', base.filter(p => p.categoria === 'Pautas de cultura, economia e cidade').length);
+    }
+
+    function filterPautas() {
+      const searchEl = document.getElementById('stitch-search-input');
+      const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+      const timeFiltered = getTimeFilteredPautas();
+
+      const filtered = timeFiltered.filter(p => {
+        let matchCat = true;
+        if (currentCategory === 'Pautas urgentes') {
+          matchCat = (p.prioridade === 'Emergência' || p.categoria === 'Pautas urgentes');
+        } else if (currentCategory !== 'todas') {
+          matchCat = (p.categoria === currentCategory);
+        }
+
+        const matchQ = (!q ||
+          (p.titulo_jornalistico && p.titulo_jornalistico.toLowerCase().includes(q)) ||
+          (p.resumo_3_linhas && p.resumo_3_linhas.toLowerCase().includes(q)) ||
+          (p.bairros_locais_instituicoes && p.bairros_locais_instituicoes.toLowerCase().includes(q)) ||
+          (p.fonte_principal && p.fonte_principal.toLowerCase().includes(q)) ||
+          (p.angulo_jornalistico && p.angulo_jornalistico.toLowerCase().includes(q)) ||
+          (p.identificadores_documentos && p.identificadores_documentos.toLowerCase().includes(q))
+        );
+        return matchCat && matchQ;
+      });
+
+      const badgeEl = document.getElementById('pautas-count-badge');
+      if (badgeEl) badgeEl.innerText = `${filtered.length} exibidas`;
+
+      renderCards(filtered);
+    }
+
+    function renderCards(list) {
+      const container = document.getElementById('pautas-cards-container');
+      if (!container) return;
+
+      if (!list.length) {
+        container.innerHTML = `
+          <div class="bg-surface-container-lowest rounded-lg p-6 text-center shadow-sm flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-[34px] text-on-surface-variant">search_off</span>
+            <p class="font-headline-sm text-headline-sm text-on-surface">Nenhuma pauta nesta janela/filtro</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">Tente ampliar o período para 30 dias / Arquivo ou clique em "Buscar Recentes".</p>
+            <button onclick="setTimeFilter(0)" class="mt-1 px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold" type="button">Mostrar Arquivo Completo</button>
+          </div>
+        `;
+        return;
       }
 
-      const isConfirmado = p.nivel_verificacao === 'Confirmado';
-      const statusIcon = isConfirmado ? 'check_circle' : 'pending';
-      const statusColor = isConfirmado ? 'text-emerald-700' : 'text-error';
+      container.innerHTML = list.map(p => {
+        const pautaId = p.id_pauta || p.id || '';
+        const score = p.pontuacao_editorial ?? p.score_relevancia ?? 0;
+        const dtInfo = parsePautaDate(p);
 
-      return `
-        <article class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm relative overflow-hidden flex flex-col gap-space-sm group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${escapeHtml(pautaId)}')">
-          <div class="absolute left-0 top-0 bottom-0 w-1.5 ${borderClass}"></div>
-          
-          <div class="flex items-center justify-between pl-2">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="${badgeClass} font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
-                ${p.prioridade === 'Emergência' ? '<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>' : ''}
-                ${escapeHtml(p.prioridade)} • Score ${score}/100
-              </span>
-              <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold">${escapeHtml(p.fonte_principal)}</span>
+        let borderClass = 'bg-outline-variant';
+        let badgeClass = 'bg-surface-container text-on-surface-variant';
+        if (p.prioridade === 'Emergência') {
+          borderClass = 'bg-error';
+          badgeClass = 'bg-error-container text-on-error-container';
+        } else if (p.prioridade === 'Alta') {
+          borderClass = 'bg-tertiary';
+          badgeClass = 'bg-tertiary-fixed text-on-tertiary-fixed';
+        } else if (p.prioridade === 'Média') {
+          borderClass = 'bg-primary';
+          badgeClass = 'bg-secondary-container text-on-secondary-container';
+        }
+
+        const thumbHtml = p.imagem_capa
+          ? `<img src="${escapeHtml(p.imagem_capa)}" alt="" class="w-20 h-16 rounded-lg object-cover shrink-0 bg-surface-container-low" onerror="this.style.display='none'"/>`
+          : '';
+
+        return `
+          <article class="bg-surface-container-lowest rounded-lg p-4 shadow-sm relative overflow-hidden flex flex-col gap-2.5 group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${escapeHtml(pautaId)}')">
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 ${borderClass}"></div>
+
+            <div class="flex items-center justify-between pl-2 gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="${badgeClass} font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
+                  ${p.prioridade === 'Emergência' ? '<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>' : ''}
+                  ${escapeHtml(p.prioridade)} • ${score}
+                </span>
+                <span class="${dtInfo.badgeClass} font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">${escapeHtml(dtInfo.label)}</span>
+              </div>
+              <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold truncate max-w-[140px]">${escapeHtml(p.fonte_principal)}</span>
             </div>
-            <span class="font-label-sm text-label-sm ${statusColor} font-semibold flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">${statusIcon}</span>
-              ${escapeHtml(p.nivel_verificacao)}
-            </span>
-          </div>
 
-          <div class="pl-2">
-            <h3 class="font-headline-sm text-headline-sm text-on-surface leading-snug group-hover:text-primary transition-colors">
-              ${escapeHtml(p.titulo_jornalistico)}
-            </h3>
-            <p class="font-body-md text-body-md text-on-surface-variant mt-1 line-clamp-3">
-              ${escapeHtml(p.resumo_3_linhas)}
-            </p>
-          </div>
-
-          <div class="pl-2 pt-1 flex items-center justify-between gap-space-sm flex-wrap text-on-surface-variant font-label-sm text-label-sm">
-            <div class="flex items-center gap-1">
-              <span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
-              <span class="truncate max-w-[180px]">${escapeHtml(p.bairros_locais_instituicoes || 'Imperatriz • MA')}</span>
+            <div class="pl-2 flex items-start gap-3 justify-between">
+              <div class="flex-1 min-w-0">
+                <h3 class="font-headline-sm text-headline-sm text-on-surface leading-snug group-hover:text-primary transition-colors">
+                  ${escapeHtml(p.titulo_jornalistico)}
+                </h3>
+                <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2">
+                  ${escapeHtml(p.resumo_3_linhas)}
+                </p>
+              </div>
+              ${thumbHtml}
             </div>
-            <div class="flex items-center gap-2">
-              <button onclick="event.stopPropagation(); window.open('${escapeHtml(p.url_original || '#')}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button" title="Ver Link Original">
-                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
-                Fonte
-              </button>
-              <button onclick="event.stopPropagation(); openModal('${escapeHtml(pautaId)}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm hover:bg-primary-container transition-all flex items-center gap-1" type="button">
-                <span>Dossiê</span>
-                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-              </button>
+
+            <div class="pl-2 pt-1 flex items-center justify-between gap-2 text-on-surface-variant font-label-sm text-label-sm">
+              <div class="flex items-center gap-1 min-w-0">
+                <span class="material-symbols-outlined text-[15px] text-tertiary shrink-0">location_on</span>
+                <span class="truncate">${escapeHtml(p.bairros_locais_instituicoes || 'Imperatriz • MA')}</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="event.stopPropagation(); window.open('${escapeHtml(p.url_original || '#')}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button">
+                  <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                  Fonte
+                </button>
+                <button onclick="event.stopPropagation(); openModal('${escapeHtml(pautaId)}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold hover:bg-primary-container transition-colors flex items-center gap-1" type="button">
+                  <span>Dossiê</span>
+                  <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </button>
+              </div>
             </div>
-          </div>
-        </article>
-      `;
-    }).join('');
-  }
+          </article>
+        `;
+      }).join('');
+    }
 
-  // 7. Modal de Dossiê Detalhado
-  function openModal(id) {
-    const p = pautasData.find(item => String(item.id_pauta || item.id) === String(id));
-    if (!p) return;
+    // ---------------------------
+    // Auditoria Real PNCP (2024–2026)
+    // ---------------------------
+    function setPncpYear(year) {
+      currentPncpYear = year;
+      document.querySelectorAll('#pncp-year-bar .pncp-year-btn').forEach(btn => {
+        if ((btn.dataset.year || '') === year) {
+          btn.className = 'pncp-year-btn px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold transition-all';
+        } else {
+          btn.className = 'pncp-year-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-semibold transition-all';
+        }
+      });
+      loadPncpSummary();
+    }
 
-    document.getElementById('modal-title').innerText = p.titulo_jornalistico || '';
-    document.getElementById('modal-resumo').innerText = p.resumo_3_linhas || '';
-    document.getElementById('modal-fonte').innerText = p.fonte_principal || '';
-    document.getElementById('modal-nivel').innerText = p.nivel_verificacao || '';
-    document.getElementById('modal-data-pub').innerText = p.data_publicacao || 'Não informada';
-    document.getElementById('modal-data-fato').innerText = p.data_acontecimento || p.data_fato || 'Recente';
-    document.getElementById('modal-locais').innerText = p.bairros_locais_instituicoes || 'Imperatriz, MA';
-    document.getElementById('modal-contraditorio').innerText = p.informacoes_pendentes || p.proxima_acao_recomendada || p.status_contraditorio || 'Exige contato formal com a assessoria/órgão competente.';
-    document.getElementById('modal-angulo').innerText = p.angulo_jornalistico || p.pauta_sugerida || 'Pauta prioritária para cobertura investigativa local.';
+    function setPncpOrgao(orgao) {
+      currentPncpOrgao = orgao;
+      loadPncpSummary();
+    }
 
-    let evid = p.evidencias_verificadas || p.evidencias_primarias || 'Documentos em verificação.';
-    if (typeof evid === 'string' && evid.startsWith('[')) {
+    async function loadPncpSummary() {
       try {
-        const parsed = JSON.parse(evid);
-        evid = parsed.join('\n• ');
-        if (evid) evid = '• ' + evid;
+        const params = new URLSearchParams();
+        if (currentPncpYear) params.set('ano', currentPncpYear);
+        if (currentPncpOrgao) params.set('orgao', currentPncpOrgao);
+        const res = await fetch('/api/pncp/resumo?' + params.toString());
+        const data = await res.json();
+
+        // Quando sem filtros de ano/órgão, atualiza KPI 1 geral no Hero
+        if (!currentPncpYear && !currentPncpOrgao) {
+          const elVal = document.getElementById('kpi-pncp-valor');
+          const elQtd = document.getElementById('kpi-pncp-qtd');
+          if (elVal) elVal.innerText = formatBRLCompact(data.valor_total_global);
+          if (elQtd) elQtd.innerText = `${data.total_contratos} contratos (PMI/CMI/FMS/FME)`;
+          const hdrPill = document.getElementById('header-pncp-pill');
+          if (hdrPill) hdrPill.innerText = `PNCP: ${data.total_contratos} contratos`;
+        }
+
+        const totalBadge = document.getElementById('pncp-chart-total-badge');
+        if (totalBadge) totalBadge.innerText = `${data.total_contratos} contratos • ${formatBRLCompact(data.valor_total_global)}`;
+
+        const sub = document.getElementById('pncp-chart-subtitle');
+        if (sub) {
+          const yrTxt = currentPncpYear ? `Exercício ${currentPncpYear}` : 'Exercícios 2024–2026';
+          const orgTxt = currentPncpOrgao || 'PMI, Câmara, Saúde e Educação';
+          sub.innerText = `${yrTxt} • ${orgTxt}`;
+        }
+
+        const verTodosBtn = document.getElementById('btn-ver-todos-pncp');
+        if (verTodosBtn) verTodosBtn.innerText = `Ver todos (${data.total_contratos})`;
+
+        renderPncpChart(data.evolucao_mensal || []);
+        renderPncpFornecedores(data.top_fornecedores || []);
+        renderPncpUltimosContratos(data.ultimos_contratos || []);
+      } catch (err) {
+        console.error('Erro ao carregar resumo PNCP:', err);
+      }
+    }
+
+    function renderPncpChart(series) {
+      const area = document.getElementById('pncp-chart-area');
+      if (!area) return;
+      if (!series.length) {
+        area.innerHTML = `
+          <div class="m-auto text-center text-xs text-on-surface-variant flex flex-col items-center gap-2">
+            <span>Nenhum contrato sincronizado nesta seleção.</span>
+            <button onclick="triggerPncpSync()" class="px-3 py-1 rounded-full bg-primary text-on-primary font-bold" type="button">Sincronizar PNCP Agora</button>
+          </div>
+        `;
+        return;
+      }
+
+      const slice = series.slice(-14);
+      const maxVal = Math.max(...slice.map(s => Number(s.valor_global || 0)), 1);
+
+      area.innerHTML = `
+        <div class="relative w-full h-44 flex items-end justify-between gap-1.5 px-1 pt-6">
+          ${slice.map(s => {
+            const pct = Math.max(6, Math.round((Number(s.valor_global || 0) / maxVal) * 100));
+            const [yr, mo] = s.mes.split('-');
+            const label = mo && yr ? `${mo}/${yr.slice(2)}` : s.mes;
+            return `
+              <div onclick="openPncpModal('${escapeHtml(yr || '')}', '${escapeHtml(currentPncpOrgao)}')" class="flex-1 h-full flex flex-col justify-end items-center gap-1 group relative cursor-pointer" title="${escapeHtml(s.mes)}: ${formatBRL(s.valor_global)} (${s.contratos} contratos)">
+                <div class="hidden group-hover:block absolute -top-2 bg-inverse-surface text-inverse-on-surface px-2 py-1 rounded text-[10px] font-bold shadow z-20 whitespace-nowrap pointer-events-none">
+                  ${escapeHtml(label)}: ${formatBRLCompact(s.valor_global)} (${s.contratos})
+                </div>
+                <div class="w-full flex-1 flex items-end">
+                  <div class="w-full bg-primary/80 group-hover:bg-primary rounded-t transition-all" style="height: ${pct}%;"></div>
+                </div>
+                <span class="text-[10px] font-label-sm text-on-surface-variant truncate w-full text-center shrink-0">${escapeHtml(label)}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderPncpFornecedores(list) {
+      const container = document.getElementById('pncp-fornecedores-list');
+      if (!container) return;
+      if (!list.length) {
+        container.innerHTML = '<div class="p-4 text-center text-xs text-on-surface-variant">Nenhum fornecedor indexado neste recorte. Clique em "Atualizar PNCP".</div>';
+        return;
+      }
+
+      container.innerHTML = list.slice(0, 6).map((f, idx) => {
+        const filterTerm = f.fornecedor_cnpj || f.fornecedor_nome;
+        const vigTxt = f.vigencia_media_pct !== null && f.vigencia_media_pct !== undefined
+          ? `Vigência decorrida: ${f.vigencia_media_pct}%`
+          : 'Vigência não informada';
+        return `
+          <div data-fornecedor="${escapeHtml(filterTerm)}" onclick="openPncpModalFornecedor(this.dataset.fornecedor)" class="cursor-pointer bg-surface-container-low p-3 rounded-xl flex flex-col gap-1.5 hover:bg-surface-container transition-all">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-6 h-6 rounded-full ${idx === 0 ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'} font-label-sm text-label-sm flex items-center justify-center font-bold shrink-0">${idx + 1}</span>
+                <div class="min-w-0">
+                  <p class="font-label-lg text-label-lg text-on-surface font-semibold truncate">${escapeHtml(f.fornecedor_nome)}</p>
+                  <p class="font-label-sm text-label-sm text-on-surface-variant">${f.fornecedor_cnpj ? 'Doc: ' + escapeHtml(f.fornecedor_cnpj) + ' • ' : ''}${escapeHtml(f.orgaos || 'Imperatriz')}</p>
+                </div>
+              </div>
+              <span class="font-headline-sm text-headline-sm text-on-surface font-bold shrink-0">${formatBRLCompact(f.total_valor)}</span>
+            </div>
+            <div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+              <span>${f.qtd_contratos} contrato(s) • ${vigTxt}</span>
+              <span class="font-bold text-primary">${f.participacao_pct}% do volume</span>
+            </div>
+            <div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-primary rounded-full" style="width: ${Math.min(100, Math.max(2, f.participacao_pct || 0))}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderPncpUltimosContratos(list) {
+      const tbody = document.getElementById('pncp-ultimos-tbody');
+      if (!tbody) return;
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-xs text-on-surface-variant">Nenhum contrato localizado no banco local para esta seleção.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.slice(0, 6).map(c => `
+        <tr class="hover:bg-surface-container-low/60 transition-colors">
+          <td class="py-2.5 pr-2 max-w-[200px]">
+            <div class="font-semibold text-on-surface line-clamp-1" title="${escapeHtml(c.objeto)}">${escapeHtml(c.objeto || 'Objeto não detalhado')}</div>
+            <div class="text-on-surface-variant text-[11px] truncate">${escapeHtml(c.fornecedor_nome || 'Não informado')} • Nº ${escapeHtml(c.numero_contrato || '-')}</div>
+          </td>
+          <td class="py-2.5 pr-2">
+            <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold">${escapeHtml(c.orgao_sigla)}</span>
+          </td>
+          <td class="py-2.5 pr-2 font-bold text-on-surface whitespace-nowrap">${formatBRLCompact(c.valor_global)}</td>
+          <td class="py-2.5 text-right whitespace-nowrap">
+            <span class="text-[11px] text-on-surface-variant mr-1">${escapeHtml(c.data_publicacao || c.ano_contrato)}</span>
+            <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="text-primary font-bold hover:underline" title="Abrir no PNCP">
+              <span class="material-symbols-outlined text-[15px] align-middle">open_in_new</span>
+            </a>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ---------------------------
+    // Modal Explorador PNCP
+    // ---------------------------
+    function openPncpModal(ano = '', orgao = '', fornecedorQuery = '') {
+      const anoSel = document.getElementById('pncp-modal-ano');
+      const orgSel = document.getElementById('pncp-modal-orgao');
+      const searchIn = document.getElementById('pncp-modal-search');
+      if (anoSel) anoSel.value = ano !== undefined && ano !== null ? String(ano) : '';
+      if (orgSel) orgSel.value = orgao || '';
+      if (searchIn) searchIn.value = fornecedorQuery || '';
+
+      document.getElementById('pncp-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      loadPncpModal(1);
+    }
+
+    function openPncpModalFornecedor(fornecedorText) {
+      openPncpModal(currentPncpYear, currentPncpOrgao, fornecedorText);
+    }
+
+    function debouncedLoadPncpModal(page) {
+      clearTimeout(pncpModalTimer);
+      pncpModalTimer = setTimeout(() => loadPncpModal(page), 250);
+    }
+
+    async function loadPncpModal(page = 1) {
+      pncpModalPage = Math.max(1, page);
+      const q = (document.getElementById('pncp-modal-search')?.value || '').trim();
+      const ano = document.getElementById('pncp-modal-ano')?.value || '';
+      const orgao = document.getElementById('pncp-modal-orgao')?.value || '';
+
+      const params = new URLSearchParams({ pagina: String(pncpModalPage), limite: '30' });
+      if (q) params.set('q', q);
+      if (ano) params.set('ano', ano);
+      if (orgao) params.set('orgao', orgao);
+
+      const expLink = document.getElementById('pncp-modal-export-link');
+      if (expLink) expLink.href = '/api/pncp/export/csv?' + params.toString();
+
+      const tbody = document.getElementById('pncp-modal-tbody');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Carregando contratos do PNCP...</td></tr>';
+
+      try {
+        const res = await fetch('/api/pncp/contratos?' + params.toString());
+        const data = await res.json();
+        const items = data.items || [];
+
+        document.getElementById('pncp-modal-subtitle').innerText =
+          `${data.total || 0} contrato(s) encontrado(s) no PNCP para os filtros atuais`;
+        document.getElementById('pncp-modal-page-info').innerText =
+          `Página ${data.pagina} de ${data.total_paginas} (${data.total} registros)`;
+
+        const prevBtn = document.getElementById('pncp-prev-btn');
+        const nextBtn = document.getElementById('pncp-next-btn');
+        if (prevBtn) prevBtn.disabled = data.pagina <= 1;
+        if (nextBtn) nextBtn.disabled = data.pagina >= data.total_paginas;
+
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Nenhum contrato encontrado com esses critérios.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = items.map(c => `
+          <tr class="hover:bg-surface-container-low/60">
+            <td class="py-2.5 pr-3 whitespace-nowrap">
+              <div class="font-semibold">${escapeHtml(c.data_publicacao || '-')}</div>
+              <div class="text-[11px] text-on-surface-variant">Ano ${escapeHtml(c.ano_contrato)}</div>
+            </td>
+            <td class="py-2.5 pr-3">
+              <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-bold">${escapeHtml(c.orgao_sigla)}</span>
+              <div class="text-[11px] text-on-surface-variant mt-0.5 max-w-[140px] truncate">${escapeHtml(c.unidade_nome || c.orgao_nome)}</div>
+            </td>
+            <td class="py-2.5 pr-3 max-w-[190px]">
+              <div class="font-semibold text-on-surface">${escapeHtml(c.fornecedor_nome || '-')}</div>
+              <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(c.fornecedor_cnpj || '')}</div>
+            </td>
+            <td class="py-2.5 pr-3 max-w-[320px]">
+              <div class="text-on-surface line-clamp-2">${escapeHtml(c.objeto || '-')}</div>
+              <div class="text-[11px] text-on-surface-variant mt-0.5">Contrato ${escapeHtml(c.numero_contrato || '-')} ${c.processo ? '• Proc. ' + escapeHtml(c.processo) : ''}</div>
+            </td>
+            <td class="py-2.5 pr-3 text-right font-bold text-on-surface whitespace-nowrap">
+              ${formatBRL(c.valor_global)}
+            </td>
+            <td class="py-2.5 text-right whitespace-nowrap">
+              <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-on-primary font-bold">
+                <span>Abrir</span>
+                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+              </a>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-error">Erro ao consultar contratos do PNCP.</td></tr>';
+      }
+    }
+
+    async function triggerPncpSync(refreshModal = false) {
+      const btn = document.getElementById('btn-sync-pncp');
+      const icon = document.getElementById('pncp-sync-spin');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+
+      try {
+        const res = await fetch('/api/pncp/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anos: [2024, 2025, 2026] }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Sincronização PNCP concluída!\n• Contratos processados: ${data.total_sincronizados || 0}\n• Por ano: 2026 (${data.por_ano?.['2026'] || 0}), 2025 (${data.por_ano?.['2025'] || 0}), 2024 (${data.por_ano?.['2024'] || 0})`);
+          await loadPncpSummary();
+          await loadPautasAndStats();
+          if (refreshModal) await loadPncpModal(1);
+        } else {
+          alert(`Falha ao sincronizar PNCP: ${data.erro || 'Erro desconhecido'}`);
+        }
+      } catch (err) {
+        alert(`Erro ao conectar com o PNCP: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
+    // ---------------------------
+    // Fontes Monitoradas & Cadastro
+    // ---------------------------
+    async function loadFontes() {
+      try {
+        const res = await fetch('/api/fontes');
+        fontesData = await res.json();
+        const badge = document.getElementById('fontes-right-badge');
+        if (badge) badge.innerText = `${fontesData.length} Ativas`;
+
+        const preview = document.getElementById('fontes-preview-list');
+        if (!preview) return;
+        // Prioriza mostrar mistura de portais ativos + diagnóstico de Instagram
+        const webSources = fontesData.filter(f => !(f.url || '').toLowerCase().includes('instagram.com'));
+        const instaSources = fontesData.filter(f => (f.url || '').toLowerCase().includes('instagram.com'));
+        const sample = [...webSources.slice(0, 4), ...instaSources.slice(0, 2)];
+
+        preview.innerHTML = sample.map(f => {
+          const isBlocked = (f.situacao_funcionamento || '').toLowerCase().includes('bloqueio') || (f.url || '').toLowerCase().includes('instagram.com');
+          const statusCls = isBlocked ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800';
+          const statusLbl = isBlocked ? 'LOGIN WALL' : 'ONLINE';
+          return `
+            <a href="${escapeHtml(f.url)}" target="_blank" class="p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between gap-2 transition-colors">
+              <div class="min-w-0">
+                <p class="font-label-md text-label-md text-on-surface font-semibold truncate">${escapeHtml(f.nome)}</p>
+                <p class="font-body-sm text-body-sm text-on-surface-variant truncate">${escapeHtml(f.tipo)} • ${escapeHtml(f.situacao_funcionamento || 'Cadastrada')}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded-full ${statusCls} font-label-sm text-label-sm font-bold shrink-0">${statusLbl}</span>
+            </a>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Erro ao carregar fontes:', err);
+      }
+    }
+
+    function openFontesModal() {
+      const list = document.getElementById('fontes-modal-list');
+      if (list) {
+        list.innerHTML = fontesData.map(f => {
+          const isBlocked = (f.situacao_funcionamento || '').toLowerCase().includes('bloqueio') || (f.url || '').toLowerCase().includes('instagram.com');
+          const pillCls = isBlocked ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-800';
+          return `
+            <div class="p-3 rounded-xl bg-surface-container-low border border-surface-container flex flex-col justify-between gap-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="font-headline-sm text-headline-sm text-on-surface truncate">${escapeHtml(f.nome)}</p>
+                  <p class="text-[11px] text-on-surface-variant">${escapeHtml(f.tipo)} • Prioridade ${escapeHtml(f.prioridade)}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full ${pillCls} text-[10px] font-bold shrink-0">${escapeHtml(f.situacao_funcionamento || 'Cadastrada')}</span>
+              </div>
+              <p class="text-xs text-on-surface-variant">${escapeHtml(f.observacoes_limitacoes || f.erro_identificado || 'Monitoramento regular')}</p>
+              <div class="flex items-center justify-between text-[11px] pt-1 border-t border-surface-container">
+                <span class="text-on-surface-variant truncate max-w-[200px]">${escapeHtml(f.temas || '')}</span>
+                <a href="${escapeHtml(f.url)}" target="_blank" class="text-primary font-bold hover:underline shrink-0">Visitar ↗</a>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+      document.getElementById('fontes-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    async function submitNovaFonte(event) {
+      event.preventDefault();
+      const payload = {
+        nome: document.getElementById('fonte-nome').value.trim(),
+        url: document.getElementById('fonte-url').value.trim(),
+        tipo: document.getElementById('fonte-tipo').value,
+        prioridade: document.getElementById('fonte-prio').value,
+        temas: 'Imperatriz;monitoramento',
+      };
+      try {
+        const res = await fetch('/api/fontes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Erro ao cadastrar fonte.');
+          return;
+        }
+        document.getElementById('form-add-fonte').reset();
+        await loadFontes();
+        await loadPautasAndStats();
+        openFontesModal();
+      } catch (err) {
+        alert('Erro de comunicação ao cadastrar fonte.');
+      }
+    }
+
+    // ---------------------------
+    // Dossiês Investigativos / Pendências
+    // ---------------------------
+    async function loadPendencias() {
+      try {
+        const res = await fetch('/api/pendencias');
+        pendenciasData = await res.json();
+      } catch (err) {
+        console.error('Erro ao carregar pendências:', err);
+      }
+    }
+
+    function openPendenciasModal() {
+      const container = document.getElementById('pendencias-modal-list');
+      if (container) {
+        if (!pendenciasData.length) {
+          container.innerHTML = '<div class="p-6 text-center text-sm text-on-surface-variant">Nenhuma pendência de apuração registrada.</div>';
+        } else {
+          container.innerHTML = pendenciasData.map(item => `
+            <div class="p-4 rounded-xl bg-surface-container-low border border-surface-container flex flex-col gap-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="px-2 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase">${escapeHtml(item.status_apuracao || 'Pendente')}</span>
+                  <h4 class="font-headline-sm text-headline-sm text-on-surface mt-1">${escapeHtml(item.titulo_jornalistico || item.id_pauta)}</h4>
+                </div>
+                <button onclick="closeModal('pendencias-modal'); openModal('${escapeHtml(item.id_pauta)}')" class="px-3 py-1 rounded-full bg-primary text-on-primary text-xs font-bold shrink-0" type="button">Abrir Dossiê</button>
+              </div>
+              <p class="text-xs text-on-surface"><strong>Questão pendente:</strong> ${escapeHtml(item.questao_pendente)}</p>
+              <p class="text-xs text-on-surface-variant"><strong>Documento / Órgão:</strong> ${escapeHtml(item.documento_necessario)} • ${escapeHtml(item.instituicao_ou_pessoa_a_consultar)}</p>
+              <p class="text-xs text-primary font-medium"><strong>Próxima ação:</strong> ${escapeHtml(item.proxima_acao)}</p>
+            </div>
+          `).join('');
+        }
+      }
+      document.getElementById('pendencias-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    // ---------------------------
+    // Telemetria Honesta ANA (Estação 23800000)
+    // ---------------------------
+    async function loadTelemetria() {
+      try {
+        const res = await fetch('/api/telemetria');
+        const t = await res.json();
+        const box = document.getElementById('telemetria-box');
+        const badge = document.getElementById('telemetria-status-badge');
+        const heroBadge = document.getElementById('hero-rio-badge');
+        const alertasBox = document.getElementById('telemetria-alertas');
+
+        if (badge) badge.innerText = t.configurada_api_ana ? 'API ANA Ativa' : 'Sem credencial ANA';
+        if (heroBadge) heroBadge.innerText = `Rio Tocantins • ANA ${t.estacao_codigo}`;
+        if (box) {
+          box.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-on-surface">Status da API:</span>
+              <span class="font-bold text-primary">${t.configurada_api_ana ? 'Credencial ativa' : 'Consulta direta via SNIRH'}</span>
+            </div>
+            <p class="text-[11px] leading-relaxed">${escapeHtml(t.nota_transparencia)}</p>
+          `;
+        }
+        if (alertasBox && Array.isArray(t.alertas_locais) && t.alertas_locais.length) {
+          alertasBox.innerHTML = '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Alertas climáticos / rio nas pautas:</span>' +
+            t.alertas_locais.map(a => `
+              <a href="${escapeHtml(a.url_original || '#')}" target="_blank" class="p-2 rounded-lg bg-error-container/50 hover:bg-error-container text-on-error-container text-[11px] font-semibold line-clamp-2 transition-colors">
+                ${escapeHtml(a.data_publicacao || '')} — ${escapeHtml(a.titulo_jornalistico)}
+              </a>
+            `).join('');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar telemetria:', err);
+      }
+    }
+
+    // ---------------------------
+    // Modal de Dossiê da Pauta
+    // ---------------------------
+    function openModal(id) {
+      const p = pautasData.find(item => String(item.id_pauta || item.id) === String(id));
+      if (!p) return;
+
+      document.getElementById('modal-title').innerText = p.titulo_jornalistico || '';
+      document.getElementById('modal-resumo').innerText = p.resumo_3_linhas || '';
+      document.getElementById('modal-fonte').innerText = p.fonte_principal || '';
+      document.getElementById('modal-nivel').innerText = p.nivel_verificacao || '';
+      document.getElementById('modal-data-pub').innerText = p.data_publicacao || 'Não informada';
+      document.getElementById('modal-data-fato').innerText = p.data_acontecimento || p.data_fato || 'Recente';
+      document.getElementById('modal-locais').innerText = p.bairros_locais_instituicoes || 'Imperatriz, MA';
+      document.getElementById('modal-contraditorio').innerText = p.informacoes_pendentes || p.proxima_acao_recomendada || p.status_contraditorio || 'Exige contato formal com o órgão competente.';
+      document.getElementById('modal-angulo').innerText = p.angulo_jornalistico || p.pauta_sugerida || 'Pauta prioritária para cobertura local.';
+
+      const coverWrap = document.getElementById('modal-cover-wrap');
+      if (coverWrap) {
+        if (p.imagem_capa) {
+          coverWrap.innerHTML = `<img src="${escapeHtml(p.imagem_capa)}" alt="Imagem de capa" class="w-full h-56 object-cover" onerror="document.getElementById('modal-cover-wrap').classList.add('hidden')"/>`;
+          coverWrap.classList.remove('hidden');
+        } else {
+          coverWrap.innerHTML = '';
+          coverWrap.classList.add('hidden');
+        }
+      }
+
+      let evid = p.evidencias_verificadas || p.evidencias_primarias || 'Documentos em verificação.';
+      if (typeof evid === 'string' && evid.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(evid);
+          evid = parsed.join('\n• ');
+          if (evid) evid = '• ' + evid;
+        } catch (e) {}
+      }
+      document.getElementById('modal-evidencias').innerText = evid;
+
+      document.getElementById('modal-link-original').href = p.url_original || '#';
+
+      const prioBadge = document.getElementById('modal-badge-prio');
+      prioBadge.innerText = p.prioridade;
+      if (p.prioridade === 'Emergência') {
+        prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-error-container text-on-error-container';
+      } else if (p.prioridade === 'Alta') {
+        prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-tertiary-fixed text-on-tertiary-fixed';
+      } else {
+        prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-secondary-container text-on-secondary-container';
+      }
+
+      document.getElementById('modal-categoria').innerText = p.categoria || '';
+      document.getElementById('modal-score').innerText = `Score: ${p.pontuacao_editorial ?? p.score_relevancia ?? 0}/100`;
+
+      document.getElementById('stitch-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(modalId = 'stitch-modal') {
+      const m = document.getElementById(modalId);
+      if (m) m.classList.add('hidden');
+      const anyOpen = ['stitch-modal', 'pncp-modal', 'fontes-modal', 'pendencias-modal'].some(id => {
+        const el = document.getElementById(id);
+        return el && !el.classList.contains('hidden');
+      });
+      if (!anyOpen) document.body.style.overflow = '';
+    }
+
+    // ---------------------------
+    // Varredura Manual ao Vivo (POST /api/executar)
+    // ---------------------------
+    async function triggerManualSync() {
+      const btn = document.getElementById('btn-sync-manual');
+      const icon = document.getElementById('sync-icon-spin');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+
+      const activeKeywords = getSavedKeywords();
+      try {
+        const res = await fetch('/api/executar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultas_adicionais: activeKeywords }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Varredura concluída!\n• Execução: ${data.id_execucao || data.execucao_id || 'N/A'}\n• Pautas novas: ${data.pautas_novas ?? 0}\n• Páginas lidas: ${data.paginas_lidas ?? 0}\n• Fontes verificadas: ${data.fontes_consultadas ?? 0}`);
+          await loadAllData();
+        } else {
+          alert(`Aviso na varredura: ${data.erro || 'Não foi possível completar.'}`);
+        }
+      } catch (err) {
+        alert(`Erro na comunicação com o servidor: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
+    }
+
+    // ---------------------------
+    // Notificações & Navegação Sidebar
+    // ---------------------------
+    function renderNotifications() {
+      const list = document.getElementById('notifications-list');
+      const dot = document.getElementById('notif-dot');
+      if (!list) return;
+      const urgentOrRecent = pautasData.filter(p => p.prioridade === 'Emergência' || parsePautaDate(p).days <= 3).slice(0, 6);
+      if (dot) dot.classList.toggle('hidden', urgentOrRecent.length === 0);
+
+      if (!urgentOrRecent.length) {
+        list.innerHTML = '<div class="p-3 text-center text-on-surface-variant">Sem alertas urgentes nos últimos 3 dias.</div>';
+        return;
+      }
+      list.innerHTML = urgentOrRecent.map(p => {
+        const pid = p.id_pauta || p.id || '';
+        const dt = parsePautaDate(p);
+        return `
+          <button onclick="toggleNotificationsDropdown(false); openModal('${escapeHtml(pid)}')" class="w-full text-left p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors flex flex-col gap-1" type="button">
+            <div class="flex items-center justify-between text-[10px] font-bold">
+              <span class="text-error uppercase">${escapeHtml(p.prioridade)}</span>
+              <span class="text-on-surface-variant">${escapeHtml(dt.label)}</span>
+            </div>
+            <span class="font-semibold text-on-surface line-clamp-2">${escapeHtml(p.titulo_jornalistico)}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleNotificationsDropdown(forceState) {
+      const dd = document.getElementById('notifications-dropdown');
+      if (!dd) return;
+      if (typeof forceState === 'boolean') {
+        dd.classList.toggle('hidden', !forceState);
+      } else {
+        dd.classList.toggle('hidden');
+      }
+    }
+
+    function setActiveNavButton(btnEl) {
+      if (!btnEl) return;
+      document.querySelectorAll('#sidebar-nav .nav-item').forEach(b => {
+        b.className = 'nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left';
+      });
+      btnEl.className = 'nav-item active-nav flex items-center justify-between px-3 py-2.5 rounded-xl transition-all bg-primary-container text-on-primary font-bold shadow-sm text-left';
+    }
+
+    function navigateSection(elementId, btnEl) {
+      setActiveNavButton(btnEl);
+      toggleMobileSidebar(false);
+      scrollToElement(elementId);
+    }
+
+    function navigateModal(kind, btnEl) {
+      setActiveNavButton(btnEl);
+      toggleMobileSidebar(false);
+      if (kind === 'pncp') openPncpModal(currentPncpYear, currentPncpOrgao);
+      if (kind === 'fontes') openFontesModal();
+      if (kind === 'pendencias') openPendenciasModal();
+    }
+
+    function scrollToElement(elementId) {
+      const el = document.getElementById(elementId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function toggleMobileSidebar(open) {
+      const sidebar = document.getElementById('app-sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (!sidebar || !backdrop) return;
+      if (open) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    // ---------------------------
+    // Termos Sob Alerta (localStorage)
+    // ---------------------------
+    function getSavedKeywords() {
+      try {
+        const raw = localStorage.getItem('radar_itz_keywords');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) return arr;
+        }
+      } catch (e) {}
+      return [...DEFAULT_KEYWORDS];
+    }
+
+    function saveKeywords(arr) {
+      try {
+        localStorage.setItem('radar_itz_keywords', JSON.stringify(arr));
       } catch (e) {}
     }
-    document.getElementById('modal-evidencias').innerText = evid;
 
-    const linkEl = document.getElementById('modal-link-original');
-    linkEl.href = p.url_original || '#';
+    function renderKeywords() {
+      const container = document.getElementById('keyword-container');
+      const countLbl = document.getElementById('kw-count-label');
+      const kws = getSavedKeywords();
+      if (countLbl) countLbl.innerText = `${kws.length} ativo${kws.length === 1 ? '' : 's'}`;
+      if (!container) return;
 
-    const prioBadge = document.getElementById('modal-badge-prio');
-    prioBadge.innerText = p.prioridade;
-    if (p.prioridade === 'Emergência') {
-      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-error-container text-on-error-container';
-    } else if (p.prioridade === 'Alta') {
-      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-tertiary-fixed text-on-tertiary-fixed';
-    } else {
-      prioBadge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-secondary-container text-on-secondary-container';
+      container.innerHTML = kws.map(kw => `
+        <span class="keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-primary-fixed text-on-surface font-label-sm text-label-sm transition-colors">
+          <button type="button" data-kw="${escapeHtml(kw)}" onclick="applyKeywordSearch(this.dataset.kw)" class="hover:text-primary font-semibold" title="Filtrar pautas por este termo">${escapeHtml(kw)}</button>
+          <button type="button" data-kw="${escapeHtml(kw)}" onclick="removeKeyword(this.dataset.kw)" class="text-on-surface-variant hover:text-error" aria-label="Remover termo">
+            <span class="material-symbols-outlined text-[14px]">close</span>
+          </button>
+        </span>
+      `).join('');
     }
 
-    document.getElementById('modal-categoria').innerText = p.categoria || '';
-    document.getElementById('modal-score').innerText = `Score: ${p.pontuacao_editorial ?? p.score_relevancia ?? 0}/100`;
-
-    document.getElementById('stitch-modal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeModal() {
-    const modal = document.getElementById('stitch-modal');
-    if (modal) modal.classList.add('hidden');
-    document.body.style.overflow = '';
-  }
-
-  // 8. Disparo manual de novo ciclo de varredura (POST /api/executar)
-  async function triggerManualSync() {
-    const btn = document.getElementById('btn-sync-manual');
-    const icon = document.getElementById('sync-icon-spin');
-    if (btn) {
-      btn.disabled = true;
-      btn.style.opacity = '0.7';
-    }
-    if (icon) icon.classList.add('animate-spin');
-
-    try {
-      const res = await fetch('/api/executar', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Varredura concluída com sucesso!\n• Execução: #${data.id_execucao || data.execucao_id || 'N/A'}\n• Novas pautas: ${data.pautas_novas ?? data.total_novas_pautas ?? 0}\n• Fontes verificadas: ${data.fontes_consultadas}`);
-        await loadData();
-      } else {
-        alert(`Aviso durante varredura: ${data.erro || 'Não foi possível completar.'}`);
+    function applyKeywordSearch(kw) {
+      const input = document.getElementById('stitch-search-input');
+      if (input) {
+        input.value = kw;
+        filterPautas();
+        scrollToElement('sec-capa-e-feed');
       }
-    } catch (err) {
-      alert(`Erro na comunicação com o servidor: ${err.message}`);
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-      }
-      if (icon) icon.classList.remove('animate-spin');
     }
-  }
 
-  // 9. Atalhos de teclado (ESC fecha modal)
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
+    function removeKeyword(kw) {
+      const next = getSavedKeywords().filter(item => item !== kw);
+      saveKeywords(next);
+      renderKeywords();
+    }
 
-  function escapeHtml(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+    function addKeyword() {
+      const kwInput = document.getElementById('input-keyword');
+      if (!kwInput) return;
+      const val = kwInput.value.trim().toLowerCase();
+      if (!val) return;
+      const kws = getSavedKeywords();
+      if (!kws.includes(val)) {
+        kws.push(val);
+        saveKeywords(kws);
+      }
+      kwInput.value = '';
+      renderKeywords();
+    }
 
-  // 10. Tags de palavras-chave
-  const kwContainer = document.getElementById('keyword-container');
-  const kwInput = document.getElementById('input-keyword');
-  const kwAddBtn = document.getElementById('btn-add-keyword');
-
-  function bindRemovers() {
-    document.querySelectorAll('.remove-tag').forEach(b => {
-      b.onclick = function() {
-        this.closest('.keyword-tag').remove();
-      };
-    });
-  }
-  bindRemovers();
-
-  function addKeyword() {
-    if (!kwInput) return;
-    const val = kwInput.value.trim().toLowerCase();
-    if (!val) return;
-    const span = document.createElement('span');
-    span.className = 'keyword-tag inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm';
-    span.innerHTML = `<span>${val}</span><button type="button" class="remove-tag text-on-surface-variant hover:text-error" aria-label="Remover termo"><span class="material-symbols-outlined text-[14px]">close</span></button>`;
-    if (kwContainer) kwContainer.appendChild(span);
-    kwInput.value = '';
-    bindRemovers();
-  }
-
-  if (kwAddBtn && kwInput) {
-    kwAddBtn.addEventListener('click', addKeyword);
-    kwInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+    // Atalhos globais de teclado (ESC fecha modais, Ctrl+K foca busca)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['stitch-modal', 'pncp-modal', 'fontes-modal', 'pendencias-modal'].forEach(closeModal);
+        toggleNotificationsDropdown(false);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        addKeyword();
+        const search = document.getElementById('stitch-search-input');
+        if (search) { search.focus(); search.select(); }
       }
     });
-  }
 
-  // Inicialização
-  document.addEventListener('DOMContentLoaded', loadData);
-</script>
-</div></main></div></body></html>
+    document.addEventListener('DOMContentLoaded', () => {
+      const kwInput = document.getElementById('input-keyword');
+      const kwAddBtn = document.getElementById('btn-add-keyword');
+      if (kwAddBtn && kwInput) {
+        kwAddBtn.addEventListener('click', addKeyword);
+        kwInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addKeyword();
+          }
+        });
+      }
+      loadAllData();
+    });
+  </script>
+</body>
+</html>

@@ -121,9 +121,38 @@ class RadarDatabase:
                     identificadores_documentos TEXT DEFAULT '',
                     detalhes_denuncia_json TEXT DEFAULT '{}',
                     motivo_selecao TEXT DEFAULT '',
+                    imagem_capa TEXT DEFAULT '',
                     id_execucao_origem TEXT NOT NULL,
                     id_execucao_ultima_atualizacao TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS pncp_contratos (
+                    numero_controle_pncp TEXT PRIMARY KEY,
+                    orgao_cnpj TEXT NOT NULL,
+                    orgao_sigla TEXT NOT NULL,
+                    orgao_nome TEXT NOT NULL,
+                    unidade_nome TEXT DEFAULT '',
+                    ano_contrato INTEGER NOT NULL,
+                    numero_contrato TEXT DEFAULT '',
+                    processo TEXT DEFAULT '',
+                    tipo_contrato TEXT DEFAULT '',
+                    fornecedor_cnpj TEXT DEFAULT '',
+                    fornecedor_nome TEXT DEFAULT '',
+                    objeto TEXT DEFAULT '',
+                    valor_inicial REAL DEFAULT 0.0,
+                    valor_global REAL DEFAULT 0.0,
+                    valor_acumulado REAL DEFAULT 0.0,
+                    data_assinatura TEXT DEFAULT '',
+                    data_publicacao TEXT DEFAULT '',
+                    data_vigencia_inicio TEXT DEFAULT '',
+                    data_vigencia_fim TEXT DEFAULT '',
+                    url_pncp TEXT DEFAULT '',
+                    atualizado_em TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_pncp_ano ON pncp_contratos(ano_contrato);
+                CREATE INDEX IF NOT EXISTS idx_pncp_orgao ON pncp_contratos(orgao_cnpj);
+                CREATE INDEX IF NOT EXISTS idx_pncp_pub ON pncp_contratos(data_publicacao DESC);
 
                 CREATE TABLE IF NOT EXISTS evidencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,6 +204,10 @@ class RadarDatabase:
                 );
                 """
             )
+            # Migração segura para bancos pré-existentes sem a coluna imagem_capa
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(pautas)").fetchall()}
+            if "imagem_capa" not in cols:
+                conn.execute("ALTER TABLE pautas ADD COLUMN imagem_capa TEXT DEFAULT ''")
 
     def recover_interrupted_executions(self) -> int:
         """Marca execuções anteriores que ficaram presas em EM_ANDAMENTO como INTERROMPIDA_RECUPERADA."""
@@ -343,11 +376,19 @@ class RadarDatabase:
                 ),
             )
 
-    def get_all_pautas(self) -> List[Dict[str, Any]]:
+    def get_all_pautas(self, order_by: str = "recentes") -> List[Dict[str, Any]]:
+        if order_by == "score":
+            sql = (
+                "SELECT * FROM pautas "
+                "ORDER BY pontuacao_editorial DESC, COALESCE(NULLIF(data_publicacao, ''), substr(data_hora_coleta, 1, 10)) DESC, id_pauta ASC"
+            )
+        else:
+            sql = (
+                "SELECT * FROM pautas "
+                "ORDER BY COALESCE(NULLIF(data_publicacao, ''), substr(data_hora_coleta, 1, 10)) DESC, pontuacao_editorial DESC, id_pauta ASC"
+            )
         with self.connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM pautas ORDER BY pontuacao_editorial DESC, id_pauta ASC"
-            ).fetchall()
+            rows = conn.execute(sql).fetchall()
             return [dict(r) for r in rows]
 
     def get_pautas_by_execution(self, id_execucao: str) -> List[Dict[str, Any]]:
@@ -377,10 +418,10 @@ class RadarDatabase:
                     formato_sugerido, nivel_verificacao, informacoes_pendentes,
                     proxima_acao_recomendada, situacao_editorial, id_pauta_relacionada,
                     identificadores_documentos, detalhes_denuncia_json, motivo_selecao,
-                    id_execucao_origem, id_execucao_ultima_atualizacao
+                    imagem_capa, id_execucao_origem, id_execucao_ultima_atualizacao
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 (
@@ -417,9 +458,24 @@ class RadarDatabase:
                     pauta.get("identificadores_documentos", ""),
                     json.dumps(pauta.get("detalhes_denuncia", {}), ensure_ascii=False),
                     pauta.get("motivo_selecao", ""),
+                    pauta.get("imagem_capa", ""),
                     id_execucao,
                     id_execucao,
                 ),
+            )
+
+    def update_pauta_imagem_capa(self, id_pauta: str, imagem_capa: str) -> None:
+        """Preenche imagem_capa de uma pauta existente quando ainda vazia."""
+        if not imagem_capa:
+            return
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE pautas
+                SET imagem_capa = ?
+                WHERE id_pauta = ? AND (imagem_capa IS NULL OR imagem_capa = '')
+                """,
+                (imagem_capa, id_pauta),
             )
 
     def update_existing_pauta(
@@ -454,13 +510,7 @@ class RadarDatabase:
                     json.dumps(old_dict, ensure_ascii=False),
                 ),
             )
-            conn.execute(
-                """
-                UPDATE pautas
-                SET font_comp_tmp = NULL
-                WHERE 1=0
-                """
-            ) if False else None
+            nova_capa = updates.get("imagem_capa") or old_dict.get("imagem_capa", "")
             conn.execute(
                 """
                 UPDATE pautas
@@ -471,6 +521,7 @@ class RadarDatabase:
                     pontuacao_editorial = ?,
                     prioridade = ?,
                     situacao_editorial = ?,
+                    imagem_capa = ?,
                     id_execucao_ultima_atualizacao = ?
                 WHERE id_pauta = ?
                 """,
@@ -482,6 +533,7 @@ class RadarDatabase:
                     int(updates.get("pontuacao_editorial", old_dict["pontuacao_editorial"])),
                     updates.get("prioridade", old_dict["prioridade"]),
                     updates.get("situacao_editorial", old_dict["situacao_editorial"]),
+                    nova_capa,
                     id_execucao,
                     id_pauta,
                 ),
@@ -547,6 +599,29 @@ class RadarDatabase:
             ).fetchall()
             return [dict(r) for r in rows]
 
+    def get_pendencias_detalhadas(self) -> List[Dict[str, Any]]:
+        """Retorna pendências enriquecidas com título, prioridade, fonte, link e capa da pauta."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT pa.*,
+                       p.titulo_jornalistico,
+                       p.prioridade,
+                       p.pontuacao_editorial,
+                       p.fonte_principal,
+                       p.url_original,
+                       p.data_publicacao,
+                       p.nivel_verificacao,
+                       p.imagem_capa
+                FROM pendencias_apuracao pa
+                LEFT JOIN pautas p ON pa.id_pauta = p.id_pauta
+                ORDER BY COALESCE(NULLIF(p.data_publicacao, ''), pa.data_atualizacao) DESC,
+                         COALESCE(p.pontuacao_editorial, 0) DESC,
+                         pa.id_pauta ASC
+                """
+            ).fetchall()
+            return [dict(r) for r in rows]
+
     def get_all_execucoes(self) -> List[Dict[str, Any]]:
         with self.connect() as conn:
             rows = conn.execute(
@@ -579,3 +654,352 @@ class RadarDatabase:
                     "SELECT * FROM itens_descartados ORDER BY id ASC"
                 ).fetchall()
             return [dict(r) for r in rows]
+
+    # =========================================================================
+    # PERSISTÊNCIA E CONSULTA DE CONTRATOS DO PNCP (2024 - 2026)
+    # =========================================================================
+
+    def upsert_pncp_contrato(self, contrato: Dict[str, Any]) -> None:
+        self.upsert_pncp_contratos_batch([contrato])
+
+    def upsert_pncp_contratos_batch(self, contratos: List[Dict[str, Any]]) -> int:
+        if not contratos:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        sql = """
+            INSERT INTO pncp_contratos (
+                numero_controle_pncp, orgao_cnpj, orgao_sigla, orgao_nome,
+                unidade_nome, ano_contrato, numero_contrato, processo,
+                tipo_contrato, fornecedor_cnpj, fornecedor_nome, objeto,
+                valor_inicial, valor_global, valor_acumulado,
+                data_assinatura, data_publicacao, data_vigencia_inicio,
+                data_vigencia_fim, url_pncp, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(numero_controle_pncp) DO UPDATE SET
+                orgao_sigla = excluded.orgao_sigla,
+                orgao_nome = excluded.orgao_nome,
+                unidade_nome = excluded.unidade_nome,
+                ano_contrato = excluded.ano_contrato,
+                numero_contrato = excluded.numero_contrato,
+                processo = excluded.processo,
+                tipo_contrato = excluded.tipo_contrato,
+                fornecedor_cnpj = excluded.fornecedor_cnpj,
+                fornecedor_nome = excluded.fornecedor_nome,
+                objeto = excluded.objeto,
+                valor_inicial = excluded.valor_inicial,
+                valor_global = excluded.valor_global,
+                valor_acumulado = excluded.valor_acumulado,
+                data_assinatura = excluded.data_assinatura,
+                data_publicacao = excluded.data_publicacao,
+                data_vigencia_inicio = excluded.data_vigencia_inicio,
+                data_vigencia_fim = excluded.data_vigencia_fim,
+                url_pncp = excluded.url_pncp,
+                atualizado_em = excluded.atualizado_em
+        """
+        params = [
+            (
+                str(c.get("numero_controle_pncp", "")),
+                str(c.get("orgao_cnpj", "")),
+                str(c.get("orgao_sigla", "")),
+                str(c.get("orgao_nome", "")),
+                str(c.get("unidade_nome", "")),
+                int(c.get("ano_contrato", 2026) or 2026),
+                str(c.get("numero_contrato", "")),
+                str(c.get("processo", "")),
+                str(c.get("tipo_contrato", "")),
+                str(c.get("fornecedor_cnpj", "")),
+                str(c.get("fornecedor_nome", "")),
+                str(c.get("objeto", "")),
+                float(c.get("valor_inicial", 0.0) or 0.0),
+                float(c.get("valor_global", 0.0) or 0.0),
+                float(c.get("valor_acumulado", 0.0) or 0.0),
+                str(c.get("data_assinatura", "")),
+                str(c.get("data_publicacao", "")),
+                str(c.get("data_vigencia_inicio", "")),
+                str(c.get("data_vigencia_fim", "")),
+                str(c.get("url_pncp", "")),
+                str(c.get("atualizado_em") or now_iso),
+            )
+            for c in contratos
+            if c.get("numero_controle_pncp")
+        ]
+        if not params:
+            return 0
+        with self.connect() as conn:
+            conn.executemany(sql, params)
+        return len(params)
+
+    @staticmethod
+    def _build_pncp_where(
+        ano: Optional[int] = None,
+        orgao: Optional[str] = None,
+        fornecedor: Optional[str] = None,
+        q: Optional[str] = None,
+    ) -> tuple[str, List[Any]]:
+        clauses: List[str] = []
+        args: List[Any] = []
+        if ano:
+            clauses.append(
+                "(ano_contrato = ? OR substr(data_publicacao, 1, 4) = ?)"
+            )
+            args.extend([int(ano), str(int(ano))])
+        if orgao and orgao.lower() not in ("todos", "all", ""):
+            org_clean = orgao.strip()
+            clauses.append("(UPPER(orgao_sigla) = UPPER(?) OR orgao_cnpj = ?)")
+            args.extend([org_clean, org_clean])
+        if fornecedor and fornecedor.strip():
+            f_clean = fornecedor.strip()
+            clauses.append("(fornecedor_cnpj = ? OR UPPER(fornecedor_nome) LIKE UPPER(?))")
+            args.extend([f_clean, f"%{f_clean}%"])
+        if q and q.strip():
+            like = f"%{q.strip()}%"
+            clauses.append(
+                "("
+                "objeto LIKE ? OR "
+                "fornecedor_nome LIKE ? OR "
+                "fornecedor_cnpj LIKE ? OR "
+                "numero_contrato LIKE ? OR "
+                "unidade_nome LIKE ? OR "
+                "processo LIKE ? OR "
+                "orgao_nome LIKE ?"
+                ")"
+            )
+            args.extend([like, like, like, like, like, like, like])
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        return where_sql, args
+
+    def query_pncp_contratos(
+        self,
+        ano: Optional[int] = None,
+        orgao: Optional[str] = None,
+        fornecedor: Optional[str] = None,
+        q: Optional[str] = None,
+        pagina: int = 1,
+        limite: int = 50,
+    ) -> Dict[str, Any]:
+        pagina = max(1, int(pagina))
+        limite = max(1, min(200, int(limite)))
+        offset = (pagina - 1) * limite
+        where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao, fornecedor=fornecedor, q=q)
+        with self.connect() as conn:
+            total_row = conn.execute(
+                f"SELECT COUNT(*) AS cnt FROM pncp_contratos {where_sql}", args
+            ).fetchone()
+            total = int(total_row["cnt"]) if total_row else 0
+            rows = conn.execute(
+                f"""
+                SELECT * FROM pncp_contratos
+                {where_sql}
+                ORDER BY COALESCE(NULLIF(data_publicacao, ''), data_assinatura) DESC,
+                         ano_contrato DESC,
+                         valor_global DESC
+                LIMIT ? OFFSET ?
+                """,
+                args + [limite, offset],
+            ).fetchall()
+        total_paginas = max(1, (total + limite - 1) // limite)
+        return {
+            "items": [dict(r) for r in rows],
+            "total": total,
+            "pagina": pagina,
+            "limite": limite,
+            "total_paginas": total_paginas,
+        }
+
+    def get_pncp_resumo(
+        self, ano: Optional[int] = None, orgao: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Agrega KPIs reais, série mensal, principais fornecedores e contratos recentes do PNCP."""
+        where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao)
+        today = datetime.now().date()
+
+        with self.connect() as conn:
+            agg_row = conn.execute(
+                f"""
+                SELECT COUNT(*) AS total_contratos,
+                       COALESCE(SUM(valor_global), 0.0) AS valor_total_global,
+                       COALESCE(SUM(valor_inicial), 0.0) AS valor_total_inicial,
+                       MAX(atualizado_em) AS ultima_sincronizacao
+                FROM pncp_contratos
+                {where_sql}
+                """,
+                args,
+            ).fetchone()
+
+            total_contratos = int(agg_row["total_contratos"] or 0)
+            valor_total_global = float(agg_row["valor_total_global"] or 0.0)
+            valor_total_inicial = float(agg_row["valor_total_inicial"] or 0.0)
+            ultima_sincronizacao = str(agg_row["ultima_sincronizacao"] or "")
+
+            anos_rows = conn.execute(
+                "SELECT DISTINCT ano_contrato FROM pncp_contratos ORDER BY ano_contrato DESC"
+            ).fetchall()
+            anos_disponiveis = [int(r["ano_contrato"]) for r in anos_rows if r["ano_contrato"]]
+
+            # Totais por ano (respeitando filtro de órgão, se aplicado)
+            org_where, org_args = self._build_pncp_where(ano=None, orgao=orgao)
+            por_ano_rows = conn.execute(
+                f"""
+                SELECT ano_contrato,
+                       COUNT(*) AS contratos,
+                       COALESCE(SUM(valor_global), 0.0) AS valor_global
+                FROM pncp_contratos
+                {org_where}
+                GROUP BY ano_contrato
+                ORDER BY ano_contrato DESC
+                """,
+                org_args,
+            ).fetchall()
+            por_ano = {
+                str(r["ano_contrato"]): {
+                    "contratos": int(r["contratos"]),
+                    "valor_global": round(float(r["valor_global"] or 0.0), 2),
+                }
+                for r in por_ano_rows
+            }
+
+            # Totais por órgão
+            por_orgao_rows = conn.execute(
+                f"""
+                SELECT orgao_cnpj, orgao_sigla, orgao_nome,
+                       COUNT(*) AS contratos,
+                       COALESCE(SUM(valor_global), 0.0) AS valor_global
+                FROM pncp_contratos
+                {where_sql}
+                GROUP BY orgao_cnpj, orgao_sigla, orgao_nome
+                ORDER BY valor_global DESC
+                """,
+                args,
+            ).fetchall()
+            por_orgao = [
+                {
+                    "orgao_cnpj": r["orgao_cnpj"],
+                    "orgao_sigla": r["orgao_sigla"],
+                    "orgao_nome": r["orgao_nome"],
+                    "contratos": int(r["contratos"]),
+                    "valor_global": round(float(r["valor_global"] or 0.0), 2),
+                }
+                for r in por_orgao_rows
+            ]
+
+            # Evolução mensal (YYYY-MM) usando data_publicacao ou data_assinatura
+            all_filtered_rows = conn.execute(
+                f"""
+                SELECT fornecedor_cnpj, fornecedor_nome, orgao_sigla,
+                       valor_global, valor_inicial,
+                       data_publicacao, data_assinatura,
+                       data_vigencia_inicio, data_vigencia_fim, ano_contrato
+                FROM pncp_contratos
+                {where_sql}
+                """,
+                args,
+            ).fetchall()
+
+            mensal_map: Dict[str, Dict[str, Any]] = {}
+            forn_map: Dict[str, Dict[str, Any]] = {}
+
+            for r in all_filtered_rows:
+                ref_date = (r["data_publicacao"] or r["data_assinatura"] or "").strip()
+                mes_key = ref_date[:7] if len(ref_date) >= 7 and ref_date[:4].isdigit() else f"{r['ano_contrato']}-01"
+                if mes_key not in mensal_map:
+                    mensal_map[mes_key] = {
+                        "mes": mes_key,
+                        "valor_global": 0.0,
+                        "valor_inicial": 0.0,
+                        "contratos": 0,
+                    }
+                vg = float(r["valor_global"] or 0.0)
+                vi = float(r["valor_inicial"] or 0.0)
+                mensal_map[mes_key]["valor_global"] += vg
+                mensal_map[mes_key]["valor_inicial"] += vi
+                mensal_map[mes_key]["contratos"] += 1
+
+                fnome = (r["fornecedor_nome"] or "").strip() or "Fornecedor não informado"
+                fcnpj = (r["fornecedor_cnpj"] or "").strip()
+                fkey = fcnpj or fnome.upper()
+                if fkey not in forn_map:
+                    forn_map[fkey] = {
+                        "fornecedor_cnpj": fcnpj,
+                        "fornecedor_nome": fnome,
+                        "total_valor": 0.0,
+                        "qtd_contratos": 0,
+                        "orgaos": set(),
+                        "vigencias": [],
+                    }
+                forn_map[fkey]["total_valor"] += vg
+                forn_map[fkey]["qtd_contratos"] += 1
+                if r["orgao_sigla"]:
+                    forn_map[fkey]["orgaos"].add(r["orgao_sigla"])
+
+                vi_dt = (r["data_vigencia_inicio"] or "").strip()[:10]
+                vf_dt = (r["data_vigencia_fim"] or "").strip()[:10]
+                if len(vi_dt) == 10 and len(vf_dt) == 10:
+                    try:
+                        d_start = datetime.strptime(vi_dt, "%Y-%m-%d").date()
+                        d_end = datetime.strptime(vf_dt, "%Y-%m-%d").date()
+                        total_days = (d_end - d_start).days
+                        if total_days > 0:
+                            elapsed = max(0, min(total_days, (today - d_start).days))
+                            forn_map[fkey]["vigencias"].append((elapsed / total_days) * 100.0)
+                    except ValueError:
+                        pass
+
+            evolucao_mensal = [
+                {
+                    "mes": k,
+                    "valor_global": round(v["valor_global"], 2),
+                    "valor_inicial": round(v["valor_inicial"], 2),
+                    "contratos": v["contratos"],
+                }
+                for k, v in sorted(mensal_map.items(), key=lambda x: x[0])
+            ]
+
+            sorted_forn = sorted(
+                forn_map.values(), key=lambda x: x["total_valor"], reverse=True
+            )[:8]
+            top_fornecedores: List[Dict[str, Any]] = []
+            for item in sorted_forn:
+                vigs = item["vigencias"]
+                vig_avg = round(sum(vigs) / len(vigs), 1) if vigs else None
+                part_pct = (
+                    round((item["total_valor"] / valor_total_global) * 100.0, 1)
+                    if valor_total_global > 0
+                    else 0.0
+                )
+                top_fornecedores.append(
+                    {
+                        "fornecedor_cnpj": item["fornecedor_cnpj"],
+                        "fornecedor_nome": item["fornecedor_nome"],
+                        "total_valor": round(item["total_valor"], 2),
+                        "qtd_contratos": item["qtd_contratos"],
+                        "orgaos": ", ".join(sorted(item["orgaos"])),
+                        "participacao_pct": part_pct,
+                        "vigencia_media_pct": vig_avg,
+                    }
+                )
+
+            ultimos_rows = conn.execute(
+                f"""
+                SELECT * FROM pncp_contratos
+                {where_sql}
+                ORDER BY COALESCE(NULLIF(data_publicacao, ''), data_assinatura) DESC,
+                         ano_contrato DESC,
+                         valor_global DESC
+                LIMIT 8
+                """,
+                args,
+            ).fetchall()
+            ultimos_contratos = [dict(r) for r in ultimos_rows]
+
+        return {
+            "total_contratos": total_contratos,
+            "valor_total_global": round(valor_total_global, 2),
+            "valor_total_inicial": round(valor_total_inicial, 2),
+            "anos_disponiveis": anos_disponiveis or [2026, 2025, 2024],
+            "por_ano": por_ano,
+            "por_orgao": por_orgao,
+            "evolucao_mensal": evolucao_mensal,
+            "top_fornecedores": top_fornecedores,
+            "ultimos_contratos": ultimos_contratos,
+            "ultima_sincronizacao": ultima_sincronizacao,
+        }

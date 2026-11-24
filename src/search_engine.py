@@ -21,6 +21,7 @@ from src.config import (
 )
 from src.database import RadarDatabase
 from src.error_monitor import ErrorMonitor
+from src.live_news import LiveNewsFetcher
 from src.page_collector import PageCollector
 from src.source_manager import SourceManager
 
@@ -115,23 +116,36 @@ class SearchEngine:
         # 1. Checagem das fontes Instagram
         self.run_instagram_checks(id_execucao, fontes_instagram)
 
-        # 2. Varredura das fontes web oficiais e de imprensa
+        # 2. Varredura de notícias recentes ao vivo (Google News RSS + G1 Maranhão RSS)
         candidatos_por_url: Dict[str, Dict[str, Any]] = {}
+        try:
+            live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
+            live_res = live_fetcher.fetch_recent_news(
+                consultas_adicionais=consultas_adicionais, max_items=30
+            )
+            for item in live_res.get("itens", []):
+                u = item.get("url")
+                if u:
+                    candidatos_por_url[u.lower()] = item
+            for err_msg in live_res.get("erros", []):
+                logger.info("Aviso na coleta RSS ao vivo (%s)", mask_secrets(err_msg))
+        except Exception as e:
+            logger.warning("Coleta RSS ao vivo indisponível neste ciclo: %s", mask_secrets(str(e)))
 
-        # Carrega repositório de páginas públicas reais verificadas
+        # 3. Carrega repositório de páginas públicas reais verificadas (base histórica complementar)
         if VERIFIED_CORPUS_PATH.exists():
             try:
                 corpus_data = json.loads(VERIFIED_CORPUS_PATH.read_text(encoding="utf-8"))
                 for p in corpus_data.get("paginas", []):
                     u = p.get("url")
-                    if u:
+                    if u and u.lower() not in candidatos_por_url:
                         candidatos_por_url[u.lower()] = p
             except Exception as e:
                 self.error_monitor.record_error(
                     id_execucao, "SearchEngine", str(VERIFIED_CORPUS_PATH), "Falha ao carregar corpus verificado", e
                 )
 
-        # 3. Consulta às páginas web das fontes cadastradas
+        # 4. Consulta às páginas web das fontes cadastradas
         for f in fontes_web:
             url_fonte = f.get("url", "")
             nome_fonte = f.get("nome", "Fonte Web")
@@ -143,6 +157,9 @@ class SearchEngine:
             )
 
             if sucesso:
+                if dados.get("imagem_capa") and url_fonte.lower() in candidatos_por_url:
+                    if not candidatos_por_url[url_fonte.lower()].get("imagem_capa"):
+                        candidatos_por_url[url_fonte.lower()]["imagem_capa"] = dados["imagem_capa"]
                 self.source_manager.update_source_status(
                     url=url_fonte,
                     status="Ativa e acessível",

@@ -95,6 +95,7 @@ class PageCollector:
                 raw_html = raw_bytes.decode(charset, errors="replace")
 
                 sanitized_text = ContentExtractor.sanitize_text(raw_html)
+                cover_image = ContentExtractor.extract_cover_image(raw_html, base_url=clean_url)
                 content_hash = hashlib.sha256(sanitized_text.encode("utf-8")).hexdigest()
 
                 # Registra a leitura no banco de dados SQLite
@@ -116,6 +117,7 @@ class PageCollector:
                     "fonte_nome": fonte_nome,
                     "conteudo_integral": sanitized_text,
                     "hash": content_hash,
+                    "imagem_capa": cover_image,
                 }
                 if cached_verified:
                     # Mescla dados estruturados verificados

@@ -224,12 +224,23 @@ CATEGORIAS_RELATORIO: List[str] = [
     "Pautas de cultura, economia e cidade",
 ]
 
+# Órgãos municipais oficiais de Imperatriz (MA) monitorados no PNCP (2024-2026)
+PNCP_ORGAOS_IMPERATRIZ: List[Dict[str, str]] = [
+    {"cnpj": "06158455000116", "sigla": "PMI", "nome": "Prefeitura Municipal de Imperatriz"},
+    {"cnpj": "69555019000109", "sigla": "CMI", "nome": "Câmara Municipal de Imperatriz"},
+    {"cnpj": "00939023000166", "sigla": "FMS", "nome": "Fundo Municipal de Saúde de Imperatriz"},
+    {"cnpj": "07801241000189", "sigla": "FME", "nome": "Fundo Municipal de Educação de Imperatriz"},
+]
+PNCP_ANOS_MONITORADOS: List[int] = [2024, 2025, 2026]
+ANA_ESTACAO_IMPERATRIZ_CODIGO = "23800000"
+
 SENSITIVE_ENV_VARS = (
     "GOOGLE_SEARCH_API_KEY",
     "GOOGLE_SEARCH_CX",
     "SERPAPI_KEY",
     "BING_SEARCH_API_KEY",
     "INSTAGRAM_GRAPH_TOKEN",
+    "ANA_TELEMETRIA_TOKEN",
 )
 
 
@@ -261,4 +272,5 @@ def get_configured_integrations() -> Dict[str, bool]:
         "serpapi": bool(os.environ.get("SERPAPI_KEY")),
         "bing_search": bool(os.environ.get("BING_SEARCH_API_KEY")),
         "instagram_graph_api": bool(os.environ.get("INSTAGRAM_GRAPH_TOKEN")),
+        "ana_telemetria": bool(os.environ.get("ANA_TELEMETRIA_TOKEN")),
     }

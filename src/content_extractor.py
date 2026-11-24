@@ -9,6 +9,7 @@ import html
 import re
 from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urljoin, urlparse
 
 
 class TextStripper(HTMLParser):
@@ -178,3 +179,59 @@ class ContentExtractor:
             dates["extenso"] = extenso_match.group(1)
 
         return dates
+
+    @classmethod
+    def extract_cover_image(cls, raw_html: str, base_url: str = "") -> str:
+        """Extrai URL válida de imagem de capa (`og:image`, `twitter:image` ou `image_src`)."""
+        if not raw_html or "<" not in raw_html:
+            return ""
+
+        class _MetaImageParser(HTMLParser):
+            def __init__(self) -> None:
+                super().__init__()
+                self.candidates: List[Tuple[int, str]] = []
+
+            def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
+                tag_l = tag.lower()
+                attr_map = {k.lower(): (v or "").strip() for k, v in attrs if k}
+                if tag_l == "meta":
+                    key = (attr_map.get("property") or attr_map.get("name") or "").lower()
+                    content = attr_map.get("content", "")
+                    if not content:
+                        return
+                    priority_map = {
+                        "og:image:secure_url": 1,
+                        "og:image": 2,
+                        "twitter:image": 3,
+                        "twitter:image:src": 4,
+                    }
+                    if key in priority_map:
+                        self.candidates.append((priority_map[key], content))
+                elif tag_l == "link":
+                    rel = attr_map.get("rel", "").lower()
+                    href = attr_map.get("href", "")
+                    if "image_src" in rel and href:
+                        self.candidates.append((5, href))
+
+        parser = _MetaImageParser()
+        try:
+            parser.feed(raw_html)
+        except Exception:
+            pass
+
+        valid_urls: List[Tuple[int, str]] = []
+        skip_markers = ("favicon", "/1x1", "spacer.", "blank.", "pixel.", "logo-default")
+        for prio, raw_url in sorted(parser.candidates, key=lambda x: x[0]):
+            if raw_url.startswith("data:"):
+                continue
+            resolved = urljoin(base_url, html.unescape(raw_url)) if base_url else html.unescape(raw_url)
+            parsed = urlparse(resolved)
+            if parsed.scheme in ("http", "https") and parsed.netloc:
+                if any(m in resolved.lower() for m in skip_markers):
+                    valid_urls.append((prio + 20, resolved))
+                else:
+                    return resolved
+        if valid_urls:
+            valid_urls.sort(key=lambda x: x[0])
+            return valid_urls[0][1]
+        return ""

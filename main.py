@@ -129,6 +129,8 @@ def run_radar_cycle(
         if tipo_resultado == "DUPLICATA_CONSOLIDADA" and match_pauta and payload:
             duplicidades_eliminadas_contador += 1
             pautas_atualizadas_contador += 1
+            if raw_item.get("imagem_capa") and not match_pauta.get("imagem_capa"):
+                payload["imagem_capa"] = raw_item["imagem_capa"]
             db.update_existing_pauta(
                 id_pauta=match_pauta["id_pauta"],
                 updates=payload,
@@ -140,11 +142,20 @@ def run_radar_cycle(
 
         elif tipo_resultado == "DUPLICATA_IGNORADA":
             duplicidades_eliminadas_contador += 1
+            if raw_item.get("imagem_capa") and match_pauta and not match_pauta.get("imagem_capa"):
+                db.update_pauta_imagem_capa(match_pauta["id_pauta"], raw_item["imagem_capa"])
+                match_pauta["imagem_capa"] = raw_item["imagem_capa"]
             logger.info("Duplicata já indexada ignorada sem alterações: %s", url)
 
         else:
             # Pauta Nova (Inédita)
-            id_pauta = f"PAUTA-IMP-{datetime.now().strftime('%Y%m')}-{len(existing_pautas) + len(pautas_novas_salvas) + 1:04d}"
+            used_ids = {p.get("id_pauta", "") for p in existing_pautas}
+            seq_num = len(existing_pautas) + len(pautas_novas_salvas) + 1
+            ym = datetime.now().strftime("%Y%m")
+            id_pauta = f"PAUTA-IMP-{ym}-{seq_num:04d}"
+            while id_pauta in used_ids:
+                seq_num += 1
+                id_pauta = f"PAUTA-IMP-{ym}-{seq_num:04d}"
 
             # Resumo em até três linhas
             resumo_linhas = raw_item.get("resumo_3_linhas")
@@ -190,6 +201,7 @@ def run_radar_cycle(
                 "identificadores_documentos": "; ".join(raw_item.get("documentos_citados", [])),
                 "detalhes_denuncia": detalhes_denuncia,
                 "motivo_selecao": f"Relevância comunitária, pontuação editorial {pontuacao}/100 e evidências primárias confirmadas.",
+                "imagem_capa": raw_item.get("imagem_capa", ""),
             }
 
             db.insert_pauta(pauta_dict, id_execucao)

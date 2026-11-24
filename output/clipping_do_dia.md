@@ -1,12 +1,12 @@
 # Radar de Pautas de Imperatriz
 
-- **Data e horário da execução:** 22/11/2026 às 19:23:27
+- **Data e horário da execução:** 24/11/2026 às 12:59:53
 - **Janela de pesquisa:** Últimas 24h a 48h (Prioridade) / 7 a 30 dias (Acompanhamento e Histórico)
 - **Quantidade de fontes consultadas:** 22 fontes
-- **Quantidade de páginas efetivamente lidas:** 24 páginas
-- **Quantidade de pautas encontradas:** 18
-- **Quantidade de pautas novas:** 4
-- **Quantidade de atualizações:** 0
+- **Quantidade de páginas efetivamente lidas:** 54 páginas
+- **Quantidade de pautas encontradas:** 46
+- **Quantidade de pautas novas:** 28
+- **Quantidade de atualizações:** 2
 - **Quantidade de itens descartados:** 3 itens
 - **Limitações de acesso e falhas relevantes:** Monitoramento de perfis do Instagram exige credencial institucional na Meta Graph API (plataforma impõe login wall contra requisições web abertas sem autenticação). Ambiente de sandbox executou com sucesso checagem determinística e cruzamento com repositório real verificado.
 
@@ -72,7 +72,22 @@
 11. **Pendências de apuração:** Estatística consolidada da PRF de acidentes no trecho de Imperatriz (km 245 ao km 260 da BR-010) no acumulado de 2026 e cronograma de manutenção de iluminação/sinalização do DNIT.
 12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 89/100 e evidências primárias confirmadas.
 
-### 5. Operação prende mais dois suspeitos de envolvimento com tráfico de drogas e lavagem de dinheiro no MA e PA
+### 5. Imperatriz (MA) entra em alerta amarelo de tempestade com ventos de 60 km/h e granizo, diz Inmet
+
+1. **Prioridade e pontuação:** 🚨 PRIORIDADE MÁXIMA / EMERGÊNCIA (100 pts) — _Total: 81/100 pts | Impacto na População: 22/25 | Atualidade/Novidade: 16/20 | Interesse Público: 14/15 | Qualidade das Evidências: 14/20 | Potencial Editorial: 8/10 | Exclusividade/Ângulo Próprio: 7/10 [ALERTA: Sinalização especial de emergência ativada]_
+2. **Título:** Imperatriz (MA) entra em alerta amarelo de tempestade com ventos de 60 km/h e granizo, diz Inmet
+3. **Resumo:** Imperatriz (MA) entra em alerta amarelo de tempestade com ventos de 60 km/h e granizo, diz Inmet O Tempo
+4. **Fonte principal com link:** [O Tempo](https://news.google.com/rss/articles/CBMi0gFBVV95cUxNd2tid2NpazRvQmVtRE1PQU9uZ0hFUjJhLTVGam1GVE1wUkNUZHVEX2UtOHNDWEFKZGxCZUJqOURrcG5Fb0pKamVwc2ZDVHBVcEpBS0E5bmZnM2ZkSkhVSjlLQWRkNUVlWENBZHBnR2d2Y0JDMGRKb1pKQ3NNYWRNTzVWeGFsdThZOGJJcVY0bVFUekY3NlE5RVBSeUZaRTlmemR2ZXdKNVVEai1GVThVYV9UQVg2OXZRQ0xIaUROWm1CVDRERDNGR0o1TGxPcUxEV0E?oc=5)
+5. **Fontes complementares com links:** Nenhuma fonte complementar necessária.
+6. **Data da publicação e do fato:** Publicação em 2026-11-21 | Fato ocorrido em 2026-11-21
+7. **Ângulo jornalístico:** Apuração local sobre 'Imperatriz (MA) entra em alerta amarelo de tempestade com ventos de 60 km/h e granizo, diz Inmet' com checagem documental junto aos órgãos de Imperatriz.
+8. **Formato sugerido:** Nota urgente
+9. **Nível de verificação:** **Parcialmente confirmado**
+10. **Evidências disponíveis:** [Fato objetivo]: Registro publicado em 2026-11-21 por O Tempo: Imperatriz (MA) entra em alerta amarelo de tempestade com ventos de 60 km/h e granizo, diz Inmet.
+11. **Pendências de apuração:** Ler reportagem integral na fonte original e checar eventuais documentos oficiais ou nota das autoridades envolvidas.
+12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 81/100 e evidências primárias confirmadas.
+
+### 6. Operação prende mais dois suspeitos de envolvimento com tráfico de drogas e lavagem de dinheiro no MA e PA
 
 1. **Prioridade e pontuação:** Alta (90/100 pts) — _Total: 90/100 pts | Impacto na População: 22/25 | Atualidade/Novidade: 19/20 | Interesse Público: 14/15 | Qualidade das Evidências: 18/20 | Potencial Editorial: 9/10 | Exclusividade/Ângulo Próprio: 8/10_
 2. **Título:** Operação prende mais dois suspeitos de envolvimento com tráfico de drogas e lavagem de dinheiro no MA e PA
@@ -86,6 +101,21 @@
 10. **Evidências disponíveis:** [Fato objetivo]: Cumprimento de dois novos mandados de prisão preventiva pela Denarc de Imperatriz na Operação Vips. | [Fato objetivo]: Total acumulado de 29 pessoas presas desde a deflagração inicial em 14/10/2026. | [Fato objetivo]: Prisão em Imperatriz de investigada que movimentou cerca de R$ 1,5 milhão incompatíveis com cadastro em programa assistencial. | [Fato objetivo]: Prisão em Jacundá (PA) de policial militar investigado por transações financeiras com o alvo principal. | [Declaração/Posicionamento]: Segundo a Denarc de Imperatriz, as movimentações financeiras de R$ 1,5 milhão em curto período motivaram o pedido de prisão preventiva por indícios de lavagem de capitais. | [Documento primário]: Inquérito Policial da Denarc de Imperatriz - Operação Vips (Outubro/2026) | [Documento primário]: Operação Vips | [Atualização/Segunda Fonte]: Confirmação institucional pela Polícia Civil do Maranhão das 29 prisões na Operação Vips conduzida pela Denarc de Imperatriz.
 11. **Pendências de apuração:** Identificação da Vara Criminal responsável pela custódia, eventual manifestação da defesa dos dois novos presos e corregedoria da PM-PA sobre o militar detido.
 12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 90/100 e evidências primárias confirmadas.
+
+### 7. Cachorro sofre maus-tratos ao ser arrastado por motocicleta no interior do MA; veja vídeo
+
+1. **Prioridade e pontuação:** Alta (89/100 pts) — _Total: 89/100 pts | Impacto na População: 22/25 | Atualidade/Novidade: 20/20 | Interesse Público: 14/15 | Qualidade das Evidências: 18/20 | Potencial Editorial: 8/10 | Exclusividade/Ângulo Próprio: 7/10_
+2. **Título:** Cachorro sofre maus-tratos ao ser arrastado por motocicleta no interior do MA; veja vídeo
+3. **Resumo:** Cachorro sofre maus-tratos ao ser arrastado por moto no interior do MA Um cachorro foi arrastado por uma motocicleta enquanto estava preso a uma corda, durante o fim de semana, em Riachão, na Região Tocantina do Maranhão. O caso de maus-tratos foi registrado em vídeo por uma pess...
+4. **Fonte principal com link:** [G1 Maranhão](https://g1.globo.com/ma/maranhao/noticia/2026/11/23/cachorro-sofre-maus-tratos-ao-ser-arrastado-por-motocicleta-no-interior-do-ma-veja-video.ghtml)
+5. **Fontes complementares com links:** Nenhuma fonte complementar necessária.
+6. **Data da publicação e do fato:** Publicação em 2026-11-23 | Fato ocorrido em 2026-11-23
+7. **Ângulo jornalístico:** Apuração local sobre 'Cachorro sofre maus-tratos ao ser arrastado por motocicleta no interior do MA; veja vídeo' com checagem documental junto aos órgãos de Imperatriz.
+8. **Formato sugerido:** Matéria jornalística
+9. **Nível de verificação:** **Confirmado**
+10. **Evidências disponíveis:** [Fato objetivo]: Registro publicado em 2026-11-23 por G1 Maranhão: Cachorro sofre maus-tratos ao ser arrastado por motocicleta no interior do MA; veja vídeo.
+11. **Pendências de apuração:** 
+12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 89/100 e evidências primárias confirmadas.
 
 ## 2. Pautas de serviço público
 
@@ -103,21 +133,6 @@
 10. **Evidências disponíveis:** [Fato objetivo]: Abertura do Pregão Eletrônico nº 036/2026 em 27/10/2026 para estruturação das equipes EMULTI e Vigilância em Saúde da SEMUS. | [Fato objetivo]: Tramitação simultânea do Pregão Eletrônico nº 039/2026 para compra de implantes contraceptivos subdérmicos de etonogestrel na rede municipal. | [Fato objetivo]: Tramitação da Dispensa nº 011/2026 para aquisição de microscópios destinados à vigilância entomológica (combate à dengue e outras endemias). | [Declaração/Posicionamento]: Conforme edital publicado no Portal de Licitações de Imperatriz, os itens visam suprir demandas operacionais das UBSs e da vigilância epidemiológica/entomológica. | [Documento primário]: Dispensa de Licitação nº 011/2026 | [Documento primário]: Edital do Pregão Eletrônico nº 036/2026 - SEMUS/PMI | [Documento primário]: Edital do Pregão Eletrônico nº 039/2026 - SEMUS/PMI | [Documento primário]: Pregão Eletrônico nº 036/2026 | [Documento primário]: Pregão Eletrônico nº 039/2026 | [Documento primário]: Processo de Dispensa de Licitação nº 011/2026 - SEMUS/PMI
 11. **Pendências de apuração:** Valor total homologado após a fase de lances do Pregão nº 036/2026, cronograma de entrega dos implantes subdérmicos (Pregão 039/2026) e critérios de acesso nas UBSs.
 12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 92/100 e evidências primárias confirmadas.
-
-### 2. Vigilância Sanitária de Imperatriz implanta novo sistema informatizado para agilizar licenças e fiscalizações
-
-1. **Prioridade e pontuação:** Alta (87/100 pts) — _Total: 87/100 pts | Impacto na População: 20/25 | Atualidade/Novidade: 19/20 | Interesse Público: 14/15 | Qualidade das Evidências: 18/20 | Potencial Editorial: 8/10 | Exclusividade/Ângulo Próprio: 8/10_
-2. **Título:** Vigilância Sanitária de Imperatriz implanta novo sistema informatizado para agilizar licenças e fiscalizações
-3. **Resumo:** Implantação do novo sistema digital da Vigilância Sanitária em Imperatriz em novembro de 2026. Reunião de alinhamento técnico com o CRCMA para capacitação de profissionais e contadores locais.
-4. **Fonte principal com link:** [Portal Oficial da Prefeitura de Imperatriz](https://imperatriz.ma.gov.br/noticias/saude/vigilancia-sanitaria-implanta-novo-sistema-informatizado-2026/)
-5. **Fontes complementares com links:** Nenhuma fonte complementar necessária.
-6. **Data da publicação e do fato:** Publicação em 2026-11-18 | Fato ocorrido em 2026-11-18
-7. **Ângulo jornalístico:** Como o novo sistema digital da Vigilância Sanitária muda o prazo de abertura de empresas e a fiscalização de farmácias e restaurantes em Imperatriz.
-8. **Formato sugerido:** Serviço público
-9. **Nível de verificação:** **Confirmado**
-10. **Evidências disponíveis:** [Fato objetivo]: Implantação do novo sistema digital da Vigilância Sanitária em Imperatriz em novembro de 2026. | [Fato objetivo]: Reunião de alinhamento técnico com o CRCMA para capacitação de profissionais e contadores locais. | [Fato objetivo]: Digitalização de emissões de alvarás e fiscalizações sanitárias. | [Declaração/Posicionamento]: Segundo a coordenação da Vigilância Sanitária, a informatização traz transparência ao trâmite de autos e agiliza a abertura de negócios regulares na cidade. | [Documento primário]: Termo de Apresentação Técnica SEMUS/Vigilância Sanitária e CRCMA (Novembro/2026)
-11. **Pendências de apuração:** Data limite para migração total dos processos físicos arquivados e link direto do portal para contribuintes.
-12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 87/100 e evidências primárias confirmadas.
 
 ## 3. Pautas de denúncia e apuração
 
@@ -150,21 +165,6 @@
 10. **Evidências disponíveis:** [Fato objetivo]: Decisão cautelar do TCE-MA suspendendo a execução financeira do Contrato nº 02/2026 (R$ 23,4 milhões), vinculado à Concorrência Eletrônica/SRP nº 007/2025. | [Fato objetivo]: Apontamento pela auditoria técnica do TCE-MA de indícios de falhas na qualificação técnica e evolução atípica de capital social da contratada NEX Empreendimentos Ltda. | [Declaração/Posicionamento]: Segundo decisão cautelar do TCE-MA, os pagamentos relativos ao Contrato nº 02/2026 devem permanecer suspensos até deliberação de mérito sobre as irregularidades apontadas pela unidade técnica. | [Documento primário]: Contrato nº 02/2026 | [Documento primário]: Medida Cautelar do TCE-MA referente ao Contrato nº 02/2026 e Concorrência Eletrônica SRP nº 007/2025 | [Atualização/Segunda Fonte]: Confirmação por segundo veículo jornalístico da cautelar do TCE-MA sobre o Contrato nº 02/2026 (R$ 23,4 milhões).
 11. **Pendências de apuração:** Verificar no processo eletrônico do TCE-MA se a defesa da Prefeitura e da empresa NEX Empreendimentos já foi julgada em outubro de 2026 e quais ruas deixaram de receber pavimentação.
 12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 90/100 e evidências primárias confirmadas.
-
-### 3. Justiça condena Prefeitura de Imperatriz a executar obras de pavimentação e drenagem e fixar R$ 1 milhão por dano moral coletivo
-
-1. **Prioridade e pontuação:** Alta (89/100 pts) — _Total: 89/100 pts | Impacto na População: 24/25 | Atualidade/Novidade: 13/20 | Interesse Público: 15/15 | Qualidade das Evidências: 20/20 | Potencial Editorial: 9/10 | Exclusividade/Ângulo Próprio: 8/10_
-2. **Título:** Justiça condena Prefeitura de Imperatriz a executar obras de pavimentação e drenagem e fixar R$ 1 milhão por dano moral coletivo
-3. **Resumo:** Sentença da 2ª Vara da Fazenda Pública de Imperatriz (juíza Ana Lucrécia Bezerra Sodré) julgando procedente Ação Civil Pública do MPMA. Obrigação judicial de fazer consistente em obras de pavimentação, conservação viária e drenagem pluvial.
-4. **Fonte principal com link:** [Tribunal de Justiça do Maranhão (TJMA)](https://www.tjma.jus.br/midia/noticia/507096/justica-condena-prefeitura-de-imperatriz-a-executar-servicos-de-infraestrutura-na-cidade)
-5. **Fontes complementares com links:** Nenhuma fonte complementar necessária.
-6. **Data da publicação e do fato:** Publicação em 2026-08-13 | Fato ocorrido em 2026-08-13
-7. **Ângulo jornalístico:** Com a chegada do período chuvoso no fim do ano, verificar quais prazos judiciais da sentença da 2ª Vara da Fazenda Pública estão correndo e se o Município recorreu ou apresentou plano de cumprimento.
-8. **Formato sugerido:** Linha do tempo
-9. **Nível de verificação:** **Parcialmente confirmado**
-10. **Evidências disponíveis:** [Fato objetivo]: Sentença da 2ª Vara da Fazenda Pública de Imperatriz (juíza Ana Lucrécia Bezerra Sodré) julgando procedente Ação Civil Pública do MPMA. | [Fato objetivo]: Obrigação judicial de fazer consistente em obras de pavimentação, conservação viária e drenagem pluvial. | [Fato objetivo]: Condenação ao pagamento de R$ 1 milhão por dano moral coletivo com correção pela SELIC. | [Declaração/Posicionamento]: Conforme publicado pelo TJMA, a sentença destacou a omissão administrativa continuada em garantir condições adequadas de mobilidade, tráfego e segurança viária. | [Documento primário]: Ação Civil Pública | [Documento primário]: Sentença da 2ª Vara da Fazenda Pública de Imperatriz - Notícia Oficial TJMA nº 507096 (13/08/2026)
-11. **Pendências de apuração:** Verificar se houve interposição de apelação pela Procuradoria-Geral do Município ao TJMA e se o MPMA já requereu cumprimento provisório da obrigação de fazer.
-12. **Motivo da seleção:** Relevância comunitária, pontuação editorial 89/100 e evidências primárias confirmadas.
 
 ## 4. Pautas de cultura, economia e cidade
 
