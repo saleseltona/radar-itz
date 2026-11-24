@@ -412,31 +412,62 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             cls._db = RadarDatabase(DB_PATH)
         return cls._db
 
-    def _apply_request_pncp_retificacoes(self, db: Any) -> int:
-        """Sincroniza retificações via header/cookie no modo SQLite stateless (ignorado no Supabase)."""
-        if getattr(db, "backend_name", "sqlite") != "sqlite":
-            return 0
-        raw_b64 = str(self.headers.get("X-PNCP-Retificacoes") or "").strip()
+    def _decode_base64_json_header(
+        self, header_name: str, cookie_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Decodifica payload JSON Base64 UTF-8 enviado por cabeçalho HTTP ou fallback em cookie."""
+        raw_b64 = str(self.headers.get(header_name) or "").strip()
         if not raw_b64:
             cookie_header = str(self.headers.get("Cookie") or "").strip()
             if cookie_header:
                 try:
                     jar = http.cookies.SimpleCookie()
                     jar.load(cookie_header)
-                    morsel = jar.get("radar_pncp_retif")
+                    morsel = jar.get(cookie_name)
                     if morsel and morsel.value:
                         raw_b64 = urllib.parse.unquote(morsel.value).strip()
                 except Exception:
                     raw_b64 = ""
         if not raw_b64 or len(raw_b64) > 32_768:
-            return 0
+            return None
         try:
             padded = raw_b64 + ("=" * (-len(raw_b64) % 4))
             decoded = base64.b64decode(padded).decode("utf-8", errors="strict")
             parsed = json.loads(decoded)
         except Exception:
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    def _apply_request_pautas_arquivadas(self, db: Any) -> int:
+        """Sincroniza pautas arquivadas via header/cookie no modo SQLite stateless."""
+        if getattr(db, "backend_name", "sqlite") != "sqlite":
             return 0
-        if not isinstance(parsed, dict):
+        parsed = self._decode_base64_json_header("X-Pautas-Arquivadas", "radar_pautas_arq")
+        if not parsed:
+            return 0
+        normalized: Dict[str, Any] = {}
+        for raw_id, entry in list(parsed.items())[:100]:
+            pid = str(raw_id or "").strip()
+            if not pid or not isinstance(entry, dict):
+                continue
+            if entry.get("a") or entry.get("arquivar"):
+                motivo = (
+                    str(entry.get("m") or entry.get("motivo") or "Arquivada pela redação").strip()[:160]
+                    or "Arquivada pela redação"
+                )
+                normalized[pid] = {"a": 1, "m": motivo}
+            elif entry.get("u") or entry.get("restaurar"):
+                normalized[pid] = {"u": 1}
+        if not normalized:
+            return 0
+        return int(db.sync_pautas_arquivadas_from_request(normalized) or 0)
+
+    def _apply_request_pncp_retificacoes(self, db: Any) -> int:
+        """Sincroniza retificações via header/cookie no modo SQLite stateless (ignorado no Supabase)."""
+        if getattr(db, "backend_name", "sqlite") != "sqlite":
+            return 0
+        parsed = self._decode_base64_json_header("X-PNCP-Retificacoes", "radar_pncp_retif")
+        if not parsed:
             return 0
 
         normalized: Dict[str, Any] = {}
@@ -496,12 +527,19 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-PNCP-Retificacoes")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-PNCP-Retificacoes, X-Pautas-Arquivadas")
         self.end_headers()
 
     def do_GET(self) -> None:
         path, query = self._resolve_route()
         db = self.get_db()
+        if path in (
+            "/api/pautas",
+            "/api/pautas/arquivadas",
+            "/api/stats",
+            "/api/telemetria",
+        ):
+            self._apply_request_pautas_arquivadas(db)
         if path in (
             "/api/stats",
             "/api/pncp/contratos",
@@ -569,11 +607,16 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_error(404, "Clipping não encontrado")
             return
 
-        # 2. Endpoint REST: Listar pautas (suporta ?sort=recentes|score e ?dias=N)
+        # 2. Endpoint REST: Listar pautas (suporta ?sort=recentes|score, ?dias=N, ?arquivadas=hide|only|all)
         if path == "/api/pautas":
             sort_mode = query.get("sort", ["recentes"])[0]
             dias_str = query.get("dias", ["0"])[0]
-            pautas = db.get_all_pautas(order_by=sort_mode)
+            arq_mode = query.get("arquivadas", ["hide"])[0].strip().lower()
+            pautas = db.get_all_pautas(
+                order_by=sort_mode,
+                incluir_arquivadas=(arq_mode == "all"),
+                somente_arquivadas=(arq_mode == "only"),
+            )
             try:
                 dias = int(dias_str)
             except ValueError:
@@ -593,9 +636,14 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(pautas)
             return
 
+        if path == "/api/pautas/arquivadas":
+            self.send_json_response(db.get_all_pautas_arquivadas())
+            return
+
         # 3. Endpoint REST: Estatísticas consolidadas
         if path == "/api/stats":
-            pautas = db.get_all_pautas()
+            pautas = db.get_all_pautas(incluir_arquivadas=False)
+            pautas_arquivadas = db.get_all_pautas_arquivadas()
             execucoes = db.get_all_execucoes()
             fontes = db.get_all_fontes()
             pendencias = db.get_all_pendencias()
@@ -615,6 +663,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     pass
             stats = {
                 "total_pautas": len(pautas),
+                "pautas_arquivadas": len(pautas_arquivadas),
                 "emergencias": sum(
                     1
                     for p in pautas
@@ -814,7 +863,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         # 8. Endpoint REST: Telemetria honesta do Rio Tocantins (Estação ANA 23800000)
         if path == "/api/telemetria":
             ana_token = os.environ.get("ANA_TELEMETRIA_TOKEN", "").strip()
-            pautas = db.get_all_pautas(order_by="recentes")
+            pautas = db.get_all_pautas(order_by="recentes", incluir_arquivadas=False)
             alertas_rio = []
             for p in pautas:
                 txt = f"{p.get('titulo_jornalistico', '')} {p.get('resumo_3_linhas', '')} {p.get('bairros_locais_instituicoes', '')}".lower()
@@ -1039,6 +1088,39 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 )
                 return
             self.send_json_response({"ok": True, "ignorado": True, "contrato": updated})
+            return
+
+        # 2.4 Arquivar ou restaurar pauta no feed e na capa do dia
+        if path == "/api/pautas/arquivar":
+            id_pauta = str(body.get("id_pauta") or "").strip()
+            if not id_pauta:
+                self.send_json_response(
+                    {"erro": "Informe id_pauta da pauta."},
+                    status=400,
+                )
+                return
+
+            if bool(body.get("restaurar")):
+                self._apply_request_pautas_arquivadas(db)
+                restored = db.restaurar_pauta_arquivada(id_pauta)
+                if not restored:
+                    self.send_json_response(
+                        {"erro": "Pauta não encontrada."},
+                        status=404,
+                    )
+                    return
+                self.send_json_response({"ok": True, "restaurado": True, "pauta": restored})
+                return
+
+            motivo = str(body.get("motivo") or "Arquivada pela redação").strip()
+            updated = db.arquivar_pauta(id_pauta, motivo)
+            if not updated:
+                self.send_json_response(
+                    {"erro": "Pauta não encontrada no banco."},
+                    status=404,
+                )
+                return
+            self.send_json_response({"ok": True, "arquivada": True, "pauta": updated})
             return
 
         # 3. Cadastrar nova fonte pela UI sem modificar código

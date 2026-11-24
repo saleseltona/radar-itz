@@ -453,11 +453,41 @@ class SupabaseDatabase:
     # PAUTAS, EVIDÊNCIAS, HISTÓRICO E PENDÊNCIAS
     # =========================================================================
 
-    def get_all_pautas(self, order_by: str = "recentes") -> List[Dict[str, Any]]:
+    @staticmethod
+    def _format_pauta_row(
+        row: Dict[str, Any], arq_row: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        d = dict(row)
+        d["arquivada"] = arq_row is not None
+        d["motivo_arquivamento"] = str((arq_row or {}).get("motivo") or "")
+        return d
+
+    def get_all_pautas(
+        self,
+        order_by: str = "recentes",
+        incluir_arquivadas: bool = True,
+        somente_arquivadas: bool = False,
+    ) -> List[Dict[str, Any]]:
         rows = self.client.select("pautas")
-        rows.sort(key=lambda r: str(r.get("id_pauta") or ""))
+        arq_rows = self.client.select("pautas_arquivadas")
+        arq_map = {
+            str(r.get("id_pauta") or ""): r for r in arq_rows if r.get("id_pauta")
+        }
+
+        filtered: List[Dict[str, Any]] = []
+        for raw in rows:
+            pid = str(raw.get("id_pauta") or "")
+            arq_row = arq_map.get(pid)
+            if somente_arquivadas:
+                if arq_row is None:
+                    continue
+            elif not incluir_arquivadas and arq_row is not None:
+                continue
+            filtered.append(self._format_pauta_row(raw, arq_row))
+
+        filtered.sort(key=lambda r: str(r.get("id_pauta") or ""))
         if order_by == "score":
-            rows.sort(
+            filtered.sort(
                 key=lambda r: (
                     int(r.get("pontuacao_editorial") or 0),
                     str(r.get("data_publicacao") or str(r.get("data_hora_coleta") or "")[:10]),
@@ -465,14 +495,65 @@ class SupabaseDatabase:
                 reverse=True,
             )
         else:
-            rows.sort(
+            filtered.sort(
                 key=lambda r: (
                     str(r.get("data_publicacao") or str(r.get("data_hora_coleta") or "")[:10]),
                     int(r.get("pontuacao_editorial") or 0),
                 ),
                 reverse=True,
             )
+        return filtered
+
+    def arquivar_pauta(
+        self, id_pauta: str, motivo: str = "Arquivada pela redação"
+    ) -> Optional[Dict[str, Any]]:
+        pid = (id_pauta or "").strip()
+        if not pid:
+            return None
+        rows = self.client.select(
+            "pautas",
+            params={"id_pauta": f"eq.{pid}", "limit": "1"},
+            fetch_all=False,
+        )
+        if not rows:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Arquivada pela redação").strip()[:240] or "Arquivada pela redação"
+        arq_payload = {
+            "id_pauta": pid,
+            "motivo": motivo_clean,
+            "atualizado_em": now_iso,
+        }
+        self.client.upsert(
+            "pautas_arquivadas",
+            [arq_payload],
+            on_conflict="id_pauta",
+        )
+        return self._format_pauta_row(rows[0], arq_payload)
+
+    def restaurar_pauta_arquivada(self, id_pauta: str) -> Optional[Dict[str, Any]]:
+        pid = (id_pauta or "").strip()
+        if not pid:
+            return None
+        rows = self.client.select(
+            "pautas",
+            params={"id_pauta": f"eq.{pid}", "limit": "1"},
+            fetch_all=False,
+        )
+        if not rows:
+            return None
+        self.client.delete("pautas_arquivadas", {"id_pauta": f"eq.{pid}"})
+        return self._format_pauta_row(rows[0], None)
+
+    def get_all_pautas_arquivadas(self) -> List[Dict[str, Any]]:
+        rows = self.client.select(
+            "pautas_arquivadas", params={"order": "atualizado_em.desc"}
+        )
+        rows.sort(key=lambda r: str(r.get("atualizado_em") or ""), reverse=True)
         return rows
+
+    def sync_pautas_arquivadas_from_request(self, overrides: Dict[str, Any]) -> int:
+        return 0
 
     def get_pautas_by_execution(self, id_execucao: str) -> List[Dict[str, Any]]:
         rows = self.client.select(

@@ -100,6 +100,13 @@ CREATE TABLE IF NOT EXISTS public.pautas (
 CREATE INDEX IF NOT EXISTS idx_pautas_data_pub ON public.pautas (data_publicacao DESC);
 CREATE INDEX IF NOT EXISTS idx_pautas_score ON public.pautas (pontuacao_editorial DESC);
 
+-- 4b. Pautas arquivadas/ocultadas da capa e do feed principal
+CREATE TABLE IF NOT EXISTS public.pautas_arquivadas (
+    id_pauta TEXT PRIMARY KEY,
+    motivo TEXT NOT NULL DEFAULT 'Arquivada pela redação',
+    atualizado_em TEXT NOT NULL
+);
+
 -- 5. Contratos públicos do PNCP (2024–2026)
 CREATE TABLE IF NOT EXISTS public.pncp_contratos (
     numero_controle_pncp TEXT PRIMARY KEY,
@@ -217,6 +224,7 @@ ALTER TABLE public.fontes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.execucoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.paginas_coletadas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pautas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pautas_arquivadas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pncp_contratos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pncp_retificacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pncp_ignorados ENABLE ROW LEVEL SECURITY;

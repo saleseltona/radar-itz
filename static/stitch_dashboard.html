@@ -382,12 +382,18 @@
           <!-- ==================================================== -->
           <div class="col-span-12 lg:col-span-4 flex flex-col gap-4">
             <div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm flex flex-col gap-3">
-              <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <div class="flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-primary text-[22px]">feed</span>
                   <h2 class="font-headline-md text-headline-md text-on-surface">Feed de Pautas</h2>
                 </div>
-                <span id="pautas-count-badge" class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">0 exibidas</span>
+                <div class="flex items-center gap-1.5">
+                  <button id="btn-pautas-toggle-arquivadas" onclick="togglePautasArquivadasView()" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-900 font-label-sm text-label-sm font-bold transition-colors" type="button" title="Ver ou restaurar pautas arquivadas">
+                    <span class="material-symbols-outlined text-[14px]">inventory_2</span>
+                    <span>Arquivadas (0)</span>
+                  </button>
+                  <span id="pautas-count-badge" class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">0 exibidas</span>
+                </div>
               </div>
 
               <!-- Filtro Temporal & Ordenação -->
@@ -417,6 +423,11 @@
                 <button onclick="setCategoryFilter('Pautas de denúncia e apuração')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de denúncia e apuração" type="button">Denúncias (<span id="count-denuncias">0</span>)</button>
                 <button onclick="setCategoryFilter('Pautas de serviço público')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de serviço público" type="button">Serviço Público (<span id="count-servico">0</span>)</button>
                 <button onclick="setCategoryFilter('Pautas de cultura, economia e cidade')" class="filter-btn px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm font-medium transition-all" data-cat="Pautas de cultura, economia e cidade" type="button">Cidade (<span id="count-cidade">0</span>)</button>
+              </div>
+              <!-- Banner modo Arquivadas -->
+              <div id="pautas-archived-banner" class="hidden text-xs bg-amber-100 text-amber-950 px-3 py-2 rounded-xl flex items-center justify-between gap-2 border border-amber-300/70">
+                <span>Exibindo pautas arquivadas. Clique em <strong>Restaurar</strong> para devolvê-las ao feed.</span>
+                <button onclick="togglePautasArquivadasView()" class="underline font-bold shrink-0" type="button">Voltar às ativas</button>
               </div>
             </div>
 
@@ -870,9 +881,15 @@
             <span>Acessar Documento / Matéria Original</span>
             <span class="material-symbols-outlined text-[16px]">open_in_new</span>
           </a>
-          <button onclick="closeModal('stitch-modal')" class="px-5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors" type="button">
-            Fechar Dossiê
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="btn-modal-arquivar-pauta" onclick="toggleArquivarPautaDoModal()" class="px-4 py-2 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-950 font-label-md text-label-md font-semibold transition-colors inline-flex items-center gap-1" type="button">
+              <span class="material-symbols-outlined text-[16px]">archive</span>
+              <span>Arquivar pauta</span>
+            </button>
+            <button onclick="closeModal('stitch-modal')" class="px-5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors" type="button">
+              Fechar Dossiê
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1137,11 +1154,15 @@
   <!-- ========================================== -->
   <script>
     let pautasData = [];
+    let archivedPautasData = [];
     let fontesData = [];
     let pendenciasData = [];
     let currentCategory = 'todas';
     let currentTimeDays = 7;
     let currentSortOrder = 'recentes';
+    let showingArchivedPautas = false;
+    let archivedPautasCount = 0;
+    let currentOpenPautaId = '';
     let currentPncpYear = '';
     let currentPncpOrgao = '';
     let currentStatsYear = '';
@@ -1203,6 +1224,7 @@
     // ---------------------------
     async function loadAllData() {
       syncPncpRetificacoesCookie();
+      syncPautasArquivadasCookie();
       await syncLocalPncpRetificacoesToServer();
       await Promise.all([
         loadPautasAndStats(),
@@ -1216,16 +1238,24 @@
 
     async function loadPautasAndStats() {
       try {
-        const [resPautas, resStats] = await Promise.all([
+        const reqs = [
           pncpFetch(`/api/pautas?sort=${encodeURIComponent(currentSortOrder)}`),
           pncpFetch('/api/stats'),
-        ]);
+        ];
+        if (showingArchivedPautas) {
+          reqs.push(pncpFetch(`/api/pautas?sort=${encodeURIComponent(currentSortOrder)}&arquivadas=only`));
+        }
+        const [resPautas, resStats, resArq] = await Promise.all(reqs);
         pautasData = await resPautas.json();
+        archivedPautasData = resArq ? await resArq.json() : [];
         const stats = resStats.ok ? await resStats.json() : null;
         if (stats) updateHeroAndSidebarStats(stats);
 
+        const arqBanner = document.getElementById('pautas-archived-banner');
+        if (arqBanner) arqBanner.classList.toggle('hidden', !showingArchivedPautas);
+
         // Se filtro inicial 7 dias não tiver itens recentes, ajusta automaticamente para Arquivo (0) com aviso claro
-        if (currentTimeDays > 0) {
+        if (!showingArchivedPautas && currentTimeDays > 0) {
           const hasRecent = pautasData.some(p => parsePautaDate(p).days <= currentTimeDays);
           const fallbackEl = document.getElementById('temporal-fallback-banner');
           if (!hasRecent && pautasData.length > 0) {
@@ -1257,7 +1287,10 @@
     function updateHeroAndSidebarStats(stats) {
       if (stats.storage_backend) {
         currentStorageBackend = String(stats.storage_backend);
-        if (currentStorageBackend === 'supabase') syncPncpRetificacoesCookie();
+        if (currentStorageBackend === 'supabase') {
+          syncPncpRetificacoesCookie();
+          syncPautasArquivadasCookie();
+        }
         const hdrPill = document.getElementById('header-pncp-pill');
         if (hdrPill) {
           hdrPill.title = currentStorageBackend === 'supabase'
@@ -1265,6 +1298,8 @@
             : 'Persistência ativa: SQLite com sincronização stateless';
         }
       }
+      archivedPautasCount = Number(stats.pautas_arquivadas || 0);
+      updatePautasArquivadasToggle(archivedPautasCount);
       const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
       setTxt('kpi-total-pautas', `${stats.total_pautas} Pautas`);
       setTxt('kpi-emergencias-sub', `${stats.pautas_48h || 0} últimas 48h • ${stats.pautas_7d || 0} em 7d • ${stats.emergencias || 0} emergências`);
@@ -1350,11 +1385,15 @@
                 <span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
                 <span>${escapeHtml(top.bairros_locais_instituicoes || 'Imperatriz - MA')}</span>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2">
                 <a href="${escapeHtml(top.url_original || '#')}" target="_blank" class="px-3.5 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold flex items-center gap-1 transition-colors">
                   <span class="material-symbols-outlined text-[16px]">open_in_new</span>
                   Matéria Original
                 </a>
+                <button onclick="arquivarPauta('${escapeHtml(pautaId)}')" class="px-3.5 py-2 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-950 font-label-sm text-label-sm font-bold flex items-center gap-1 transition-colors" type="button" title="Arquivar esta pauta e destacar a próxima matéria na capa">
+                  <span class="material-symbols-outlined text-[16px]">archive</span>
+                  Arquivar
+                </button>
                 <button onclick="openModal('${escapeHtml(pautaId)}')" class="px-4 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-sm flex items-center gap-1 transition-colors" type="button">
                   <span>Abrir Dossiê Completo</span>
                   <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -1434,9 +1473,27 @@
       filterPautas();
     }
 
+    function updatePautasArquivadasToggle(totalArq = 0) {
+      const btn = document.getElementById('btn-pautas-toggle-arquivadas');
+      if (!btn) return;
+      if (showingArchivedPautas) {
+        btn.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-950 border border-amber-300 font-label-sm text-label-sm font-bold transition-colors';
+        btn.innerHTML = `<span class="material-symbols-outlined text-[14px]">unarchive</span><span>Arquivadas (${totalArq}) • Voltar</span>`;
+      } else {
+        btn.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-900 font-label-sm text-label-sm font-bold transition-colors';
+        btn.innerHTML = `<span class="material-symbols-outlined text-[14px]">inventory_2</span><span>Arquivadas (${totalArq})</span>`;
+      }
+    }
+
+    function togglePautasArquivadasView() {
+      showingArchivedPautas = !showingArchivedPautas;
+      loadPautasAndStats();
+    }
+
     function getTimeFilteredPautas() {
-      if (currentTimeDays <= 0) return pautasData;
-      return pautasData.filter(p => parsePautaDate(p).days <= currentTimeDays);
+      const source = showingArchivedPautas ? archivedPautasData : pautasData;
+      if (showingArchivedPautas || currentTimeDays <= 0) return source;
+      return source.filter(p => parsePautaDate(p).days <= currentTimeDays);
     }
 
     function updateCategoryCounts() {
@@ -1484,14 +1541,23 @@
       if (!container) return;
 
       if (!list.length) {
-        container.innerHTML = `
+        container.innerHTML = showingArchivedPautas
+          ? `
+          <div class="bg-surface-container-lowest rounded-lg p-6 text-center shadow-sm flex flex-col items-center gap-2">
+            <span class="material-symbols-outlined text-[34px] text-on-surface-variant">inventory_2</span>
+            <p class="font-headline-sm text-headline-sm text-on-surface">Nenhuma pauta arquivada</p>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">Pautas antigas arquivadas ficam aqui caso você precise consultá-las ou restaurá-las.</p>
+            <button onclick="togglePautasArquivadasView()" class="mt-1 px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold" type="button">Voltar às ativas</button>
+          </div>
+          `
+          : `
           <div class="bg-surface-container-lowest rounded-lg p-6 text-center shadow-sm flex flex-col items-center gap-2">
             <span class="material-symbols-outlined text-[34px] text-on-surface-variant">search_off</span>
             <p class="font-headline-sm text-headline-sm text-on-surface">Nenhuma pauta nesta janela/filtro</p>
             <p class="font-body-sm text-body-sm text-on-surface-variant">Tente ampliar o período para 30 dias / Arquivo ou clique em "Buscar Recentes".</p>
             <button onclick="setTimeFilter(0)" class="mt-1 px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold" type="button">Mostrar Arquivo Completo</button>
           </div>
-        `;
+          `;
         return;
       }
 
@@ -1516,6 +1582,18 @@
         const thumbHtml = p.imagem_capa
           ? `<img src="${escapeHtml(p.imagem_capa)}" alt="" class="w-20 h-16 rounded-lg object-cover shrink-0 bg-surface-container-low" onerror="this.style.display='none'"/>`
           : '';
+        const archivedBadge = p.arquivada
+          ? `<span class="bg-amber-100 text-amber-950 font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">Arquivada</span>`
+          : '';
+        const cardArchiveBtn = p.arquivada
+          ? `<button onclick="event.stopPropagation(); restaurarPautaArquivada('${escapeHtml(pautaId)}')" class="px-2.5 py-1 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-label-sm text-label-sm font-bold transition-colors flex items-center gap-1" type="button" title="Devolver pauta ao feed ativo">
+               <span class="material-symbols-outlined text-[14px]">unarchive</span>
+               Restaurar
+             </button>`
+          : `<button onclick="event.stopPropagation(); arquivarPauta('${escapeHtml(pautaId)}')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-950 font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button" title="Arquivar/remover do feed para destacar novas">
+               <span class="material-symbols-outlined text-[14px]">archive</span>
+               Arquivar
+             </button>`;
 
         return `
           <article class="bg-surface-container-lowest rounded-lg p-4 shadow-sm relative overflow-hidden flex flex-col gap-2.5 group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${escapeHtml(pautaId)}')">
@@ -1528,6 +1606,7 @@
                   ${escapeHtml(p.prioridade)} • ${score}
                 </span>
                 <span class="${dtInfo.badgeClass} font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">${escapeHtml(dtInfo.label)}</span>
+                ${archivedBadge}
               </div>
               <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold truncate max-w-[140px]">${escapeHtml(p.fonte_principal)}</span>
             </div>
@@ -1549,12 +1628,13 @@
                 <span class="material-symbols-outlined text-[15px] text-tertiary shrink-0">location_on</span>
                 <span class="truncate">${escapeHtml(p.bairros_locais_instituicoes || 'Imperatriz • MA')}</span>
               </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <button onclick="event.stopPropagation(); window.open('${escapeHtml(p.url_original || '#')}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button">
+              <div class="flex items-center gap-1 shrink-0">
+                ${cardArchiveBtn}
+                <button onclick="event.stopPropagation(); window.open('${escapeHtml(p.url_original || '#')}', '_blank')" class="px-2 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button">
                   <span class="material-symbols-outlined text-[14px]">open_in_new</span>
                   Fonte
                 </button>
-                <button onclick="event.stopPropagation(); openModal('${escapeHtml(pautaId)}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold hover:bg-primary-container transition-colors flex items-center gap-1" type="button">
+                <button onclick="event.stopPropagation(); openModal('${escapeHtml(pautaId)}')" class="px-2.5 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold hover:bg-primary-container transition-colors flex items-center gap-1" type="button">
                   <span>Dossiê</span>
                   <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </button>
@@ -2056,6 +2136,74 @@
       }
     }
 
+    const PAUTAS_ARQ_STORAGE_KEY = 'radar_itz_pautas_arquivadas';
+
+    function getSavedPautasArquivadas() {
+      try {
+        const raw = localStorage.getItem(PAUTAS_ARQ_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+      return {};
+    }
+
+    function saveLocalPautaArquivada(idPauta, motivo) {
+      const map = getSavedPautasArquivadas();
+      map[idPauta] = {
+        a: 1,
+        m: String(motivo || 'Arquivada pela redação').trim().slice(0, 80),
+        atualizado_em: new Date().toISOString(),
+      };
+      try { localStorage.setItem(PAUTAS_ARQ_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    function markLocalPautaRestaurada(idPauta) {
+      const map = getSavedPautasArquivadas();
+      map[idPauta] = { u: 1, atualizado_em: new Date().toISOString() };
+      try { localStorage.setItem(PAUTAS_ARQ_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    function encodePautasArquivadasWire() {
+      const map = getSavedPautasArquivadas();
+      const entries = Object.entries(map).sort((a, b) =>
+        String((b[1] && b[1].atualizado_em) || '').localeCompare(String((a[1] && a[1].atualizado_em) || ''))
+      ).slice(0, 60);
+      const compact = {};
+      for (const [pid, item] of entries) {
+        if (!pid || !item || typeof item !== 'object') continue;
+        if (item.a || item.arquivar) {
+          const obj = { a: 1 };
+          const mot = String(item.m || item.motivo || '').trim().slice(0, 80);
+          if (mot && mot !== 'Arquivada pela redação') obj.m = mot;
+          compact[pid] = obj;
+        } else if (item.u || item.restaurar) {
+          compact[pid] = { u: 1 };
+        }
+      }
+      if (!Object.keys(compact).length) return '';
+      try {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function syncPautasArquivadasCookie() {
+      if (currentStorageBackend === 'supabase') {
+        document.cookie = 'radar_pautas_arq=; path=/; max-age=0; SameSite=Lax';
+        return '';
+      }
+      const wire = encodePautasArquivadasWire();
+      if (wire) {
+        document.cookie = 'radar_pautas_arq=' + encodeURIComponent(wire) + '; path=/; max-age=31536000; SameSite=Lax';
+      } else {
+        document.cookie = 'radar_pautas_arq=; path=/; max-age=0; SameSite=Lax';
+      }
+      return wire;
+    }
+
     function syncPncpRetificacoesCookie() {
       if (currentStorageBackend === 'supabase') {
         document.cookie = 'radar_pncp_retif=; path=/; max-age=0; SameSite=Lax';
@@ -2077,6 +2225,10 @@
         if (wire && !headers['X-PNCP-Retificacoes']) {
           headers['X-PNCP-Retificacoes'] = wire;
         }
+        const arqWire = encodePautasArquivadasWire();
+        if (arqWire && !headers['X-Pautas-Arquivadas']) {
+          headers['X-Pautas-Arquivadas'] = arqWire;
+        }
       }
       return fetch(url, Object.assign({}, options, {
         cache: 'no-store',
@@ -2084,22 +2236,100 @@
       }));
     }
 
-    function showPncpToast(message, isError = false) {
+    function showPncpToast(message, isError = false, undoLabel = '', undoCallback = null) {
       let toast = document.getElementById('pncp-toast-notice');
       if (!toast) {
         toast = document.createElement('div');
         toast.id = 'pncp-toast-notice';
-        toast.className = 'fixed bottom-5 right-5 z-[90] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold transition-opacity duration-200 pointer-events-none';
         document.body.appendChild(toast);
       }
-      toast.className = 'fixed bottom-5 right-5 z-[90] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold transition-opacity duration-200 pointer-events-none ' +
+      toast.className = 'fixed bottom-5 right-5 z-[90] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold transition-opacity duration-200 flex items-center gap-3 ' +
+        (undoCallback ? 'pointer-events-auto ' : 'pointer-events-none ') +
         (isError ? 'bg-error text-on-error' : 'bg-slate-900 text-white border border-slate-700');
-      toast.innerText = message;
+      toast.innerHTML = '';
+      const span = document.createElement('span');
+      span.innerText = message;
+      toast.appendChild(span);
+      if (undoCallback && undoLabel) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-2.5 py-1 rounded-full bg-amber-300 text-slate-950 font-extrabold hover:bg-amber-200 transition-colors cursor-pointer';
+        btn.innerText = undoLabel;
+        btn.onclick = () => {
+          toast.style.opacity = '0';
+          undoCallback();
+        };
+        toast.appendChild(btn);
+      }
       toast.style.opacity = '1';
       clearTimeout(toast._hideTimer);
       toast._hideTimer = setTimeout(() => {
         toast.style.opacity = '0';
-      }, 3200);
+      }, undoCallback ? 5200 : 3200);
+    }
+
+    async function arquivarPauta(idPauta) {
+      if (!idPauta) return false;
+      const motivo = 'Arquivada pela redação';
+      try {
+        const res = await pncpFetch('/api/pautas/arquivar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_pauta: idPauta, motivo }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível arquivar a pauta.');
+          return false;
+        }
+        if (currentStorageBackend !== 'supabase') {
+          saveLocalPautaArquivada(idPauta, motivo);
+          syncPautasArquivadasCookie();
+        }
+        await loadPautasAndStats();
+        showPncpToast('Pauta arquivada do feed.', false, 'Desfazer', () => restaurarPautaArquivada(idPauta));
+        return true;
+      } catch (err) {
+        alert(`Erro ao arquivar pauta: ${err.message}`);
+        return false;
+      }
+    }
+
+    async function restaurarPautaArquivada(idPauta) {
+      if (!idPauta) return false;
+      try {
+        const res = await pncpFetch('/api/pautas/arquivar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id_pauta: idPauta, restaurar: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível restaurar a pauta.');
+          return false;
+        }
+        if (currentStorageBackend !== 'supabase') {
+          markLocalPautaRestaurada(idPauta);
+          syncPautasArquivadasCookie();
+        }
+        await loadPautasAndStats();
+        showPncpToast('Pauta restaurada para o feed!');
+        return true;
+      } catch (err) {
+        alert(`Erro ao restaurar pauta: ${err.message}`);
+        return false;
+      }
+    }
+
+    async function toggleArquivarPautaDoModal() {
+      if (!currentOpenPautaId) return;
+      const p = [...pautasData, ...archivedPautasData].find(
+        item => String(item.id_pauta || item.id) === String(currentOpenPautaId)
+      );
+      const ok = p && p.arquivada
+        ? await restaurarPautaArquivada(currentOpenPautaId)
+        : await arquivarPauta(currentOpenPautaId);
+      if (ok) closeModal('stitch-modal');
     }
 
     async function syncLocalPncpRetificacoesToServer() {
@@ -2560,8 +2790,19 @@
     // Modal de Dossiê da Pauta
     // ---------------------------
     function openModal(id) {
-      const p = pautasData.find(item => String(item.id_pauta || item.id) === String(id));
+      const p = [...pautasData, ...archivedPautasData].find(item => String(item.id_pauta || item.id) === String(id));
       if (!p) return;
+      currentOpenPautaId = String(p.id_pauta || p.id || '');
+      const btnModalArq = document.getElementById('btn-modal-arquivar-pauta');
+      if (btnModalArq) {
+        if (p.arquivada) {
+          btnModalArq.className = 'px-4 py-2 rounded-full bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-label-md text-label-md font-semibold transition-colors inline-flex items-center gap-1';
+          btnModalArq.innerHTML = '<span class="material-symbols-outlined text-[16px]">unarchive</span><span>Restaurar pauta</span>';
+        } else {
+          btnModalArq.className = 'px-4 py-2 rounded-full bg-surface-container hover:bg-amber-100 text-on-surface-variant hover:text-amber-950 font-label-md text-label-md font-semibold transition-colors inline-flex items-center gap-1';
+          btnModalArq.innerHTML = '<span class="material-symbols-outlined text-[16px]">archive</span><span>Arquivar pauta</span>';
+        }
+      }
 
       document.getElementById('modal-title').innerText = p.titulo_jornalistico || '';
       document.getElementById('modal-resumo').innerText = p.resumo_3_linhas || '';

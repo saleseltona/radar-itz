@@ -134,6 +134,12 @@ class RadarDatabase:
                     id_execucao_ultima_atualizacao TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS pautas_arquivadas (
+                    id_pauta TEXT PRIMARY KEY,
+                    motivo TEXT NOT NULL DEFAULT 'Arquivada pela redação',
+                    atualizado_em TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS pncp_contratos (
                     numero_controle_pncp TEXT PRIMARY KEY,
                     orgao_cnpj TEXT NOT NULL,
@@ -432,20 +438,168 @@ class RadarDatabase:
                 ),
             )
 
-    def get_all_pautas(self, order_by: str = "recentes") -> List[Dict[str, Any]]:
+    @staticmethod
+    def _format_pauta_row(row: sqlite3.Row) -> Dict[str, Any]:
+        """Converte linha de pauta enriquecida com status de arquivamento."""
+        d = dict(row)
+        d["arquivada"] = bool(d.pop("arquivada_flag", 0))
+        d["motivo_arquivamento"] = str(d.get("motivo_arquivamento") or "")
+        return d
+
+    def _select_pauta_single_row(
+        self, conn: sqlite3.Connection, id_pauta: str
+    ) -> Optional[Dict[str, Any]]:
+        row = conn.execute(
+            """
+            SELECT p.*,
+                   CASE WHEN pa.id_pauta IS NOT NULL THEN 1 ELSE 0 END AS arquivada_flag,
+                   COALESCE(pa.motivo, '') AS motivo_arquivamento
+            FROM pautas p
+            LEFT JOIN pautas_arquivadas pa ON p.id_pauta = pa.id_pauta
+            WHERE p.id_pauta = ?
+            """,
+            (id_pauta,),
+        ).fetchone()
+        return self._format_pauta_row(row) if row else None
+
+    def get_all_pautas(
+        self,
+        order_by: str = "recentes",
+        incluir_arquivadas: bool = True,
+        somente_arquivadas: bool = False,
+    ) -> List[Dict[str, Any]]:
+        where_sql = ""
+        if somente_arquivadas:
+            where_sql = "WHERE pa.id_pauta IS NOT NULL "
+        elif not incluir_arquivadas:
+            where_sql = "WHERE pa.id_pauta IS NULL "
+
         if order_by == "score":
-            sql = (
-                "SELECT * FROM pautas "
-                "ORDER BY pontuacao_editorial DESC, COALESCE(NULLIF(data_publicacao, ''), substr(data_hora_coleta, 1, 10)) DESC, id_pauta ASC"
+            order_sql = (
+                "ORDER BY p.pontuacao_editorial DESC, "
+                "COALESCE(NULLIF(p.data_publicacao, ''), substr(p.data_hora_coleta, 1, 10)) DESC, p.id_pauta ASC"
             )
         else:
-            sql = (
-                "SELECT * FROM pautas "
-                "ORDER BY COALESCE(NULLIF(data_publicacao, ''), substr(data_hora_coleta, 1, 10)) DESC, pontuacao_editorial DESC, id_pauta ASC"
+            order_sql = (
+                "ORDER BY COALESCE(NULLIF(p.data_publicacao, ''), substr(p.data_hora_coleta, 1, 10)) DESC, "
+                "p.pontuacao_editorial DESC, p.id_pauta ASC"
             )
+        sql = (
+            "SELECT p.*, "
+            "CASE WHEN pa.id_pauta IS NOT NULL THEN 1 ELSE 0 END AS arquivada_flag, "
+            "COALESCE(pa.motivo, '') AS motivo_arquivamento "
+            "FROM pautas p "
+            "LEFT JOIN pautas_arquivadas pa ON p.id_pauta = pa.id_pauta "
+            f"{where_sql}{order_sql}"
+        )
         with self.connect() as conn:
             rows = conn.execute(sql).fetchall()
+            return [self._format_pauta_row(r) for r in rows]
+
+    def arquivar_pauta(
+        self, id_pauta: str, motivo: str = "Arquivada pela redação"
+    ) -> Optional[Dict[str, Any]]:
+        """Arquiva uma pauta para removê-la do feed principal e da capa preservando o histórico."""
+        pid = (id_pauta or "").strip()
+        if not pid:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Arquivada pela redação").strip()[:240] or "Arquivada pela redação"
+        with self.connect() as conn:
+            cur = conn.execute("SELECT id_pauta FROM pautas WHERE id_pauta = ?", (pid,)).fetchone()
+            if not cur:
+                return None
+            conn.execute(
+                """
+                INSERT INTO pautas_arquivadas (id_pauta, motivo, atualizado_em)
+                VALUES (?, ?, ?)
+                ON CONFLICT(id_pauta) DO UPDATE SET
+                    motivo = excluded.motivo,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                (pid, motivo_clean, now_iso),
+            )
+            return self._select_pauta_single_row(conn, pid)
+
+    def restaurar_pauta_arquivada(self, id_pauta: str) -> Optional[Dict[str, Any]]:
+        """Remove a marcação de arquivamento devolvendo a pauta ao feed principal."""
+        pid = (id_pauta or "").strip()
+        if not pid:
+            return None
+        with self.connect() as conn:
+            cur = conn.execute("SELECT id_pauta FROM pautas WHERE id_pauta = ?", (pid,)).fetchone()
+            if not cur:
+                return None
+            conn.execute("DELETE FROM pautas_arquivadas WHERE id_pauta = ?", (pid,))
+            return self._select_pauta_single_row(conn, pid)
+
+    def get_all_pautas_arquivadas(self) -> List[Dict[str, Any]]:
+        """Lista todos os registros de arquivamento de pautas."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM pautas_arquivadas ORDER BY atualizado_em DESC"
+            ).fetchall()
             return [dict(r) for r in rows]
+
+    def sync_pautas_arquivadas_from_request(self, overrides: Dict[str, Any]) -> int:
+        """Sincroniza pautas arquivadas enviadas via header/cookie em uma única transação."""
+        if not overrides or not isinstance(overrides, dict):
+            return 0
+        entries: List[tuple[str, Dict[str, Any]]] = []
+        for raw_id, entry in list(overrides.items())[:100]:
+            pid = str(raw_id or "").strip()
+            if pid and isinstance(entry, dict):
+                entries.append((pid, entry))
+        if not entries:
+            return 0
+
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        pids = [pid for pid, _ in entries]
+        placeholders = ",".join("?" for _ in pids)
+        applied = 0
+
+        with self.connect() as conn:
+            arq_rows = conn.execute(
+                f"SELECT id_pauta, motivo FROM pautas_arquivadas WHERE id_pauta IN ({placeholders})",
+                pids,
+            ).fetchall()
+            existing_arq = {r["id_pauta"]: r for r in arq_rows}
+
+            pauta_rows = conn.execute(
+                f"SELECT id_pauta FROM pautas WHERE id_pauta IN ({placeholders})",
+                pids,
+            ).fetchall()
+            existing_pautas = {r["id_pauta"] for r in pauta_rows}
+
+            for pid, entry in entries:
+                if pid not in existing_pautas:
+                    continue
+                if entry.get("a") or entry.get("arquivar"):
+                    motivo_clean = (
+                        str(entry.get("m") or entry.get("motivo") or "Arquivada pela redação").strip()[:160]
+                        or "Arquivada pela redação"
+                    )
+                    cur_arq = existing_arq.get(pid)
+                    if cur_arq is None or str(cur_arq["motivo"] or "") != motivo_clean:
+                        conn.execute(
+                            """
+                            INSERT INTO pautas_arquivadas (id_pauta, motivo, atualizado_em)
+                            VALUES (?, ?, ?)
+                            ON CONFLICT(id_pauta) DO UPDATE SET
+                                motivo = excluded.motivo,
+                                atualizado_em = excluded.atualizado_em
+                            """,
+                            (pid, motivo_clean, now_iso),
+                        )
+                        existing_arq[pid] = {"id_pauta": pid, "motivo": motivo_clean}
+                        applied += 1
+                elif entry.get("u") or entry.get("restaurar"):
+                    if pid in existing_arq:
+                        conn.execute("DELETE FROM pautas_arquivadas WHERE id_pauta = ?", (pid,))
+                        existing_arq.pop(pid, None)
+                        applied += 1
+
+        return applied
 
     def get_pautas_by_execution(self, id_execucao: str) -> List[Dict[str, Any]]:
         with self.connect() as conn:

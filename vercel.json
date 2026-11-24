@@ -9,6 +9,8 @@
     { "source": "/export/pautas.csv", "destination": "/api/index?__route=/export/pautas.csv" },
     { "source": "/static/:path*", "destination": "/api/index?__route=/static/:path*" },
     { "source": "/api/pautas", "destination": "/api/index?__route=/api/pautas" },
+    { "source": "/api/pautas/arquivar", "destination": "/api/index?__route=/api/pautas/arquivar" },
+    { "source": "/api/pautas/arquivadas", "destination": "/api/index?__route=/api/pautas/arquivadas" },
     { "source": "/api/stats", "destination": "/api/index?__route=/api/stats" },
     { "source": "/api/clipping", "destination": "/api/index?__route=/api/clipping" },
     { "source": "/api/export/csv", "destination": "/api/index?__route=/api/export/csv" },

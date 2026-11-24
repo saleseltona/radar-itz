@@ -45,6 +45,12 @@ TABLE_SPECS: List[Dict[str, Any]] = [
         "strip_id": False,
     },
     {
+        "table": "pautas_arquivadas",
+        "key_cols": ("id_pauta",),
+        "on_conflict": "id_pauta",
+        "strip_id": False,
+    },
+    {
         "table": "pendencias_apuracao",
         "key_cols": ("id_pauta",),
         "on_conflict": "id_pauta",

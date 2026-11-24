@@ -1207,6 +1207,142 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertEqual(cold_rest_json["total"], 2)
         self.assertEqual(cold_rest_json["total_ignorados"], 0)
 
+    def test_20_pautas_arquivar_restaurar_sqlite_supabase_e_stateless(self) -> None:
+        """Testa arquivar e restaurar pautas no SQLite, HTTP stateless, /api/stats e Supabase."""
+        from scripts.supabase_sync import sync_sqlite_to_supabase
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+        from src.web_server import RadarAPIHandler
+
+        def make_pauta(pid: str, dt: str, score: int) -> Dict[str, Any]:
+            return {
+                "id_pauta": pid,
+                "prioridade": "Alta",
+                "pontuacao_editorial": score,
+                "justificativa_pontuacao": "Relevância local",
+                "categoria": "Pautas de serviço público",
+                "tema_especifico": "Cidade",
+                "titulo_jornalistico": f"Matéria {pid}",
+                "titulo_normalizado": f"materia {pid.lower()}",
+                "resumo_3_linhas": "Resumo breve.",
+                "descricao_detalhada": "Texto completo.",
+                "fonte_principal": "Portal PMI",
+                "url_original": f"https://imperatriz.ma.gov.br/{pid.lower()}",
+                "veiculo_instituicao": "PMI",
+                "data_publicacao": dt,
+                "data_acontecimento": dt,
+                "evidencias_verificadas": "Nota oficial",
+                "angulo_jornalistico": "Cobertura local",
+                "publico_afetado": "Moradores",
+                "bairros_locais_instituicoes": "Centro",
+                "formato_sugerido": "Matéria jornalística",
+                "nivel_verificacao": "Confirmado",
+                "situacao_editorial": "Pauta Inédita",
+            }
+
+        self.db.start_execution("EXEC-ARQ-1", modo="manual")
+        p1 = make_pauta("PAUTA-ARQ-1", "2026-10-01", 85)
+        p2 = make_pauta("PAUTA-ARQ-2", "2026-11-24", 90)
+        self.db.insert_pauta(p1, "EXEC-ARQ-1")
+        self.db.insert_pauta(p2, "EXEC-ARQ-1")
+
+        # 1. SQLite: arquiva PAUTA-ARQ-1 mantendo memória histórica (incluir_arquivadas=True)
+        arq = self.db.arquivar_pauta("PAUTA-ARQ-1", "Matéria antiga arquivada")
+        self.assertIsNotNone(arq)
+        self.assertTrue(arq["arquivada"])
+
+        ativas = self.db.get_all_pautas(incluir_arquivadas=False)
+        self.assertEqual([p["id_pauta"] for p in ativas], ["PAUTA-ARQ-2"])
+        todas_dedup = self.db.get_all_pautas(incluir_arquivadas=True)
+        self.assertEqual(len(todas_dedup), 2)
+        so_arq = self.db.get_all_pautas(somente_arquivadas=True)
+        self.assertEqual([p["id_pauta"] for p in so_arq], ["PAUTA-ARQ-1"])
+
+        # 2. Sync SQLite -> Supabase inclui pautas_arquivadas
+        transport = self._build_fake_supabase_transport()
+        client = SupabaseRestClient("https://projeto.supabase.co", "service-role-key-secret", transport=transport)
+        sync_res = sync_sqlite_to_supabase(self.db, client)
+        self.assertEqual(sync_res["pautas_arquivadas"]["novos_enviados"], 1)
+
+        supa = SupabaseDatabase(client)
+        self.assertEqual([p["id_pauta"] for p in supa.get_all_pautas(incluir_arquivadas=False)], ["PAUTA-ARQ-2"])
+        self.assertEqual([p["id_pauta"] for p in supa.get_all_pautas(somente_arquivadas=True)], ["PAUTA-ARQ-1"])
+
+        supa_rest = supa.restaurar_pauta_arquivada("PAUTA-ARQ-1")
+        self.assertIsNotNone(supa_rest)
+        self.assertFalse(supa_rest["arquivada"])
+        self.assertEqual(len(supa.get_all_pautas(incluir_arquivadas=False)), 2)
+
+        # Restaura no SQLite antes dos testes HTTP
+        rest_local = self.db.restaurar_pauta_arquivada("PAUTA-ARQ-1")
+        self.assertIsNotNone(rest_local)
+        self.assertFalse(rest_local["arquivada"])
+
+        # 3. HTTP endpoints + persistência stateless via X-Pautas-Arquivadas
+        class _ArqHandler(RadarAPIHandler):
+            bound_db = self.db
+
+            @classmethod
+            def get_db(cls) -> Any:
+                return cls.bound_db
+
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                return
+
+        def call_http(method: str, req_path: str, req_headers: Dict[str, str], payload: Any = None) -> Tuple[int, bytes]:
+            body_bytes = json.dumps(payload).encode("utf-8") if payload is not None else b""
+            h = _ArqHandler.__new__(_ArqHandler)
+            h.command = method
+            h.path = req_path
+            h.request_version = "HTTP/1.1"
+            h.requestline = f"{method} {req_path} HTTP/1.1"
+            h.client_address = ("127.0.0.1", 0)
+            h.close_connection = True
+            h._headers_buffer = []
+            msg = email.message.Message()
+            for k, v in req_headers.items():
+                msg[k] = v
+            if payload is not None:
+                msg["Content-Length"] = str(len(body_bytes))
+            h.headers = msg
+            h.rfile = io.BytesIO(body_bytes)
+            h.wfile = io.BytesIO()
+            if method == "GET":
+                h.do_GET()
+            else:
+                h.do_POST()
+            raw = h.wfile.getvalue()
+            head, _, resp_body = raw.partition(b"\r\n\r\n")
+            return int(head.decode("latin-1").split("\r\n")[0].split(" ", 2)[1]), resp_body
+
+        st_post, _ = call_http("POST", "/api/pautas/arquivar", {}, {"id_pauta": "PAUTA-ARQ-1", "motivo": "Antiga"})
+        self.assertEqual(st_post, 200)
+
+        _, raw_feed = call_http("GET", "/api/pautas", {})
+        self.assertEqual([p["id_pauta"] for p in json.loads(raw_feed.decode("utf-8"))], ["PAUTA-ARQ-2"])
+
+        _, raw_only = call_http("GET", "/api/pautas?arquivadas=only", {})
+        self.assertEqual([p["id_pauta"] for p in json.loads(raw_only.decode("utf-8"))], ["PAUTA-ARQ-1"])
+
+        _, raw_stats = call_http("GET", "/api/stats", {})
+        stats = json.loads(raw_stats.decode("utf-8"))
+        self.assertEqual(stats["total_pautas"], 1)
+        self.assertEqual(stats["pautas_arquivadas"], 1)
+
+        # Instância fria sincroniza {"a": 1} e {"u": 1} via X-Pautas-Arquivadas
+        cold_db = RadarDatabase(self.base_path / "cold_arq.db")
+        cold_db.start_execution("EXEC-COLD-1", modo="manual")
+        cold_db.insert_pauta(p1, "EXEC-COLD-1")
+        cold_db.insert_pauta(p2, "EXEC-COLD-1")
+        _ArqHandler.bound_db = cold_db
+
+        wire_arq = base64.b64encode(json.dumps({"PAUTA-ARQ-1": {"a": 1, "m": "Antiga"}}).encode("utf-8")).decode("ascii")
+        _, raw_cold = call_http("GET", "/api/pautas", {"X-Pautas-Arquivadas": wire_arq})
+        self.assertEqual([p["id_pauta"] for p in json.loads(raw_cold.decode("utf-8"))], ["PAUTA-ARQ-2"])
+
+        wire_un = base64.b64encode(json.dumps({"PAUTA-ARQ-1": {"u": 1}}).encode("utf-8")).decode("ascii")
+        _, raw_cold_rest = call_http("GET", "/api/pautas", {"X-Pautas-Arquivadas": wire_un})
+        self.assertEqual(len(json.loads(raw_cold_rest.decode("utf-8"))), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
