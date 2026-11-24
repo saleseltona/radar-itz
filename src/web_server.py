@@ -26,14 +26,21 @@ from src.config import (
     ANA_ESTACAO_IMPERATRIZ_CODIGO,
     BASE_DIR,
     DB_PATH,
+    FIORILLI_DEFAULT_YEARS,
     FONTES_CSV_PATH,
     OUTPUT_DIR,
     ensure_runtime_files,
     is_supabase_configured,
 )
 from src.database import RadarDatabase, get_database
+from src.fiorilli_client import FiorilliClient
 from src.pncp_client import PncpClient
 from src.source_manager import SourceManager
+from src.transparencia_cross import (
+    build_auditoria_dispensas,
+    build_cruzamento_fornecedores,
+    build_transparencia_resumo,
+)
 
 logger = logging.getLogger("radar_imperatriz.web")
 
@@ -548,6 +555,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             "/api/pncp/export/csv",
             "/api/pncp/retificacoes",
             "/api/pncp/ignorados",
+            "/api/transparencia/resumo",
+            "/api/transparencia/cruzamento",
+            "/api/transparencia/dispensas",
+            "/api/transparencia/export/csv",
         ):
             self._apply_request_pncp_retificacoes(db)
 
@@ -816,6 +827,254 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response(db.get_all_pncp_ignorados())
             return
 
+        # 3.2 Endpoints Transparência Fiorilli × PNCP (2025–2026)
+        if path == "/api/transparencia/resumo":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
+            # Carrega 2025+2026 para preservar comparativo anual lado a lado
+            pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=FIORILLI_DEFAULT_YEARS)
+            receitas_rows = [
+                r for r in db.get_fiorilli_receitas(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            orgaos_rows = [
+                r for r in db.get_fiorilli_despesas_orgaos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            forn_rows = [
+                r
+                for r in db.get_fiorilli_despesas_fornecedores(ano=None)
+                if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            con_rows = [
+                r for r in db.get_fiorilli_contratos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            meta = db.get_fiorilli_meta()
+            resumo = build_transparencia_resumo(
+                pncp_rows=pncp_rows,
+                receitas_rows=receitas_rows,
+                desp_orgaos_rows=orgaos_rows,
+                desp_forn_rows=forn_rows,
+                fiorilli_contratos_rows=con_rows,
+                ano=ano_val,
+                meta=meta,
+            )
+            self.send_json_response(resumo)
+            return
+
+        if path == "/api/transparencia/cruzamento":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
+            alerta_val = query.get("alerta", ["TODOS"])[0].strip() or "TODOS"
+            q_val = query.get("q", [""])[0].strip() or None
+            ordem_val = query.get("ordem", ["pago_desc"])[0].strip() or "pago_desc"
+            try:
+                pagina_val = int(query.get("pagina", ["1"])[0])
+            except ValueError:
+                pagina_val = 1
+            try:
+                limite_val = int(query.get("limite", ["50"])[0])
+            except ValueError:
+                limite_val = 50
+            try:
+                corte_val = float(query.get("corte", ["100000"])[0])
+            except ValueError:
+                corte_val = 100000.0
+
+            pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+            forn_rows = [
+                r
+                for r in db.get_fiorilli_despesas_fornecedores(ano=ano_val)
+                if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            con_rows = [
+                r for r in db.get_fiorilli_contratos(ano=ano_val) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            res = build_cruzamento_fornecedores(
+                pncp_rows=pncp_rows,
+                desp_forn_rows=forn_rows,
+                fiorilli_contratos_rows=con_rows,
+                ano=ano_val,
+                alerta=alerta_val,
+                q=q_val,
+                ordem=ordem_val,
+                pagina=pagina_val,
+                limite=limite_val,
+                corte_sem_pncp=corte_val,
+            )
+            self.send_json_response(res)
+            return
+
+        if path == "/api/transparencia/dispensas":
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
+            tipo_val = query.get("tipo", [""])[0].strip() or None
+            status_val = query.get("status_pncp", [""])[0].strip() or None
+            cat_val = query.get("categoria", [""])[0].strip() or None
+            ent_val = query.get("entidade", [""])[0].strip() or None
+            q_val = query.get("q", [""])[0].strip() or None
+            inc_rem = query.get("remanescentes", ["0"])[0].strip().lower() in ("1", "true", "sim")
+            try:
+                pagina_val = int(query.get("pagina", ["1"])[0])
+            except ValueError:
+                pagina_val = 1
+            try:
+                limite_val = int(query.get("limite", ["50"])[0])
+            except ValueError:
+                limite_val = 50
+
+            pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+            con_rows = [
+                r
+                for r in db.get_fiorilli_contratos(ano=ano_val, somente_diretas=True)
+                if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+            ]
+            res = build_auditoria_dispensas(
+                pncp_rows=pncp_rows,
+                fiorilli_contratos_rows=con_rows,
+                ano=ano_val,
+                tipo=tipo_val,
+                status_pncp=status_val,
+                categoria=cat_val,
+                entidade=ent_val,
+                q=q_val,
+                pagina=pagina_val,
+                limite=limite_val,
+                incluir_remanescentes=inc_rem,
+            )
+            self.send_json_response(res)
+            return
+
+        if path == "/api/transparencia/export/csv":
+            visao = query.get("visao", ["cruzamento"])[0].strip().lower()
+            ano_str = query.get("ano", [""])[0].strip()
+            ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
+            q_val = query.get("q", [""])[0].strip() or None
+            pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+
+            buf = io.StringIO()
+            writer = csv.writer(buf, delimiter=";")
+
+            if visao == "dispensas":
+                tipo_val = query.get("tipo", [""])[0].strip() or None
+                status_val = query.get("status_pncp", [""])[0].strip() or None
+                cat_val = query.get("categoria", [""])[0].strip() or None
+                ent_val = query.get("entidade", [""])[0].strip() or None
+                inc_rem = query.get("remanescentes", ["0"])[0].strip().lower() in ("1", "true", "sim")
+                con_rows = [
+                    r
+                    for r in db.get_fiorilli_contratos(ano=ano_val, somente_diretas=True)
+                    if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+                ]
+                all_disp: List[Dict[str, Any]] = []
+                pg = 1
+                while True:
+                    page_res = build_auditoria_dispensas(
+                        pncp_rows=pncp_rows,
+                        fiorilli_contratos_rows=con_rows,
+                        ano=ano_val,
+                        tipo=tipo_val,
+                        status_pncp=status_val,
+                        categoria=cat_val,
+                        entidade=ent_val,
+                        q=q_val,
+                        pagina=pg,
+                        limite=200,
+                        incluir_remanescentes=inc_rem,
+                    )
+                    all_disp.extend(page_res["items"])
+                    if pg >= page_res["total_paginas"]:
+                        break
+                    pg += 1
+                cols = [
+                    "ano",
+                    "entidade",
+                    "secretaria_gestora",
+                    "tipo_contratacao",
+                    "fund_legal",
+                    "modalidade",
+                    "codigo",
+                    "processo_adm",
+                    "fornecedor_doc",
+                    "fornecedor_nome",
+                    "categoria_tematica",
+                    "objeto",
+                    "valor_contrato",
+                    "valor_aditado",
+                    "valor_efetivo",
+                    "empenhado",
+                    "liquidado",
+                    "status_pncp",
+                    "pncp_match_controle",
+                    "pncp_match_valor",
+                    "motivo_pncp",
+                ]
+                writer.writerow(cols)
+                for row in all_disp:
+                    writer.writerow([row.get(c, "") for c in cols])
+                filename = "dispensas_transparencia_imperatriz.csv"
+            else:
+                alerta_val = query.get("alerta", ["TODOS"])[0].strip() or "TODOS"
+                ordem_val = query.get("ordem", ["pago_desc"])[0].strip() or "pago_desc"
+                forn_rows = [
+                    r
+                    for r in db.get_fiorilli_despesas_fornecedores(ano=ano_val)
+                    if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+                ]
+                con_rows = [
+                    r for r in db.get_fiorilli_contratos(ano=ano_val) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+                ]
+                all_cross: List[Dict[str, Any]] = []
+                pg = 1
+                while True:
+                    page_res = build_cruzamento_fornecedores(
+                        pncp_rows=pncp_rows,
+                        desp_forn_rows=forn_rows,
+                        fiorilli_contratos_rows=con_rows,
+                        ano=ano_val,
+                        alerta=alerta_val,
+                        q=q_val,
+                        ordem=ordem_val,
+                        pagina=pg,
+                        limite=200,
+                    )
+                    all_cross.extend(page_res["items"])
+                    if pg >= page_res["total_paginas"]:
+                        break
+                    pg += 1
+                cols = [
+                    "fornecedor_doc",
+                    "tipo_pessoa",
+                    "fornecedor_nome",
+                    "cidade",
+                    "alerta_codigo",
+                    "alerta_label",
+                    "pncp_contratos_qtd",
+                    "pncp_valor",
+                    "fiorilli_contratos_qtd",
+                    "fiorilli_valor",
+                    "fiorilli_dispensas_qtd",
+                    "fiorilli_dispensas_valor",
+                    "empenhado",
+                    "liquidado",
+                    "pago",
+                    "diferenca_pago_pncp",
+                    "pct_pago_sobre_pncp",
+                ]
+                writer.writerow(cols)
+                for row in all_cross:
+                    writer.writerow([row.get(c, "") for c in cols])
+                filename = "cruzamento_pncp_transparencia_imperatriz.csv"
+
+            data = buf.getvalue().encode("utf-8-sig")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
         # 4. Endpoint REST: Clipping diário em Markdown
         if path == "/api/clipping":
             clipping_file = OUTPUT_DIR / "clipping_do_dia.md"
@@ -965,6 +1224,32 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 self.send_json_response(res)
             except Exception as e:
                 logger.error("Erro ao sincronizar PNCP via web: %s", e, exc_info=True)
+                self.send_json_response({"erro": str(e)}, status=500)
+            return
+
+        # 2.0b Sincronizar Portal Transparência Fiorilli (2025-2026) sob demanda
+        if path == "/api/transparencia/sync":
+            try:
+                raw_anos = body.get("anos")
+                if isinstance(raw_anos, list):
+                    anos = [int(a) for a in raw_anos if str(a) in ("2025", "2026")]
+                else:
+                    anos = []
+                if not anos:
+                    anos = list(FIORILLI_DEFAULT_YEARS)
+                res = FiorilliClient(db, timeout=25).sync_imperatriz(anos=anos)
+                res["storage_backend"] = getattr(db, "backend_name", "sqlite")
+                if res.get("total_registros", 0) == 0 and res.get("erros"):
+                    res["erro"] = (
+                        "Portal Transparência Fiorilli (porta :8079) indisponível ou lento neste ambiente. "
+                        "Você pode sincronizar localmente com `python scripts/fiorilli_sync.py --anos 2025 2026` "
+                        "e subir ao Supabase com `python scripts/supabase_sync.py --only-fiorilli`."
+                    )
+                    self.send_json_response(res, status=502)
+                    return
+                self.send_json_response(res)
+            except Exception as e:
+                logger.error("Erro ao sincronizar Fiorilli via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
             return
 

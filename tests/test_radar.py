@@ -1343,6 +1343,342 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         _, raw_cold_rest = call_http("GET", "/api/pautas", {"X-Pautas-Arquivadas": wire_un})
         self.assertEqual(len(json.loads(raw_cold_rest.decode("utf-8"))), 2)
 
+    def test_21_fiorilli_parsers_e_hierarquia_receitas(self) -> None:
+        """Valida parsers PT-BR/negativos, normalizadores e detecção de raízes contábeis Fiorilli."""
+        from src.fiorilli_client import (
+            classify_contratacao_fiorilli,
+            compute_receita_hierarchy,
+            normalize_doc,
+            normalize_processo,
+            parse_fiorilli_date,
+            parse_fiorilli_number,
+        )
+
+        self.assertAlmostEqual(parse_fiorilli_number("1425703178,95"), 1425703178.95)
+        self.assertAlmostEqual(parse_fiorilli_number("-98396231,85"), -98396231.85)
+        self.assertAlmostEqual(parse_fiorilli_number("1.234.567,89"), 1234567.89)
+        self.assertAlmostEqual(parse_fiorilli_number("0"), 0.0)
+        self.assertAlmostEqual(parse_fiorilli_number(""), 0.0)
+
+        self.assertEqual(normalize_doc("61.331.581/0001-39"), "61331581000139")
+        self.assertEqual(normalize_doc("860.525.433-53"), "86052543353")
+        self.assertEqual(normalize_doc("Para consultar clique duas vezes na linha deste registro"), "")
+        self.assertEqual(normalize_processo("02.04.00.0078/2025"), "02040000782025")
+        self.assertEqual(parse_fiorilli_date("22/05/2026 00:00:00"), "2026-05-22")
+
+        self.assertEqual(classify_contratacao_fiorilli("DISPENSA", "DISPENSA ELETRÔNICA"), ("Dispensa", 1))
+        self.assertEqual(classify_contratacao_fiorilli("INEXIGIBILIDADE (ART. 25)", ""), ("Inexigibilidade", 1))
+        self.assertEqual(classify_contratacao_fiorilli("LICITAÇÃO", "PREGÃO ELETRÔNICO"), ("Licitação / Outros", 0))
+
+        receitas_lote = [
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "1000.00.0.0.00.00", "arrecadado_total": 1000.0},
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "1100.00.0.0.00.00", "arrecadado_total": 250.0},
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "1700.00.0.0.00.00", "arrecadado_total": 750.0},
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "2000.00.0.0.00.00", "arrecadado_total": 100.0},
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "9000.00.0.0.00.00", "arrecadado_total": -50.0},
+            {"ano": 2026, "tipo_fonte": "orcamentaria", "codigo": "9500.00.0.0.00.00", "arrecadado_total": -50.0},
+        ]
+        hier = compute_receita_hierarchy(receitas_lote)
+        raizes = [r["codigo"] for r in hier if r["eh_raiz"] == 1]
+        self.assertEqual(raizes, ["1000.00.0.0.00.00", "2000.00.0.0.00.00", "9000.00.0.0.00.00"])
+        self.assertAlmostEqual(sum(r["arrecadado_total"] for r in hier if r["eh_raiz"] == 1), 1050.0)
+
+    def test_22_fiorilli_client_e_persistencia_sqlite_supabase(self) -> None:
+        """Testa coleta Fiorilli simulada (2025/2026), persistência SQLite, Supabase sync e RLS."""
+        from scripts.supabase_sync import sync_sqlite_to_supabase
+        from src.config import BASE_DIR
+        from src.fiorilli_client import FiorilliClient
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+
+        def mock_transport(url: str, timeout: int) -> bytes:
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            listagem = qs.get("Listagem", [""])[0]
+            ano = qs.get("Ano", ["2026"])[0]
+            if listagem == "ReceitaOrcamentaria":
+                payload = [
+                    {"ORDEM": "1", "CODIGO": "1000.00.0.0.00.00", "NOME": "RECEITAS CORRENTES.", "PREVISAO_INICIAL": "1000", "PREVISAO_ATUALIZADA": "1000", "ARRECADADO_PERIODO": "800,50", "ARRECADADO_TOTAL": "800,50"},
+                    {"ORDEM": "9", "CODIGO": "9000.00.0.0.00.00", "NOME": "(R) DEDUCOES", "PREVISAO_INICIAL": "-100", "PREVISAO_ATUALIZADA": "-100", "ARRECADADO_PERIODO": "-80,50", "ARRECADADO_TOTAL": "-80,50"},
+                ]
+            elif listagem == "ReceitaUniao":
+                payload = [{"ORDEM": "1", "CODIGO": "1710.00.0.0.00.00", "NOME": "TRANSF UNIAO", "PREVISAO_INICIAL": "500", "PREVISAO_ATUALIZADA": "500", "ARRECADADO_PERIODO": "400", "ARRECADADO_TOTAL": "400"}]
+            elif listagem == "ReceitaEstado":
+                payload = [{"ORDEM": "1", "CODIGO": "1720.00.0.0.00.00", "NOME": "TRANSF ESTADO", "PREVISAO_INICIAL": "200", "PREVISAO_ATUALIZADA": "200", "ARRECADADO_PERIODO": "150", "ARRECADADO_TOTAL": "150"}]
+            elif listagem == "DespesasPorOrgao":
+                payload = [{"EMPRESA": "2", "CODIGO": "0200", "DESCRICAO": "SAUDE", "DOTAC": "500", "ALTDO": "50", "DOTACAO_ATUALIZADA": "550", "EMPENHADO": "400", "LIQUIDADO": "350", "PAGO": "300"}]
+            elif listagem == "DespesasPorFornecedor":
+                payload = [{"EMPRESA": "2", "CODIGO": "10", "DESCRICAO": "EMPRESA SAUDE LTDA", "INSMF": "12.345.678/0001-90", "CEPCI": "IMPERATRIZ", "EMPENHADO": "400", "LIQUIDADO": "350", "PAGO": "300"}]
+            elif listagem == "Contratos":
+                payload = [
+                    {
+                        "CODIGO": f"001/{ano[2:]}", "ANO": ano, "EMPRESA": "2", "ENTIDADE": "PREFEITURA MUNICIPAL",
+                        "FUNDLEGAL": "DISPENSA", "LICIT": "DISPENSA", "PROCLIC": f"0001/{ano[2:]}",
+                        "NPROLI": f"02.04.00.0001/{ano}", "FORNECEDOR": "EMPRESA SAUDE LTDA", "INSMF": "12.345.678/0001-90",
+                        "VALCON": "250", "ADITADO": "50", "EMPENHADO": "300", "LIQUIDADO": "280", "SALDOEMPENHAR": "0",
+                        "OBJETO_COMPLETO": "Aquisição emergencial de medicamentos", "CODLO_GESTORNOME": "SEMUS",
+                        "DTASSI": f"15/01/{ano} 00:00:00", "DTPUBL": f"16/01/{ano} 00:00:00",
+                        "VIGENI": f"15/01/{ano} 00:00:00", "VIGENF": f"31/12/{ano} 00:00:00", "DTANULA": "",
+                    }
+                ]
+            else:
+                payload = []
+            return json.dumps(payload).encode("utf-8")
+
+        res = FiorilliClient(self.db, transport=mock_transport).sync_imperatriz(anos=(2025, 2026))
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["totais"]["fiorilli_contratos"], 2)
+        meta_local = self.db.get_fiorilli_meta()
+        self.assertTrue(meta_local["sincronizado"])
+        self.assertEqual(meta_local["anos_disponiveis"], [2026, 2025])
+        self.assertEqual(self.db.get_fiorilli_contratos(ano=2026, somente_diretas=True)[0]["categoria_tematica"], "Saúde e remédios")
+
+        supa_transport = self._build_fake_supabase_transport()
+        client = SupabaseRestClient("https://projeto.supabase.co", "service-role-key-secret", transport=supa_transport)
+        sync_res = sync_sqlite_to_supabase(self.db, client, tables=["fiorilli_receitas", "fiorilli_despesas_orgaos", "fiorilli_despesas_fornecedores", "fiorilli_contratos"])
+        self.assertEqual(sync_res["fiorilli_contratos"]["novos_enviados"], 2)
+        supa = SupabaseDatabase(client)
+        self.assertEqual(len(supa.get_fiorilli_contratos(ano=2026, somente_diretas=True)), 1)
+        self.assertTrue(supa.get_fiorilli_meta()["sincronizado"])
+
+        schema_sql = (BASE_DIR / "supabase" / "schema.sql").read_text(encoding="utf-8")
+        for tbl in (
+            "fontes", "execucoes", "paginas_coletadas", "pautas", "pautas_arquivadas",
+            "pncp_contratos", "pncp_retificacoes", "pncp_ignorados", "evidencias",
+            "historico_atualizacoes", "pendencias_apuracao", "itens_descartados", "erros_coleta",
+            "fiorilli_receitas", "fiorilli_despesas_orgaos", "fiorilli_despesas_fornecedores", "fiorilli_contratos",
+        ):
+            self.assertIn(f"CREATE TABLE IF NOT EXISTS public.{tbl}", schema_sql)
+            self.assertIn(f"ALTER TABLE public.{tbl} ENABLE ROW LEVEL SECURITY;", schema_sql)
+
+    def test_23_cruzamento_pncp_transparencia_e_dispensas(self) -> None:
+        """Valida alertas de cruzamento PNCP x Pago, dispensas ausentes e respeito a retificações/ignorados."""
+        from src.transparencia_cross import (
+            build_auditoria_dispensas,
+            build_cruzamento_fornecedores,
+            build_transparencia_resumo,
+        )
+
+        self.db.upsert_pncp_contratos_batch(
+            [
+                {
+                    "numero_controle_pncp": "CTRL-A", "orgao_cnpj": "06158455000116", "orgao_sigla": "PMI",
+                    "orgao_nome": "Prefeitura", "ano_contrato": 2026, "numero_contrato": "001/2026",
+                    "processo": "02.04.00.0010/2026", "fornecedor_cnpj": "11111111000111",
+                    "fornecedor_nome": "FORNECEDOR A", "objeto": "Alimentação hospitalar",
+                    "valor_inicial": 10000000.0, "valor_global": 10000000.0, "valor_acumulado": 10000000.0,
+                },
+                {
+                    "numero_controle_pncp": "CTRL-C", "orgao_cnpj": "06158455000116", "orgao_sigla": "PMI",
+                    "orgao_nome": "Prefeitura", "ano_contrato": 2026, "numero_contrato": "002/2026",
+                    "processo": "02.06.00.0020/2026", "fornecedor_cnpj": "33333333000133",
+                    "fornecedor_nome": "FORNECEDOR C", "objeto": "Locação de imóvel escolar",
+                    "valor_inicial": 80000.0, "valor_global": 80000.0, "valor_acumulado": 80000.0,
+                },
+                {
+                    "numero_controle_pncp": "CTRL-DUP", "orgao_cnpj": "06158455000116", "orgao_sigla": "PMI",
+                    "orgao_nome": "Prefeitura", "ano_contrato": 2026, "numero_contrato": "999/2026",
+                    "processo": "02.04.00.0999/2026", "fornecedor_cnpj": "99999999000199",
+                    "fornecedor_nome": "DUPLICADO IGNORADO", "objeto": "Duplicado",
+                    "valor_inicial": 5000000.0, "valor_global": 5000000.0, "valor_acumulado": 5000000.0,
+                },
+            ]
+        )
+        # Retifica CTRL-A (erro PNCP 10M -> real 100k) e ignora duplicado CTRL-DUP
+        self.db.retificar_pncp_contrato("CTRL-A", 100000.0, "Erro 100x PNCP")
+        self.db.ignorar_pncp_contrato("CTRL-DUP", "Duplicidade")
+
+        self.db.upsert_fiorilli_receitas_batch(
+            [
+                {"chave_receita": "2026|orcamentaria|1000|1", "ano": 2026, "tipo_fonte": "orcamentaria", "ordem": "1", "codigo": "1000.00.0.0.00.00", "nome": "CORRENTES", "eh_raiz": 1, "previsao_atualizada": 1000000.0, "arrecadado_total": 900000.0},
+                {"chave_receita": "2026|orcamentaria|1100|2", "ano": 2026, "tipo_fonte": "orcamentaria", "ordem": "2", "codigo": "1100.00.0.0.00.00", "nome": "IMPOSTOS", "eh_raiz": 0, "previsao_atualizada": 300000.0, "arrecadado_total": 300000.0},
+                {"chave_receita": "2026|orcamentaria|9000|9", "ano": 2026, "tipo_fonte": "orcamentaria", "ordem": "9", "codigo": "9000.00.0.0.00.00", "nome": "DEDUCOES", "eh_raiz": 1, "previsao_atualizada": -100000.0, "arrecadado_total": -100000.0},
+            ]
+        )
+        self.db.upsert_fiorilli_despesas_orgaos_batch(
+            [{"chave_orgao": "2026|2|0200", "ano": 2026, "empresa": "2", "codigo": "0200", "orgao_nome": "PREFEITURA", "dotacao_atualizada": 900000.0, "empenhado": 600000.0, "liquidado": 500000.0, "pago": 450000.0}]
+        )
+        self.db.upsert_fiorilli_despesas_fornecedores_batch(
+            [
+                {"chave_fornecedor": "2026|2|1", "ano": 2026, "empresa": "2", "codigo_fornecedor": "1", "fornecedor_doc": "11111111000111", "fornecedor_nome": "FORNECEDOR A", "empenhado": 150000.0, "liquidado": 150000.0, "pago": 150000.0},
+                {"chave_fornecedor": "2026|2|2", "ano": 2026, "empresa": "2", "codigo_fornecedor": "2", "fornecedor_doc": "22222222000122", "fornecedor_nome": "FORNECEDOR B SEM PNCP", "empenhado": 250000.0, "liquidado": 230000.0, "pago": 220000.0},
+                {"chave_fornecedor": "2026|2|3", "ano": 2026, "empresa": "2", "codigo_fornecedor": "3", "fornecedor_doc": "33333333000133", "fornecedor_nome": "FORNECEDOR C", "empenhado": 80000.0, "liquidado": 80000.0, "pago": 80000.0},
+                {"chave_fornecedor": "2026|2|4", "ano": 2026, "empresa": "2", "codigo_fornecedor": "4", "fornecedor_doc": "06158455000116", "fornecedor_nome": "FOPAG PMI", "empenhado": 1200000.0, "liquidado": 1200000.0, "pago": 1200000.0},
+                {"chave_fornecedor": "2026|2|5", "ano": 2026, "empresa": "2", "codigo_fornecedor": "5", "fornecedor_doc": "29979036000140", "fornecedor_nome": "INSTITUTO NACIONAL DA SEGURIDADE SOCIAL - INSS", "empenhado": 500000.0, "liquidado": 500000.0, "pago": 500000.0},
+            ]
+        )
+        self.db.upsert_fiorilli_contratos_batch(
+            [
+                {
+                    "chave_contrato": "2026|2|D1", "ano": 2026, "empresa": "2", "entidade": "PREFEITURA MUNICIPAL",
+                    "codigo": "D1", "processo_adm": "0206000020/2026", "fund_legal": "DISPENSA", "modalidade": "DISPENSA",
+                    "tipo_contratacao": "Dispensa", "eh_contratacao_direta": 1, "fornecedor_doc": "33333333000133",
+                    "fornecedor_nome": "FORNECEDOR C", "objeto": "Locação de imóvel escolar", "categoria_tematica": "Imóveis alugados e comprados",
+                    "valor_contrato": 80000.0, "valor_aditado": 0.0, "valor_efetivo": 80000.0,
+                },
+                {
+                    "chave_contrato": "2026|2|D2", "ano": 2026, "empresa": "2", "entidade": "FUNDO DE SAUDE",
+                    "codigo": "D2", "processo_adm": "02.99.00.0055/2026", "fund_legal": "INEXIGIBILIDADE", "modalidade": "INEXIGIBILIDADE",
+                    "tipo_contratacao": "Inexigibilidade", "eh_contratacao_direta": 1, "fornecedor_doc": "44444444000144",
+                    "fornecedor_nome": "CLINICA D AUSENTE", "objeto": "Exames laboratoriais sem licitação", "categoria_tematica": "Saúde e remédios",
+                    "valor_contrato": 500000.0, "valor_aditado": 0.0, "valor_efetivo": 500000.0,
+                },
+                {
+                    "chave_contrato": "2026|2|0186/21", "ano": 2026, "empresa": "2", "entidade": "PREFEITURA MUNICIPAL",
+                    "codigo": "0186/21", "processo_adm": "02.01.00.0186/2021", "fund_legal": "INEXIGIBILIDADE", "modalidade": "INEXIGIBILIDADE",
+                    "tipo_contratacao": "Inexigibilidade", "eh_contratacao_direta": 1, "fornecedor_doc": "77777777000177",
+                    "fornecedor_nome": "INST ANTIGO 2021", "objeto": "Contrato remanescente de 2021", "categoria_tematica": "Saúde e remédios",
+                    "valor_contrato": 1000000.0, "valor_aditado": 8000000.0, "valor_efetivo": 9000000.0,
+                    "data_assinatura": "2021-08-04",
+                },
+            ]
+        )
+
+        pncp_eff = self.db.get_effective_pncp_contratos(ano=2026)
+        self.assertEqual(len(pncp_eff), 2)
+        resumo = build_transparencia_resumo(
+            pncp_eff,
+            self.db.get_fiorilli_receitas(),
+            self.db.get_fiorilli_despesas_orgaos(),
+            self.db.get_fiorilli_despesas_fornecedores(),
+            self.db.get_fiorilli_contratos(),
+            ano=2026,
+            meta=self.db.get_fiorilli_meta(),
+        )
+        self.assertAlmostEqual(resumo["receitas"]["arrecadado_liquido"], 800000.0)
+        self.assertAlmostEqual(resumo["contratos_comparativo"]["pncp_valor_total"], 180000.0)
+        self.assertAlmostEqual(resumo["contratos_comparativo"]["fiorilli_valor_total"], 580000.0)
+        self.assertEqual(resumo["contratos_comparativo"]["fiorilli_remanescentes_qtd"], 1)
+        self.assertAlmostEqual(resumo["contratos_comparativo"]["fiorilli_remanescentes_valor"], 9000000.0)
+        self.assertEqual(resumo["dispensas_resumo"]["por_status_pncp"]["AUSENTE_PNCP"]["qtd"], 1)
+        self.assertEqual(resumo["dispensas_resumo"]["por_status_pncp"]["CONCILIADO"]["qtd"], 1)
+
+        cruz = build_cruzamento_fornecedores(
+            pncp_eff,
+            self.db.get_fiorilli_despesas_fornecedores(2026),
+            self.db.get_fiorilli_contratos(2026),
+            ano=2026,
+        )
+        by_doc = {r["fornecedor_doc"]: r for r in cruz["items"]}
+        self.assertEqual(by_doc["11111111000111"]["alerta_codigo"], "PAGO_ACIMA_PNCP")
+        self.assertEqual(by_doc["22222222000122"]["alerta_codigo"], "PAGO_SEM_PNCP")
+        self.assertEqual(by_doc["33333333000133"]["alerta_codigo"], "CONCILIADO")
+        self.assertEqual(by_doc["06158455000116"]["alerta_codigo"], "FOLHA_OU_REPASSE_PUBLICO")
+        self.assertEqual(by_doc["29979036000140"]["alerta_codigo"], "FOLHA_OU_REPASSE_PUBLICO")
+        self.assertNotIn("99999999000199", by_doc)
+
+        cruz_alertas = build_cruzamento_fornecedores(
+            pncp_eff,
+            self.db.get_fiorilli_despesas_fornecedores(2026),
+            self.db.get_fiorilli_contratos(2026),
+            ano=2026,
+            alerta="ALERTAS",
+        )
+        alert_docs = {r["fornecedor_doc"] for r in cruz_alertas["items"]}
+        self.assertEqual(alert_docs, {"11111111000111", "22222222000122", "44444444000144"})
+
+        cruz_sem_pncp = build_cruzamento_fornecedores(
+            pncp_eff,
+            self.db.get_fiorilli_despesas_fornecedores(2026),
+            self.db.get_fiorilli_contratos(2026),
+            ano=2026,
+            alerta="PAGO_SEM_PNCP",
+        )
+        self.assertEqual([r["fornecedor_doc"] for r in cruz_sem_pncp["items"]], ["22222222000122"])
+
+        disp = build_auditoria_dispensas(pncp_eff, self.db.get_fiorilli_contratos(2026, somente_diretas=True), ano=2026)
+        self.assertEqual(disp["total"], 2)
+        self.assertEqual(disp["remanescentes_omitidos_qtd"], 1)
+        self.assertEqual(disp["items"][0]["fornecedor_nome"], "CLINICA D AUSENTE")
+        self.assertEqual(disp["items"][0]["status_pncp"], "AUSENTE_PNCP")
+
+        disp_com_rem = build_auditoria_dispensas(
+            pncp_eff,
+            self.db.get_fiorilli_contratos(2026, somente_diretas=True),
+            ano=2026,
+            incluir_remanescentes=True,
+        )
+        self.assertEqual(disp_com_rem["total"], 3)
+        self.assertEqual(disp_com_rem["items"][0]["fornecedor_nome"], "INST ANTIGO 2021")
+
+    def test_24_endpoints_http_transparencia_e_csv(self) -> None:
+        """Testa rotas REST /api/transparencia/*, exportação CSV no-store e rewrites vercel.json."""
+        from src.config import BASE_DIR
+        from src.web_server import RadarAPIHandler
+
+        self.db.upsert_fiorilli_receitas_batch(
+            [{"chave_receita": "2026|orcamentaria|1000|1", "ano": 2026, "tipo_fonte": "orcamentaria", "ordem": "1", "codigo": "1000.00.0.0.00.00", "nome": "CORRENTES", "eh_raiz": 1, "previsao_atualizada": 500000.0, "arrecadado_total": 400000.0}]
+        )
+        self.db.upsert_fiorilli_despesas_fornecedores_batch(
+            [{"chave_fornecedor": "2026|2|1", "ano": 2026, "empresa": "2", "codigo_fornecedor": "1", "fornecedor_doc": "55555555000155", "fornecedor_nome": "FORNECEDOR HTTP TESTE", "empenhado": 200000.0, "liquidado": 180000.0, "pago": 150000.0}]
+        )
+        self.db.upsert_fiorilli_contratos_batch(
+            [{"chave_contrato": "2026|2|D9", "ano": 2026, "empresa": "2", "entidade": "PREFEITURA", "codigo": "D9", "processo_adm": "0201000099/2026", "fund_legal": "DISPENSA", "modalidade": "DISPENSA", "tipo_contratacao": "Dispensa", "eh_contratacao_direta": 1, "fornecedor_doc": "55555555000155", "fornecedor_nome": "FORNECEDOR HTTP TESTE", "objeto": "Locação teste", "categoria_tematica": "Imóveis alugados e comprados", "valor_contrato": 150000.0, "valor_aditado": 0.0, "valor_efetivo": 150000.0}]
+        )
+
+        class _TrHandler(RadarAPIHandler):
+            bound_db = self.db
+
+            @classmethod
+            def get_db(cls) -> Any:
+                return cls.bound_db
+
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                return
+
+        def call_get(req_path: str) -> Tuple[int, Dict[str, str], bytes]:
+            h = _TrHandler.__new__(_TrHandler)
+            h.command = "GET"
+            h.path = req_path
+            h.request_version = "HTTP/1.1"
+            h.requestline = f"GET {req_path} HTTP/1.1"
+            h.client_address = ("127.0.0.1", 0)
+            h.close_connection = True
+            h._headers_buffer = []
+            h.headers = email.message.Message()
+            h.rfile = io.BytesIO(b"")
+            h.wfile = io.BytesIO()
+            h.do_GET()
+            raw = h.wfile.getvalue()
+            head, _, body = raw.partition(b"\r\n\r\n")
+            status = int(head.decode("latin-1").split("\r\n")[0].split(" ", 2)[1])
+            hdrs: Dict[str, str] = {}
+            for line in head.decode("latin-1").split("\r\n")[1:]:
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    hdrs[k.strip().lower()] = v.strip().lower()
+            return status, hdrs, body
+
+        st1, _, b1 = call_get("/api/transparencia/resumo?ano=2026")
+        self.assertEqual(st1, 200)
+        j1 = json.loads(b1.decode("utf-8"))
+        self.assertAlmostEqual(j1["receitas"]["arrecadado_liquido"], 400000.0)
+        self.assertEqual(j1["dispensas_resumo"]["diretas_qtd"], 1)
+
+        st2, _, b2 = call_get("/api/transparencia/cruzamento?ano=2026&alerta=PAGO_SEM_PNCP")
+        self.assertEqual(st2, 200)
+        j2 = json.loads(b2.decode("utf-8"))
+        self.assertEqual(j2["total"], 1)
+
+        st3, _, b3 = call_get("/api/transparencia/dispensas?ano=2026&status_pncp=AUSENTE_PNCP")
+        self.assertEqual(st3, 200)
+        j3 = json.loads(b3.decode("utf-8"))
+        self.assertEqual(j3["total"], 1)
+
+        st_csv1, h_csv1, b_csv1 = call_get("/api/transparencia/export/csv?ano=2026&visao=dispensas")
+        self.assertEqual(st_csv1, 200)
+        self.assertIn("no-store", h_csv1.get("cache-control", ""))
+        self.assertIn("FORNECEDOR HTTP TESTE", b_csv1.decode("utf-8-sig"))
+
+        vercel_cfg = json.loads((BASE_DIR / "vercel.json").read_text(encoding="utf-8"))
+        sources = {r["source"] for r in vercel_cfg.get("rewrites", [])}
+        for route in (
+            "/api/transparencia/resumo",
+            "/api/transparencia/cruzamento",
+            "/api/transparencia/dispensas",
+            "/api/transparencia/export/csv",
+            "/api/transparencia/sync",
+        ):
+            self.assertIn(route, sources)
+
 
 if __name__ == "__main__":
     unittest.main()

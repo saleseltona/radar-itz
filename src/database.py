@@ -11,7 +11,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Sequence
 
 from src.config import DB_PATH, is_supabase_configured
 from src.pncp_analytics import (
@@ -230,6 +230,90 @@ class RadarDatabase:
                     mensagem_erro TEXT NOT NULL,
                     data_registro TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS fiorilli_receitas (
+                    chave_receita TEXT PRIMARY KEY,
+                    ano INTEGER NOT NULL,
+                    tipo_fonte TEXT NOT NULL,
+                    ordem TEXT DEFAULT '',
+                    codigo TEXT NOT NULL,
+                    nome TEXT NOT NULL,
+                    eh_raiz INTEGER NOT NULL DEFAULT 0,
+                    previsao_inicial REAL DEFAULT 0.0,
+                    previsao_atualizada REAL DEFAULT 0.0,
+                    arrecadado_periodo REAL DEFAULT 0.0,
+                    arrecadado_total REAL DEFAULT 0.0,
+                    atualizado_em TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_rec_ano_fonte ON fiorilli_receitas(ano, tipo_fonte);
+
+                CREATE TABLE IF NOT EXISTS fiorilli_despesas_orgaos (
+                    chave_orgao TEXT PRIMARY KEY,
+                    ano INTEGER NOT NULL,
+                    empresa TEXT DEFAULT '',
+                    codigo TEXT NOT NULL,
+                    orgao_nome TEXT NOT NULL,
+                    dotacao_inicial REAL DEFAULT 0.0,
+                    alteracoes REAL DEFAULT 0.0,
+                    dotacao_atualizada REAL DEFAULT 0.0,
+                    empenhado REAL DEFAULT 0.0,
+                    liquidado REAL DEFAULT 0.0,
+                    pago REAL DEFAULT 0.0,
+                    atualizado_em TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_org_ano ON fiorilli_despesas_orgaos(ano);
+
+                CREATE TABLE IF NOT EXISTS fiorilli_despesas_fornecedores (
+                    chave_fornecedor TEXT PRIMARY KEY,
+                    ano INTEGER NOT NULL,
+                    empresa TEXT DEFAULT '',
+                    codigo_fornecedor TEXT DEFAULT '',
+                    fornecedor_doc TEXT DEFAULT '',
+                    fornecedor_nome TEXT NOT NULL,
+                    cidade TEXT DEFAULT '',
+                    empenhado REAL DEFAULT 0.0,
+                    liquidado REAL DEFAULT 0.0,
+                    pago REAL DEFAULT 0.0,
+                    atualizado_em TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_forn_ano ON fiorilli_despesas_fornecedores(ano);
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_forn_doc ON fiorilli_despesas_fornecedores(fornecedor_doc);
+
+                CREATE TABLE IF NOT EXISTS fiorilli_contratos (
+                    chave_contrato TEXT PRIMARY KEY,
+                    ano INTEGER NOT NULL,
+                    empresa TEXT DEFAULT '',
+                    entidade TEXT DEFAULT '',
+                    codigo TEXT DEFAULT '',
+                    contrato_num TEXT DEFAULT '',
+                    processo_licitacao TEXT DEFAULT '',
+                    processo_adm TEXT DEFAULT '',
+                    fund_legal TEXT DEFAULT '',
+                    modalidade TEXT DEFAULT '',
+                    tipo_contratacao TEXT DEFAULT '',
+                    eh_contratacao_direta INTEGER NOT NULL DEFAULT 0,
+                    fornecedor_doc TEXT DEFAULT '',
+                    fornecedor_nome TEXT DEFAULT '',
+                    objeto TEXT DEFAULT '',
+                    secretaria_gestora TEXT DEFAULT '',
+                    categoria_tematica TEXT DEFAULT '',
+                    valor_contrato REAL DEFAULT 0.0,
+                    valor_aditado REAL DEFAULT 0.0,
+                    valor_efetivo REAL DEFAULT 0.0,
+                    empenhado REAL DEFAULT 0.0,
+                    liquidado REAL DEFAULT 0.0,
+                    saldo_empenhar REAL DEFAULT 0.0,
+                    data_assinatura TEXT DEFAULT '',
+                    data_publicacao TEXT DEFAULT '',
+                    vigencia_inicio TEXT DEFAULT '',
+                    vigencia_fim TEXT DEFAULT '',
+                    data_anulacao TEXT DEFAULT '',
+                    anulado INTEGER NOT NULL DEFAULT 0,
+                    atualizado_em TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_con_ano ON fiorilli_contratos(ano);
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_con_doc ON fiorilli_contratos(fornecedor_doc);
+                CREATE INDEX IF NOT EXISTS idx_fiorilli_con_direta ON fiorilli_contratos(eh_contratacao_direta);
                 """
             )
             # Migração segura para bancos pré-existentes sem a coluna imagem_capa
@@ -1631,6 +1715,380 @@ class RadarDatabase:
                 "total_ignorados": total_ignorados,
             },
         )
+
+    def get_effective_pncp_contratos(
+        self,
+        ano: Optional[int] = None,
+        anos: Sequence[int] = (2025, 2026),
+    ) -> List[Dict[str, Any]]:
+        """Retorna todos os contratos PNCP ativos (com retificações e sem ignorados) no recorte anual."""
+        clauses = [
+            "NOT EXISTS (SELECT 1 FROM pncp_ignorados ig_f WHERE ig_f.numero_controle_pncp = c.numero_controle_pncp)"
+        ]
+        args: List[Any] = []
+        if ano:
+            yr = int(ano)
+            clauses.append("(c.ano_contrato = ? OR substr(c.data_publicacao, 1, 4) = ?)")
+            args.extend([yr, str(yr)])
+        elif anos:
+            anos_list = [int(a) for a in anos if int(a) > 0]
+            if anos_list:
+                ph = ",".join("?" for _ in anos_list)
+                pub_likes = " OR ".join("substr(c.data_publicacao, 1, 4) = ?" for _ in anos_list)
+                clauses.append(f"(c.ano_contrato IN ({ph}) OR ({pub_likes}))")
+                args.extend(anos_list)
+                args.extend([str(y) for y in anos_list])
+        where_sql = "WHERE " + " AND ".join(clauses)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT c.*,
+                       CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                       r.valor_original_pncp,
+                       COALESCE(r.justificativa, '') AS justificativa_retificacao,
+                       0 AS ignorado_flag,
+                       '' AS motivo_ignorado
+                FROM pncp_contratos c
+                LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+                {where_sql}
+                ORDER BY c.valor_global DESC
+                """,
+                args,
+            ).fetchall()
+        return [self._format_pncp_row(r) for r in rows]
+
+    # =========================================================================
+    # PORTAL TRANSPARÊNCIA FIORILLI (Receitas, Despesas e Contratos/Dispensas)
+    # =========================================================================
+
+    def upsert_fiorilli_receitas_batch(self, rows: List[Dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        sql = """
+            INSERT INTO fiorilli_receitas (
+                chave_receita, ano, tipo_fonte, ordem, codigo, nome, eh_raiz,
+                previsao_inicial, previsao_atualizada, arrecadado_periodo,
+                arrecadado_total, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(chave_receita) DO UPDATE SET
+                ano = excluded.ano,
+                tipo_fonte = excluded.tipo_fonte,
+                ordem = excluded.ordem,
+                codigo = excluded.codigo,
+                nome = excluded.nome,
+                eh_raiz = excluded.eh_raiz,
+                previsao_inicial = excluded.previsao_inicial,
+                previsao_atualizada = excluded.previsao_atualizada,
+                arrecadado_periodo = excluded.arrecadado_periodo,
+                arrecadado_total = excluded.arrecadado_total,
+                atualizado_em = excluded.atualizado_em
+        """
+        params = [
+            (
+                str(r.get("chave_receita", "")),
+                int(r.get("ano") or 2026),
+                str(r.get("tipo_fonte", "")),
+                str(r.get("ordem", "")),
+                str(r.get("codigo", "")),
+                str(r.get("nome", "")),
+                int(r.get("eh_raiz") or 0),
+                float(r.get("previsao_inicial") or 0.0),
+                float(r.get("previsao_atualizada") or 0.0),
+                float(r.get("arrecadado_periodo") or 0.0),
+                float(r.get("arrecadado_total") or 0.0),
+                str(r.get("atualizado_em") or now_iso),
+            )
+            for r in rows
+            if r.get("chave_receita")
+        ]
+        if not params:
+            return 0
+        with self.connect() as conn:
+            conn.executemany(sql, params)
+        return len(params)
+
+    def upsert_fiorilli_despesas_orgaos_batch(self, rows: List[Dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        sql = """
+            INSERT INTO fiorilli_despesas_orgaos (
+                chave_orgao, ano, empresa, codigo, orgao_nome,
+                dotacao_inicial, alteracoes, dotacao_atualizada,
+                empenhado, liquidado, pago, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(chave_orgao) DO UPDATE SET
+                ano = excluded.ano,
+                empresa = excluded.empresa,
+                codigo = excluded.codigo,
+                orgao_nome = excluded.orgao_nome,
+                dotacao_inicial = excluded.dotacao_inicial,
+                alteracoes = excluded.alteracoes,
+                dotacao_atualizada = excluded.dotacao_atualizada,
+                empenhado = excluded.empenhado,
+                liquidado = excluded.liquidado,
+                pago = excluded.pago,
+                atualizado_em = excluded.atualizado_em
+        """
+        params = [
+            (
+                str(r.get("chave_orgao", "")),
+                int(r.get("ano") or 2026),
+                str(r.get("empresa", "")),
+                str(r.get("codigo", "")),
+                str(r.get("orgao_nome", "")),
+                float(r.get("dotacao_inicial") or 0.0),
+                float(r.get("alteracoes") or 0.0),
+                float(r.get("dotacao_atualizada") or 0.0),
+                float(r.get("empenhado") or 0.0),
+                float(r.get("liquidado") or 0.0),
+                float(r.get("pago") or 0.0),
+                str(r.get("atualizado_em") or now_iso),
+            )
+            for r in rows
+            if r.get("chave_orgao")
+        ]
+        if not params:
+            return 0
+        with self.connect() as conn:
+            conn.executemany(sql, params)
+        return len(params)
+
+    def upsert_fiorilli_despesas_fornecedores_batch(self, rows: List[Dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        sql = """
+            INSERT INTO fiorilli_despesas_fornecedores (
+                chave_fornecedor, ano, empresa, codigo_fornecedor,
+                fornecedor_doc, fornecedor_nome, cidade,
+                empenhado, liquidado, pago, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(chave_fornecedor) DO UPDATE SET
+                ano = excluded.ano,
+                empresa = excluded.empresa,
+                codigo_fornecedor = excluded.codigo_fornecedor,
+                fornecedor_doc = excluded.fornecedor_doc,
+                fornecedor_nome = excluded.fornecedor_nome,
+                cidade = excluded.cidade,
+                empenhado = excluded.empenhado,
+                liquidado = excluded.liquidado,
+                pago = excluded.pago,
+                atualizado_em = excluded.atualizado_em
+        """
+        params = [
+            (
+                str(r.get("chave_fornecedor", "")),
+                int(r.get("ano") or 2026),
+                str(r.get("empresa", "")),
+                str(r.get("codigo_fornecedor", "")),
+                str(r.get("fornecedor_doc", "")),
+                str(r.get("fornecedor_nome", "")),
+                str(r.get("cidade", "")),
+                float(r.get("empenhado") or 0.0),
+                float(r.get("liquidado") or 0.0),
+                float(r.get("pago") or 0.0),
+                str(r.get("atualizado_em") or now_iso),
+            )
+            for r in rows
+            if r.get("chave_fornecedor")
+        ]
+        if not params:
+            return 0
+        with self.connect() as conn:
+            conn.executemany(sql, params)
+        return len(params)
+
+    def upsert_fiorilli_contratos_batch(self, rows: List[Dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        sql = """
+            INSERT INTO fiorilli_contratos (
+                chave_contrato, ano, empresa, entidade, codigo, contrato_num,
+                processo_licitacao, processo_adm, fund_legal, modalidade,
+                tipo_contratacao, eh_contratacao_direta, fornecedor_doc,
+                fornecedor_nome, objeto, secretaria_gestora, categoria_tematica,
+                valor_contrato, valor_aditado, valor_efetivo,
+                empenhado, liquidado, saldo_empenhar,
+                data_assinatura, data_publicacao, vigencia_inicio,
+                vigencia_fim, data_anulacao, anulado, atualizado_em
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(chave_contrato) DO UPDATE SET
+                ano = excluded.ano,
+                empresa = excluded.empresa,
+                entidade = excluded.entidade,
+                codigo = excluded.codigo,
+                contrato_num = excluded.contrato_num,
+                processo_licitacao = excluded.processo_licitacao,
+                processo_adm = excluded.processo_adm,
+                fund_legal = excluded.fund_legal,
+                modalidade = excluded.modalidade,
+                tipo_contratacao = excluded.tipo_contratacao,
+                eh_contratacao_direta = excluded.eh_contratacao_direta,
+                fornecedor_doc = excluded.fornecedor_doc,
+                fornecedor_nome = excluded.fornecedor_nome,
+                objeto = excluded.objeto,
+                secretaria_gestora = excluded.secretaria_gestora,
+                categoria_tematica = excluded.categoria_tematica,
+                valor_contrato = excluded.valor_contrato,
+                valor_aditado = excluded.valor_aditado,
+                valor_efetivo = excluded.valor_efetivo,
+                empenhado = excluded.empenhado,
+                liquidado = excluded.liquidado,
+                saldo_empenhar = excluded.saldo_empenhar,
+                data_assinatura = excluded.data_assinatura,
+                data_publicacao = excluded.data_publicacao,
+                vigencia_inicio = excluded.vigencia_inicio,
+                vigencia_fim = excluded.vigencia_fim,
+                data_anulacao = excluded.data_anulacao,
+                anulado = excluded.anulado,
+                atualizado_em = excluded.atualizado_em
+        """
+        params = [
+            (
+                str(r.get("chave_contrato", "")),
+                int(r.get("ano") or 2026),
+                str(r.get("empresa", "")),
+                str(r.get("entidade", "")),
+                str(r.get("codigo", "")),
+                str(r.get("contrato_num", "")),
+                str(r.get("processo_licitacao", "")),
+                str(r.get("processo_adm", "")),
+                str(r.get("fund_legal", "")),
+                str(r.get("modalidade", "")),
+                str(r.get("tipo_contratacao", "")),
+                int(r.get("eh_contratacao_direta") or 0),
+                str(r.get("fornecedor_doc", "")),
+                str(r.get("fornecedor_nome", "")),
+                str(r.get("objeto", "")),
+                str(r.get("secretaria_gestora", "")),
+                str(r.get("categoria_tematica", "")),
+                float(r.get("valor_contrato") or 0.0),
+                float(r.get("valor_aditado") or 0.0),
+                float(r.get("valor_efetivo") or 0.0),
+                float(r.get("empenhado") or 0.0),
+                float(r.get("liquidado") or 0.0),
+                float(r.get("saldo_empenhar") or 0.0),
+                str(r.get("data_assinatura", "")),
+                str(r.get("data_publicacao", "")),
+                str(r.get("vigencia_inicio", "")),
+                str(r.get("vigencia_fim", "")),
+                str(r.get("data_anulacao", "")),
+                int(r.get("anulado") or 0),
+                str(r.get("atualizado_em") or now_iso),
+            )
+            for r in rows
+            if r.get("chave_contrato")
+        ]
+        if not params:
+            return 0
+        with self.connect() as conn:
+            conn.executemany(sql, params)
+        return len(params)
+
+    def get_fiorilli_receitas(
+        self, ano: Optional[int] = None, tipo_fonte: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        clauses: List[str] = []
+        args: List[Any] = []
+        if ano:
+            clauses.append("ano = ?")
+            args.append(int(ano))
+        if tipo_fonte:
+            clauses.append("tipo_fonte = ?")
+            args.append(tipo_fonte.strip())
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM fiorilli_receitas {where_sql} ORDER BY ano DESC, tipo_fonte ASC, codigo ASC",
+                args,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_fiorilli_despesas_orgaos(self, ano: Optional[int] = None) -> List[Dict[str, Any]]:
+        where_sql = "WHERE ano = ?" if ano else ""
+        args = [int(ano)] if ano else []
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM fiorilli_despesas_orgaos {where_sql} ORDER BY ano DESC, pago DESC",
+                args,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_fiorilli_despesas_fornecedores(self, ano: Optional[int] = None) -> List[Dict[str, Any]]:
+        where_sql = "WHERE ano = ?" if ano else ""
+        args = [int(ano)] if ano else []
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM fiorilli_despesas_fornecedores {where_sql} ORDER BY ano DESC, pago DESC",
+                args,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_fiorilli_contratos(
+        self,
+        ano: Optional[int] = None,
+        entidade: Optional[str] = None,
+        somente_diretas: bool = False,
+    ) -> List[Dict[str, Any]]:
+        clauses: List[str] = []
+        args: List[Any] = []
+        if ano:
+            clauses.append("ano = ?")
+            args.append(int(ano))
+        if entidade and entidade.strip().upper() not in ("TODAS", "ALL", ""):
+            clauses.append("UPPER(entidade) = UPPER(?)")
+            args.append(entidade.strip())
+        if somente_diretas:
+            clauses.append("eh_contratacao_direta = 1")
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM fiorilli_contratos {where_sql} ORDER BY ano DESC, valor_efetivo DESC",
+                args,
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_fiorilli_meta(self) -> Dict[str, Any]:
+        with self.connect() as conn:
+            cnt_rec = int(conn.execute("SELECT COUNT(*) FROM fiorilli_receitas").fetchone()[0])
+            cnt_org = int(conn.execute("SELECT COUNT(*) FROM fiorilli_despesas_orgaos").fetchone()[0])
+            cnt_forn = int(conn.execute("SELECT COUNT(*) FROM fiorilli_despesas_fornecedores").fetchone()[0])
+            cnt_con = int(conn.execute("SELECT COUNT(*) FROM fiorilli_contratos").fetchone()[0])
+            anos_rows = conn.execute(
+                """
+                SELECT DISTINCT ano FROM fiorilli_receitas
+                UNION
+                SELECT DISTINCT ano FROM fiorilli_contratos
+                UNION
+                SELECT DISTINCT ano FROM fiorilli_despesas_fornecedores
+                ORDER BY ano DESC
+                """
+            ).fetchall()
+            max_dates = [
+                conn.execute(f"SELECT COALESCE(MAX(atualizado_em), '') FROM {tbl}").fetchone()[0]
+                for tbl in (
+                    "fiorilli_receitas",
+                    "fiorilli_despesas_orgaos",
+                    "fiorilli_despesas_fornecedores",
+                    "fiorilli_contratos",
+                )
+            ]
+        anos = [int(r[0]) for r in anos_rows if r[0]]
+        ultima = max((str(d or "") for d in max_dates), default="")
+        return {
+            "sincronizado": (cnt_rec + cnt_org + cnt_forn + cnt_con) > 0,
+            "anos_disponiveis": anos or [2026, 2025],
+            "ultima_atualizacao": ultima,
+            "contagens": {
+                "fiorilli_receitas": cnt_rec,
+                "fiorilli_despesas_orgaos": cnt_org,
+                "fiorilli_despesas_fornecedores": cnt_forn,
+                "fiorilli_contratos": cnt_con,
+            },
+        }
 
 
 def build_pncp_resumo_from_rows(

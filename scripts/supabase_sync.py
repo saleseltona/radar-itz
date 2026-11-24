@@ -104,6 +104,30 @@ TABLE_SPECS: List[Dict[str, Any]] = [
         "on_conflict": "id_execucao,componente,alvo_url,data_registro",
         "strip_id": True,
     },
+    {
+        "table": "fiorilli_receitas",
+        "key_cols": ("chave_receita",),
+        "on_conflict": "chave_receita",
+        "strip_id": False,
+    },
+    {
+        "table": "fiorilli_despesas_orgaos",
+        "key_cols": ("chave_orgao",),
+        "on_conflict": "chave_orgao",
+        "strip_id": False,
+    },
+    {
+        "table": "fiorilli_despesas_fornecedores",
+        "key_cols": ("chave_fornecedor",),
+        "on_conflict": "chave_fornecedor",
+        "strip_id": False,
+    },
+    {
+        "table": "fiorilli_contratos",
+        "key_cols": ("chave_contrato",),
+        "on_conflict": "chave_contrato",
+        "strip_id": False,
+    },
 ]
 
 SPEC_BY_TABLE: Dict[str, Dict[str, Any]] = {s["table"]: s for s in TABLE_SPECS}
@@ -254,7 +278,12 @@ def main() -> int:
     parser.add_argument(
         "--only-pncp",
         action="store_true",
-        help="Atalho para sincronizar apenas pncp_retificacoes e pncp_contratos.",
+        help="Atalho para sincronizar apenas pncp_retificacoes, pncp_ignorados e pncp_contratos.",
+    )
+    parser.add_argument(
+        "--only-fiorilli",
+        action="store_true",
+        help="Atalho para sincronizar apenas as 4 tabelas do Portal Transparência Fiorilli.",
     )
     parser.add_argument(
         "--dry-run",
@@ -290,6 +319,13 @@ def main() -> int:
 
     if args.only_pncp:
         selected_tables = ["pncp_retificacoes", "pncp_ignorados", "pncp_contratos"]
+    elif args.only_fiorilli:
+        selected_tables = [
+            "fiorilli_receitas",
+            "fiorilli_despesas_orgaos",
+            "fiorilli_despesas_fornecedores",
+            "fiorilli_contratos",
+        ]
     elif args.tables.strip():
         selected_tables = [t.strip() for t in args.tables.split(",") if t.strip()]
     else:

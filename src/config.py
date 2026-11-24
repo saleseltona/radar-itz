@@ -234,6 +234,14 @@ PNCP_ORGAOS_IMPERATRIZ: List[Dict[str, str]] = [
 PNCP_ANOS_MONITORADOS: List[int] = [2024, 2025, 2026]
 ANA_ESTACAO_IMPERATRIZ_CODIGO = "23800000"
 
+# Portal Transparência Fiorilli de Imperatriz (Dados Abertos JSON)
+FIORILLI_BASE_URL = os.environ.get(
+    "FIORILLI_BASE_URL",
+    "http://scpi3.adtrcloud.com.br:8079/transparencia",
+).strip().rstrip("/")
+FIORILLI_DEFAULT_YEARS: Tuple[int, ...] = (2025, 2026)
+FIORILLI_DEFAULT_EMPRESA = os.environ.get("FIORILLI_DEFAULT_EMPRESA", "1").strip() or "1"
+
 SENSITIVE_ENV_VARS = (
     "GOOGLE_SEARCH_API_KEY",
     "GOOGLE_SEARCH_CX",

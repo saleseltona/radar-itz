@@ -175,6 +175,14 @@
           <span class="bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">14 temas</span>
         </button>
 
+        <button id="nav-btn-transparencia" onclick="switchMainView('transparencia', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
+          <span class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">account_balance</span>
+            <span class="font-body-md text-body-md">Transparência &amp; Cruzamento</span>
+          </span>
+          <span class="bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm px-2 py-0.5 rounded-full font-bold">25–26</span>
+        </button>
+
         <button onclick="navigateSection('sec-evolucao-gastos', this)" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all text-left" type="button">
           <span class="flex items-center gap-3">
             <span class="material-symbols-outlined text-[20px]">trending_up</span>
@@ -827,6 +835,269 @@
           </div>
         </section>
       </div>
+
+      <!-- ==================================================== -->
+      <!-- ABA / VIEW 3: TRANSPARÊNCIA & CRUZAMENTO PNCP (25-26)-->
+      <!-- ==================================================== -->
+      <div id="view-transparencia" class="hidden flex-col w-full gap-5">
+        <!-- Cabeçalho Cobalt -->
+        <section class="relative overflow-hidden rounded-xl bg-primary-container text-on-primary shadow-lg p-5 lg:p-6 flex flex-col gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="switchMainView('dashboard', document.getElementById('nav-btn-dashboard'))" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-bold transition-colors" type="button">
+                  <span class="material-symbols-outlined text-[15px]">arrow_back</span>
+                  Voltar ao Radar
+                </button>
+                <span class="px-2.5 py-0.5 rounded-full bg-white/15 text-white font-label-sm text-label-sm uppercase tracking-wider">Portal Fiorilli × PNCP • Exercícios 2025–2026</span>
+                <span id="tr-last-sync" class="px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 font-label-sm text-label-sm">Aguardando leitura</span>
+              </div>
+              <h1 class="font-headline-lg lg:font-headline-xl text-headline-lg lg:text-headline-xl tracking-tight text-white mt-1">
+                Cruzamento PNCP × Portal da Transparência (Fiorilli)
+              </h1>
+              <p class="font-body-sm text-body-sm text-on-primary-container max-w-3xl">
+                Confronta Receitas Arrecadadas, Despesas Pagas por Órgão/Fornecedor e Dispensas &amp; Inexigibilidades da Prefeitura de Imperatriz com os contratos publicados no PNCP.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="btn-tr-sync" onclick="triggerTransparenciaSync()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-surface-container-lowest text-primary font-label-md text-label-md font-bold shadow hover:bg-surface-bright transition-all" type="button">
+                <span id="tr-sync-spin" class="material-symbols-outlined text-[17px]">sync</span>
+                Sincronizar Portal Fiorilli
+              </button>
+              <a id="tr-export-csv" href="/api/transparencia/export/csv?ano=2026&visao=cruzamento" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md font-semibold transition-all">
+                <span class="material-symbols-outlined text-[17px]">download</span>
+                Exportar CSV
+              </a>
+            </div>
+          </div>
+
+          <!-- Barra de Exercícios e Sub-abas -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-white/10 backdrop-blur-md p-3 rounded-xl">
+            <div class="flex items-center gap-1.5 flex-wrap" id="tr-year-bar">
+              <span class="font-label-sm text-label-sm text-white/80 mr-1 uppercase">Exercício:</span>
+              <button onclick="setTranspYear('2026')" class="tr-year-btn px-3 py-1 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all" data-year="2026" type="button">2026</button>
+              <button onclick="setTranspYear('2025')" class="tr-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-year="2025" type="button">2025</button>
+              <button onclick="setTranspYear('')" class="tr-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-year="" type="button">2025 + 2026</button>
+            </div>
+
+            <div class="flex items-center gap-1.5 flex-wrap" id="tr-subtab-bar">
+              <button onclick="setTranspSubtab('receitas')" class="tr-subtab-btn px-3.5 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all" data-tab="receitas" type="button">Receitas &amp; Órgãos</button>
+              <button onclick="setTranspSubtab('cruzamento')" class="tr-subtab-btn px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-tab="cruzamento" type="button">Cruzamento (PNCP × Pago)</button>
+              <button onclick="setTranspSubtab('dispensas')" class="tr-subtab-btn px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all" data-tab="dispensas" type="button">Dispensas &amp; Inexigibilidades</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Aviso se ainda não sincronizado -->
+        <div id="tr-empty-banner" class="hidden rounded-xl bg-amber-50 border border-amber-200 p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-950">
+          <div class="flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-amber-700 text-[20px]">info</span>
+            <div>
+              <p class="font-bold">Base local do Portal Fiorilli ainda não sincronizada neste banco.</p>
+              <p class="text-amber-900 mt-0.5">Clique em <strong>Sincronizar Portal Fiorilli</strong> acima ou execute <code>python scripts/fiorilli_sync.py --anos 2025 2026</code> no terminal.</p>
+            </div>
+          </div>
+          <button onclick="triggerTransparenciaSync()" class="px-3.5 py-1.5 rounded-full bg-amber-900 text-white font-bold hover:opacity-90" type="button">Sincronizar Agora</button>
+        </div>
+
+        <!-- 4 KPI Cards Executivos -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Receita Arrecadada Líquida</span>
+            <span id="tr-kpi-receita" class="font-headline-md text-headline-md text-emerald-700 font-extrabold">-</span>
+            <span id="tr-kpi-receita-sub" class="text-[11px] text-on-surface-variant">Prevista: - • Realizado: -</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Despesa Paga (Fiorilli)</span>
+            <span id="tr-kpi-pago" class="font-headline-md text-headline-md text-on-surface font-extrabold">-</span>
+            <span id="tr-kpi-pago-sub" class="text-[11px] text-on-surface-variant">Empenhado: - • Liquidado: -</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Contratado: PNCP × Fiorilli</span>
+            <span id="tr-kpi-contratos" class="font-headline-md text-headline-md text-primary font-extrabold">-</span>
+            <span id="tr-kpi-contratos-sub" class="text-[11px] text-on-surface-variant">PNCP: - • Fiorilli: -</span>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dispensas &amp; Inexigibilidades</span>
+            <span id="tr-kpi-dispensas" class="font-headline-md text-headline-md text-error font-extrabold">-</span>
+            <span id="tr-kpi-dispensas-sub" class="text-[11px] text-on-surface-variant">Ausentes no PNCP: -</span>
+          </div>
+        </section>
+
+        <!-- SUB-ABA 1: RECEITAS & EXECUÇÃO POR ÓRGÃO -->
+        <div id="tr-panel-receitas" class="flex flex-col gap-4">
+          <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-7 bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-2">
+                <div>
+                  <h2 class="font-headline-sm text-headline-sm text-on-surface">Composição da Receita Pública</h2>
+                  <p class="text-xs text-on-surface-variant">Contas-raiz sem dupla contagem (arrecadado bruto, transferências e deduções FUNDEB).</p>
+                </div>
+                <span id="tr-receita-realizacao-pill" class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold">-</span>
+              </div>
+              <div id="tr-receitas-composicao" class="flex flex-col gap-2"></div>
+            </div>
+
+            <div class="lg:col-span-5 flex flex-col gap-4">
+              <div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Origem das Transferências (União × Estado)</h3>
+                <div id="tr-receitas-origens" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs"></div>
+              </div>
+              <div class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Comparativo Anual (2026 × 2025)</h3>
+                <div id="tr-comparativo-anual" class="flex flex-col gap-2 text-xs"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Execução Orçamentária por Órgão / Fundo Municipal</h3>
+                <p class="text-xs text-on-surface-variant">Ordenado por maior volume efetivamente pago no Portal Transparência Fiorilli.</p>
+              </div>
+              <span id="tr-orgaos-count-pill" class="px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-[11px] font-bold">0 órgãos</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="text-on-surface-variant uppercase border-b border-surface-container">
+                    <th class="py-2 pr-2">#</th>
+                    <th class="py-2 pr-3">Órgão / Fundo</th>
+                    <th class="py-2 pr-3 text-right">Dotação Atualizada</th>
+                    <th class="py-2 pr-3 text-right">Empenhado</th>
+                    <th class="py-2 pr-3 text-right">Liquidado</th>
+                    <th class="py-2 pr-3 text-right">Pago ↓</th>
+                    <th class="py-2 text-right">% Pago</th>
+                  </tr>
+                </thead>
+                <tbody id="tr-orgaos-tbody" class="divide-y divide-surface-container-low"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- SUB-ABA 2: CRUZAMENTO FORNECEDORES (PNCP × FIORILLI × PAGO) -->
+        <div id="tr-panel-cruzamento" class="hidden flex-col gap-4">
+          <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="font-headline-md text-headline-md text-on-surface">Cruzamento por Fornecedor (CNPJ/CPF): PNCP × Fiorilli × Pago</h2>
+                <p class="text-xs text-on-surface-variant">Identifica empresas pagas acima do contrato PNCP, pagamentos &ge; R$ 100 mil sem contrato no PNCP ou divergências de valor.</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="tr-cruz-search" oninput="debouncedLoadTranspCruzamento(1)" class="h-9 px-3.5 rounded-full bg-surface-container-low border border-outline-variant/40 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Buscar fornecedor, CNPJ/CPF ou cidade..." type="text"/>
+                <select id="tr-cruz-ordem" onchange="loadTranspCruzamento(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold">
+                  <option value="pago_desc">Ordenar: Maior Pago ↓</option>
+                  <option value="divergencia_desc">Maior Divergência ↓</option>
+                  <option value="pncp_desc">Maior PNCP ↓</option>
+                  <option value="fiorilli_desc">Maior Fiorilli ↓</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="tr-alerta-chips" class="flex flex-wrap items-center gap-1.5 text-xs"></div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="text-on-surface-variant uppercase border-b border-surface-container">
+                    <th class="py-2 pr-3">Fornecedor / CNPJ-CPF</th>
+                    <th class="py-2 pr-3">Sinal de Auditoria</th>
+                    <th class="py-2 pr-3 text-right">Contratado PNCP</th>
+                    <th class="py-2 pr-3 text-right">Fiorilli (+Aditivos)</th>
+                    <th class="py-2 pr-3 text-right">Empenhado / Liquidado</th>
+                    <th class="py-2 pr-3 text-right">Pago Real</th>
+                    <th class="py-2 pr-3 text-right">Pago − PNCP</th>
+                    <th class="py-2 text-right">PNCP</th>
+                  </tr>
+                </thead>
+                <tbody id="tr-cruz-tbody" class="divide-y divide-surface-container-low"></tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-surface-container text-xs">
+              <span id="tr-cruz-page-info" class="text-on-surface-variant">Página 1 de 1</span>
+              <div class="flex items-center gap-2">
+                <button id="tr-cruz-prev" onclick="loadTranspCruzamento(currentTranspCruzPage - 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Anterior</button>
+                <button id="tr-cruz-next" onclick="loadTranspCruzamento(currentTranspCruzPage + 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Próxima</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- SUB-ABA 3: AUDITORIA DE DISPENSAS & INEXIGIBILIDADES -->
+        <div id="tr-panel-dispensas" class="hidden flex-col gap-4">
+          <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-5 bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col gap-2.5">
+              <h3 class="font-headline-sm text-headline-sm text-on-surface">Dispensas &amp; Inexigibilidades por Status no PNCP</h3>
+              <div id="tr-disp-status-cards" class="flex flex-col gap-2 text-xs"></div>
+            </div>
+            <div class="lg:col-span-7 bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col gap-2.5">
+              <div class="flex items-center justify-between">
+                <h3 class="font-headline-sm text-headline-sm text-on-surface">Principais Áreas Temáticas em Contratação Direta</h3>
+                <button onclick="setTranspDispCat('')" class="text-[11px] text-primary font-bold hover:underline" type="button">Limpar filtro tema</button>
+              </div>
+              <div id="tr-disp-categorias-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1"></div>
+            </div>
+          </section>
+
+          <section class="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-surface-container flex flex-col gap-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-headline-md text-headline-md text-on-surface">Auditoria de Dispensas e Inexigibilidades (Maior → Menor Valor)</h3>
+                <p id="tr-disp-total-lbl" class="text-xs text-on-surface-variant">0 contratações diretas</p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="tr-disp-search" oninput="debouncedLoadTranspDispensas(1)" class="h-9 px-3.5 rounded-full bg-surface-container-low border border-outline-variant/40 text-xs w-56 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Objeto, fornecedor, processo..." type="text"/>
+                <select id="tr-disp-tipo" onchange="loadTranspDispensas(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold">
+                  <option value="">Dispensa + Inexig.</option>
+                  <option value="Dispensa">Somente Dispensas</option>
+                  <option value="Inexigibilidade">Somente Inexigibilidades</option>
+                </select>
+                <select id="tr-disp-status" onchange="loadTranspDispensas(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold">
+                  <option value="">Todos Status PNCP</option>
+                  <option value="AUSENTE_PNCP">Ausentes no PNCP</option>
+                  <option value="FORNECEDOR_NO_PNCP">Fornecedor no PNCP (outro proc.)</option>
+                  <option value="CONCILIADO">Conciliadas no PNCP</option>
+                </select>
+                <select id="tr-disp-entidade" onchange="loadTranspDispensas(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold max-w-[190px]">
+                  <option value="">Todas entidades</option>
+                </select>
+                <label class="inline-flex items-center gap-1.5 px-3 h-9 rounded-full bg-surface-container-low text-xs font-semibold cursor-pointer select-none">
+                  <input id="tr-disp-remanescentes" type="checkbox" onchange="loadTranspDispensas(1)" class="rounded"/>
+                  <span>Incluir anos ant.</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="text-on-surface-variant uppercase border-b border-surface-container">
+                    <th class="py-2 pr-3">Tipo / Entidade</th>
+                    <th class="py-2 pr-3">Fornecedor</th>
+                    <th class="py-2 pr-3">Objeto / Tema / Processo</th>
+                    <th class="py-2 pr-3 text-right">Valor Efetivo ↓</th>
+                    <th class="py-2 pr-3">Status PNCP</th>
+                    <th class="py-2 text-right">Conferir</th>
+                  </tr>
+                </thead>
+                <tbody id="tr-disp-tbody" class="divide-y divide-surface-container-low"></tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-surface-container text-xs">
+              <span id="tr-disp-page-info" class="text-on-surface-variant">Página 1 de 1</span>
+              <div class="flex items-center gap-2">
+                <button id="tr-disp-prev" onclick="loadTranspDispensas(currentTranspDispPage - 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Anterior</button>
+                <button id="tr-disp-next" onclick="loadTranspDispensas(currentTranspDispPage + 1)" class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-container-high font-semibold disabled:opacity-40" type="button">Próxima</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -1174,6 +1445,16 @@
     let pncpShowOnlyIgnored = false;
     let currentStorageBackend = 'sqlite';
     const pncpContractsCache = {};
+
+    let transparenciaLoaded = false;
+    let currentTranspYear = '2026';
+    let currentTranspSubtab = 'receitas';
+    let currentTranspAlerta = 'TODOS';
+    let currentTranspCruzPage = 1;
+    let currentTranspDispPage = 1;
+    let currentTranspDispCat = '';
+    let transpCruzTimer = null;
+    let transpDispTimer = null;
 
     const DEFAULT_KEYWORDS = ['dispensa', 'inexigibilidade', 'alagamento', 'socorrão', 'interdição'];
 
@@ -2439,6 +2720,10 @@
       if (pncpStatsLoaded || (statsView && !statsView.classList.contains('hidden'))) {
         jobs.push(loadPncpEstatisticas());
       }
+      const transpView = document.getElementById('view-transparencia');
+      if (transparenciaLoaded || (transpView && !transpView.classList.contains('hidden'))) {
+        jobs.push(loadTransparenciaView());
+      }
       await Promise.all(jobs);
       const pncpModal = document.getElementById('pncp-modal');
       if (pncpModal && !pncpModal.classList.contains('hidden')) {
@@ -2948,20 +3233,30 @@
     function switchMainView(viewName, btnEl) {
       const vDash = document.getElementById('view-dashboard');
       const vStats = document.getElementById('view-pncp-stats');
+      const vTransp = document.getElementById('view-transparencia');
       if (!vDash || !vStats) return;
 
+      const allViews = [vDash, vStats, vTransp].filter(Boolean);
+      allViews.forEach(v => {
+        v.classList.add('hidden');
+        v.classList.remove('flex');
+      });
+
       if (viewName === 'pncp-stats') {
-        vDash.classList.add('hidden');
-        vDash.classList.remove('flex');
         vStats.classList.remove('hidden');
         vStats.classList.add('flex');
         if (btnEl) setActiveNavButton(btnEl);
         toggleMobileSidebar(false);
         loadPncpEstatisticas();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (viewName === 'transparencia' && vTransp) {
+        vTransp.classList.remove('hidden');
+        vTransp.classList.add('flex');
+        if (btnEl) setActiveNavButton(btnEl);
+        toggleMobileSidebar(false);
+        loadTransparenciaView();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        vStats.classList.add('hidden');
-        vStats.classList.remove('flex');
         vDash.classList.remove('hidden');
         vDash.classList.add('flex');
         if (btnEl) setActiveNavButton(btnEl);
@@ -3294,6 +3589,526 @@
           </tr>
         `;
       }).join('');
+    }
+
+    // ====================================================
+    // Aba Transparência & Cruzamento PNCP × Fiorilli
+    // ====================================================
+    function updateTranspExportLink() {
+      const el = document.getElementById('tr-export-csv');
+      if (!el) return;
+      const p = new URLSearchParams();
+      if (currentTranspYear) p.set('ano', currentTranspYear);
+      if (currentTranspSubtab === 'dispensas') {
+        p.set('visao', 'dispensas');
+        const q = (document.getElementById('tr-disp-search')?.value || '').trim();
+        const tp = document.getElementById('tr-disp-tipo')?.value || '';
+        const st = document.getElementById('tr-disp-status')?.value || '';
+        const ent = document.getElementById('tr-disp-entidade')?.value || '';
+        if (q) p.set('q', q);
+        if (tp) p.set('tipo', tp);
+        if (st) p.set('status_pncp', st);
+        if (currentTranspDispCat) p.set('categoria', currentTranspDispCat);
+        if (ent) p.set('entidade', ent);
+        if (document.getElementById('tr-disp-remanescentes')?.checked) p.set('remanescentes', '1');
+      } else {
+        p.set('visao', 'cruzamento');
+        p.set('alerta', currentTranspAlerta || 'TODOS');
+        p.set('ordem', document.getElementById('tr-cruz-ordem')?.value || 'pago_desc');
+        const q = (document.getElementById('tr-cruz-search')?.value || '').trim();
+        if (q) p.set('q', q);
+      }
+      el.href = '/api/transparencia/export/csv?' + p.toString();
+    }
+
+    function setTranspYear(year) {
+      currentTranspYear = year;
+      document.querySelectorAll('#tr-year-bar .tr-year-btn').forEach(btn => {
+        if ((btn.dataset.year || '') === year) {
+          btn.className = 'tr-year-btn px-3 py-1 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all';
+        } else {
+          btn.className = 'tr-year-btn px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all';
+        }
+      });
+      loadTransparenciaView();
+    }
+
+    function setTranspSubtab(tab) {
+      currentTranspSubtab = tab;
+      document.querySelectorAll('#tr-subtab-bar .tr-subtab-btn').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+          btn.className = 'tr-subtab-btn px-3.5 py-1.5 rounded-full bg-white text-primary font-label-sm text-label-sm font-bold transition-all';
+        } else {
+          btn.className = 'tr-subtab-btn px-3.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-sm text-label-sm font-semibold transition-all';
+        }
+      });
+      ['receitas', 'cruzamento', 'dispensas'].forEach(k => {
+        const panel = document.getElementById(`tr-panel-${k}`);
+        if (!panel) return;
+        panel.classList.toggle('hidden', k !== tab);
+        panel.classList.toggle('flex', k === tab);
+      });
+      updateTranspExportLink();
+      if (tab === 'cruzamento') loadTranspCruzamento(1);
+      if (tab === 'dispensas') loadTranspDispensas(1);
+    }
+
+    async function loadTransparenciaView() {
+      updateTranspExportLink();
+      await loadTranspResumo();
+      if (currentTranspSubtab === 'cruzamento') {
+        await loadTranspCruzamento(currentTranspCruzPage);
+      } else if (currentTranspSubtab === 'dispensas') {
+        await loadTranspDispensas(currentTranspDispPage);
+      }
+    }
+
+    async function loadTranspResumo() {
+      const params = new URLSearchParams();
+      if (currentTranspYear) params.set('ano', currentTranspYear);
+      try {
+        const res = await pncpFetch('/api/transparencia/resumo?' + params.toString());
+        if (!res.ok) return;
+        const d = await res.json();
+        transparenciaLoaded = true;
+
+        const meta = d.meta || {};
+        const emptyBanner = document.getElementById('tr-empty-banner');
+        if (emptyBanner) emptyBanner.classList.toggle('hidden', Boolean(meta.sincronizado));
+
+        const syncPill = document.getElementById('tr-last-sync');
+        if (syncPill) {
+          syncPill.innerText = meta.ultima_atualizacao
+            ? `Fiorilli atualizado: ${String(meta.ultima_atualizacao).replace('T', ' ').slice(0, 16)}`
+            : 'Portal Fiorilli ainda não sincronizado';
+        }
+
+        const rec = d.receitas || {};
+        const desp = d.despesas || {};
+        const cmp = d.contratos_comparativo || {};
+        const disp = d.dispensas_resumo || {};
+        const aus = (disp.por_status_pncp && disp.por_status_pncp.AUSENTE_PNCP) || { qtd: 0, valor: 0 };
+
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+        setTxt('tr-kpi-receita', formatBRLCompact(rec.arrecadado_liquido || 0));
+        setTxt(
+          'tr-kpi-receita-sub',
+          `Prevista: ${formatBRLCompact(rec.previsao_atualizada_liquida || 0)} • ${rec.pct_realizado || 0}% realizada`
+        );
+        setTxt('tr-kpi-pago', formatBRLCompact(desp.pago || 0));
+        setTxt(
+          'tr-kpi-pago-sub',
+          `${cmp.pct_pago_sobre_receita || 0}% da receita • Emp. ${formatBRLCompact(desp.empenhado || 0)}`
+        );
+        setTxt('tr-kpi-contratos', `${formatBRLCompact(cmp.pncp_valor_total || 0)} vs ${formatBRLCompact(cmp.fiorilli_valor_total || 0)}`);
+        const remTxt = cmp.fiorilli_remanescentes_qtd ? ` (+${cmp.fiorilli_remanescentes_qtd} remanescentes ant.)` : '';
+        setTxt(
+          'tr-kpi-contratos-sub',
+          `PNCP: ${cmp.pncp_qtd || 0} contratos • Fiorilli (ano): ${cmp.fiorilli_qtd || 0} contratos${remTxt}`
+        );
+        setTxt('tr-kpi-dispensas', formatBRLCompact(disp.diretas_valor || 0));
+        setTxt(
+          'tr-kpi-dispensas-sub',
+          `${disp.diretas_qtd || 0} diretas • ${aus.qtd || 0} ausentes no PNCP (${formatBRLCompact(aus.valor || 0)})`
+        );
+        setTxt('tr-receita-realizacao-pill', `${rec.pct_realizado || 0}% da previsão`);
+        setTxt('tr-orgaos-count-pill', `${(desp.por_orgao || []).length} órgãos`);
+
+        renderTranspReceitas(rec, d.comparativo_anual || []);
+        renderTranspOrgaos(desp.por_orgao || []);
+        populateTranspEntidades(d.entidades_disponiveis || []);
+      } catch (err) {
+        console.error('Erro ao carregar resumo Transparência:', err);
+      }
+    }
+
+    function renderTranspReceitas(rec, comparativo) {
+      const compBox = document.getElementById('tr-receitas-composicao');
+      if (compBox) {
+        const list = rec.composicao || [];
+        const maxVal = Math.max(...list.map(x => Math.abs(Number(x.arrecadado_total || 0))), 1);
+        compBox.innerHTML = list.length
+          ? list.map(item => {
+              const val = Number(item.arrecadado_total || 0);
+              const isNeg = val < 0;
+              const barPct = Math.max(3, Math.round((Math.abs(val) / maxVal) * 100));
+              const barColor = isNeg ? 'bg-error' : 'bg-emerald-600';
+              const valCls = isNeg ? 'text-error' : 'text-emerald-800';
+              return `
+                <div class="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1.5 text-xs">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-semibold text-on-surface">${escapeHtml(item.nome)}</span>
+                    <div class="text-right shrink-0">
+                      <span class="font-extrabold ${valCls}">${formatBRL(val)}</span>
+                      <span class="text-[11px] text-on-surface-variant ml-1">(${item.participacao_pct}%)</span>
+                    </div>
+                  </div>
+                  <div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                    <div class="h-full ${barColor} rounded-full" style="width: ${barPct}%;"></div>
+                  </div>
+                  <div class="flex items-center justify-between text-[11px] text-on-surface-variant">
+                    <span>Previsto: ${formatBRLCompact(item.previsao_atualizada || 0)}</span>
+                    <span>Execução: ${item.realizacao_pct || 0}%</span>
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : '<div class="p-4 text-center text-xs text-on-surface-variant">Sem dados de receita sincronizados.</div>';
+      }
+
+      const origBox = document.getElementById('tr-receitas-origens');
+      if (origBox) {
+        origBox.innerHTML = `
+          <div class="p-3 rounded-xl bg-surface-container-low">
+            <span class="text-[10px] font-bold uppercase text-on-surface-variant">Transferências da União</span>
+            <p class="font-extrabold text-sm text-primary mt-0.5">${formatBRLCompact(rec.transferencias_uniao_arrecadado || 0)}</p>
+            <p class="text-[11px] text-on-surface-variant">Previsto: ${formatBRLCompact(rec.transferencias_uniao_previsto || 0)}</p>
+          </div>
+          <div class="p-3 rounded-xl bg-surface-container-low">
+            <span class="text-[10px] font-bold uppercase text-on-surface-variant">Transferências do Estado (MA)</span>
+            <p class="font-extrabold text-sm text-emerald-700 mt-0.5">${formatBRLCompact(rec.transferencias_estado_arrecadado || 0)}</p>
+            <p class="text-[11px] text-on-surface-variant">Previsto: ${formatBRLCompact(rec.transferencias_estado_previsto || 0)}</p>
+          </div>
+        `;
+      }
+
+      const cmpBox = document.getElementById('tr-comparativo-anual');
+      if (cmpBox) {
+        cmpBox.innerHTML = comparativo.map(a => `
+          <div class="p-2.5 rounded-xl bg-surface-container-low flex flex-col gap-1">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-on-surface">Exercício ${a.ano}</span>
+              <span class="font-bold text-emerald-700">Receita: ${formatBRLCompact(a.receita_arrecadada)}</span>
+            </div>
+            <div class="flex flex-wrap items-center justify-between text-[11px] text-on-surface-variant gap-1">
+              <span>Pago: <strong class="text-on-surface">${formatBRLCompact(a.despesa_paga)}</strong></span>
+              <span>PNCP: <strong class="text-primary">${formatBRLCompact(a.pncp_valor)}</strong> (${a.pncp_contratos})</span>
+              <span>Fiorilli: <strong>${formatBRLCompact(a.fiorilli_valor)}</strong> (${a.fiorilli_contratos})</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderTranspOrgaos(orgaos) {
+      const tbody = document.getElementById('tr-orgaos-tbody');
+      if (!tbody) return;
+      if (!orgaos.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-5 text-center text-xs text-on-surface-variant">Nenhum dado de despesa por órgão sincronizado.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = orgaos.map((o, idx) => `
+        <tr class="hover:bg-surface-container-low/60">
+          <td class="py-2 pr-2 font-bold text-on-surface-variant">${idx + 1}</td>
+          <td class="py-2 pr-3 font-semibold text-on-surface">${escapeHtml(o.orgao_nome)} <span class="text-[10px] font-mono text-on-surface-variant">${escapeHtml(o.codigo)}</span></td>
+          <td class="py-2 pr-3 text-right whitespace-nowrap text-on-surface-variant">${formatBRL(o.dotacao_atualizada)}</td>
+          <td class="py-2 pr-3 text-right whitespace-nowrap">${formatBRL(o.empenhado)}</td>
+          <td class="py-2 pr-3 text-right whitespace-nowrap">${formatBRL(o.liquidado)}</td>
+          <td class="py-2 pr-3 text-right whitespace-nowrap font-bold text-primary">${formatBRL(o.pago)}</td>
+          <td class="py-2 text-right whitespace-nowrap font-bold">${o.pct_pago_dotacao || 0}%</td>
+        </tr>
+      `).join('');
+    }
+
+    function populateTranspEntidades(entidades) {
+      const sel = document.getElementById('tr-disp-entidade');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Todas entidades</option>' +
+        entidades.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
+      if (cur && entidades.includes(cur)) sel.value = cur;
+    }
+
+    function setTranspAlerta(alerta) {
+      currentTranspAlerta = alerta;
+      loadTranspCruzamento(1);
+    }
+
+    function debouncedLoadTranspCruzamento(page) {
+      clearTimeout(transpCruzTimer);
+      transpCruzTimer = setTimeout(() => loadTranspCruzamento(page), 260);
+    }
+
+    async function loadTranspCruzamento(page = 1) {
+      currentTranspCruzPage = Math.max(1, page);
+      updateTranspExportLink();
+      const params = new URLSearchParams();
+      if (currentTranspYear) params.set('ano', currentTranspYear);
+      params.set('alerta', currentTranspAlerta || 'TODOS');
+      const ordem = document.getElementById('tr-cruz-ordem')?.value || 'pago_desc';
+      params.set('ordem', ordem);
+      const q = (document.getElementById('tr-cruz-search')?.value || '').trim();
+      if (q) params.set('q', q);
+      params.set('pagina', String(currentTranspCruzPage));
+      params.set('limite', '40');
+
+      try {
+        const res = await pncpFetch('/api/transparencia/cruzamento?' + params.toString());
+        if (!res.ok) return;
+        const data = await res.json();
+        renderTranspAlertChips(data.resumo_alertas || {});
+        renderTranspCruzTabela(data);
+      } catch (err) {
+        console.error('Erro ao carregar cruzamento fornecedores:', err);
+      }
+    }
+
+    function renderTranspAlertChips(resumo) {
+      const box = document.getElementById('tr-alerta-chips');
+      if (!box) return;
+      const sumQtd = Object.values(resumo).reduce((acc, v) => acc + Number(v.qtd || 0), 0);
+      const alertsCount = ['PAGO_ACIMA_PNCP', 'PAGO_SEM_PNCP', 'DIVERGENCIA_VALOR', 'FIORILLI_SEM_PNCP']
+        .reduce((acc, k) => acc + Number((resumo[k] && resumo[k].qtd) || 0), 0);
+
+      const defs = [
+        { k: 'TODOS', lbl: `Todos (${sumQtd})` },
+        { k: 'ALERTAS', lbl: `Somente Alertas (${alertsCount})` },
+        { k: 'PAGO_ACIMA_PNCP', lbl: `Pago > PNCP (${(resumo.PAGO_ACIMA_PNCP && resumo.PAGO_ACIMA_PNCP.qtd) || 0})` },
+        { k: 'PAGO_SEM_PNCP', lbl: `Pago >= R$100k sem PNCP (${(resumo.PAGO_SEM_PNCP && resumo.PAGO_SEM_PNCP.qtd) || 0})` },
+        { k: 'DIVERGENCIA_VALOR', lbl: `Divergência Valor (${(resumo.DIVERGENCIA_VALOR && resumo.DIVERGENCIA_VALOR.qtd) || 0})` },
+        { k: 'CONCILIADO', lbl: `Conciliados (${(resumo.CONCILIADO && resumo.CONCILIADO.qtd) || 0})` },
+        { k: 'FOLHA_OU_REPASSE_PUBLICO', lbl: `Folha / Repasses (${(resumo.FOLHA_OU_REPASSE_PUBLICO && resumo.FOLHA_OU_REPASSE_PUBLICO.qtd) || 0})` },
+      ];
+      box.innerHTML = defs.map(d => {
+        const active = (currentTranspAlerta || 'TODOS') === d.k;
+        const cls = active
+          ? 'bg-primary text-on-primary font-bold'
+          : 'bg-surface-container hover:bg-primary-fixed text-on-surface font-semibold';
+        return `<button onclick="setTranspAlerta('${d.k}')" class="px-3 py-1 rounded-full ${cls} transition-colors" type="button">${escapeHtml(d.lbl)}</button>`;
+      }).join('');
+    }
+
+    function renderTranspCruzTabela(data) {
+      const tbody = document.getElementById('tr-cruz-tbody');
+      if (!tbody) return;
+      const items = data.items || [];
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="py-6 text-center text-xs text-on-surface-variant">Nenhum fornecedor localizado para este filtro.</td></tr>';
+      } else {
+        const badgeStyle = {
+          PAGO_ACIMA_PNCP: 'bg-error-container text-on-error-container',
+          PAGO_SEM_PNCP: 'bg-amber-100 text-amber-950',
+          DIVERGENCIA_VALOR: 'bg-tertiary-fixed text-on-tertiary-fixed',
+          FIORILLI_SEM_PNCP: 'bg-amber-100 text-amber-900',
+          FOLHA_OU_REPASSE_PUBLICO: 'bg-slate-200 text-slate-800',
+          CONTRATO_SEM_PAGAMENTO: 'bg-secondary-container text-on-secondary-container',
+          CONCILIADO: 'bg-emerald-100 text-emerald-900',
+          SEM_ALERTA: 'bg-surface-container text-on-surface-variant',
+        };
+        tbody.innerHTML = items.map(r => {
+          const bCls = badgeStyle[r.alerta_codigo] || 'bg-surface-container text-on-surface-variant';
+          const diff = Number(r.diferenca_pago_pncp || 0);
+          const diffCls = diff > 1000 ? 'text-error font-bold' : (diff < 0 ? 'text-emerald-800' : 'text-on-surface-variant');
+          const searchKey = r.fornecedor_doc || r.fornecedor_nome || '';
+          const btnPncp = r.pncp_contratos_qtd > 0
+            ? `<button type="button" data-q="${escapeHtml(searchKey)}" onclick="openPncpModal(currentTranspYear, '', this.dataset.q, '', 'maior_valor')" class="px-2.5 py-1 rounded-full bg-primary-fixed hover:bg-primary text-on-primary-fixed hover:text-on-primary text-[11px] font-bold transition-colors">Ver (${r.pncp_contratos_qtd})</button>`
+            : '<span class="text-[11px] text-on-surface-variant">-</span>';
+          return `
+            <tr class="hover:bg-surface-container-low/60">
+              <td class="py-2.5 pr-3 max-w-[230px]">
+                <div class="font-semibold text-on-surface">${escapeHtml(r.fornecedor_nome)}</div>
+                <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(r.fornecedor_doc || 'Sem CPF/CNPJ')} • ${escapeHtml(r.tipo_pessoa)}${r.cidade ? ' • ' + escapeHtml(r.cidade) : ''}</div>
+              </td>
+              <td class="py-2.5 pr-3">
+                <span class="inline-block px-2 py-0.5 rounded-full ${bCls} text-[10px] font-bold">${escapeHtml(r.alerta_label)}</span>
+              </td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap">
+                <div class="font-bold text-on-surface">${formatBRL(r.pncp_valor)}</div>
+                <div class="text-[11px] text-on-surface-variant">${r.pncp_contratos_qtd} contrato(s)</div>
+              </td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap">
+                <div class="font-semibold text-on-surface">${formatBRL(r.fiorilli_valor)}</div>
+                <div class="text-[11px] text-on-surface-variant">${r.fiorilli_contratos_qtd} ct • ${r.fiorilli_dispensas_qtd} dir.</div>
+                ${r.fiorilli_remanescentes_qtd > 0 ? `<div class="text-[10px] text-primary font-semibold">+${r.fiorilli_remanescentes_qtd} ct. ant. (${formatBRLCompact(r.fiorilli_remanescentes_valor)})</div>` : ''}
+              </td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap text-on-surface-variant">
+                <div>Emp: ${formatBRLCompact(r.empenhado)}</div>
+                <div class="text-[11px]">Liq: ${formatBRLCompact(r.liquidado)}</div>
+              </td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap font-extrabold text-primary">${formatBRL(r.pago)}</td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap ${diffCls}">
+                <div>${diff >= 0 ? '+' : ''}${formatBRL(diff)}</div>
+                <div class="text-[10px]">${r.pct_pago_sobre_pncp !== null ? r.pct_pago_sobre_pncp + '% PNCP' : ''}</div>
+              </td>
+              <td class="py-2.5 text-right whitespace-nowrap">${btnPncp}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const info = document.getElementById('tr-cruz-page-info');
+      if (info) info.innerText = `Página ${data.pagina} de ${data.total_paginas} (${data.total} fornecedores)`;
+      const prev = document.getElementById('tr-cruz-prev');
+      const next = document.getElementById('tr-cruz-next');
+      if (prev) prev.disabled = data.pagina <= 1;
+      if (next) next.disabled = data.pagina >= data.total_paginas;
+    }
+
+    function setTranspDispCat(cat) {
+      currentTranspDispCat = cat;
+      loadTranspDispensas(1);
+    }
+
+    function debouncedLoadTranspDispensas(page) {
+      clearTimeout(transpDispTimer);
+      transpDispTimer = setTimeout(() => loadTranspDispensas(page), 260);
+    }
+
+    async function loadTranspDispensas(page = 1) {
+      currentTranspDispPage = Math.max(1, page);
+      updateTranspExportLink();
+      const params = new URLSearchParams();
+      if (currentTranspYear) params.set('ano', currentTranspYear);
+      const tp = document.getElementById('tr-disp-tipo')?.value || '';
+      const st = document.getElementById('tr-disp-status')?.value || '';
+      const ent = document.getElementById('tr-disp-entidade')?.value || '';
+      const q = (document.getElementById('tr-disp-search')?.value || '').trim();
+      if (tp) params.set('tipo', tp);
+      if (st) params.set('status_pncp', st);
+      if (currentTranspDispCat) params.set('categoria', currentTranspDispCat);
+      if (ent) params.set('entidade', ent);
+      if (q) params.set('q', q);
+      if (document.getElementById('tr-disp-remanescentes')?.checked) params.set('remanescentes', '1');
+      params.set('pagina', String(currentTranspDispPage));
+      params.set('limite', '40');
+
+      try {
+        const res = await pncpFetch('/api/transparencia/dispensas?' + params.toString());
+        if (!res.ok) return;
+        const data = await res.json();
+        renderTranspDispResumo(data.por_status || {}, data.por_categoria || []);
+        renderTranspDispTabela(data);
+      } catch (err) {
+        console.error('Erro ao carregar auditoria de dispensas:', err);
+      }
+    }
+
+    function renderTranspDispResumo(porStatus, porCat) {
+      const stBox = document.getElementById('tr-disp-status-cards');
+      if (stBox) {
+        const specs = [
+          { k: 'AUSENTE_PNCP', lbl: 'Ausentes no PNCP', cls: 'bg-error-container/60 text-on-error-container' },
+          { k: 'FORNECEDOR_NO_PNCP', lbl: 'Fornecedor no PNCP (outro processo)', cls: 'bg-amber-100 text-amber-950' },
+          { k: 'CONCILIADO', lbl: 'Conciliadas no PNCP', cls: 'bg-emerald-100 text-emerald-900' },
+        ];
+        stBox.innerHTML = specs.map(s => {
+          const item = porStatus[s.k] || { qtd: 0, valor: 0 };
+          return `
+            <button type="button" onclick="document.getElementById('tr-disp-status').value='${s.k}'; loadTranspDispensas(1);" class="w-full text-left p-2.5 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between gap-2 transition-colors">
+              <span class="px-2 py-0.5 rounded-full ${s.cls} text-[10px] font-bold">${s.lbl}</span>
+              <div class="text-right">
+                <span class="font-extrabold text-on-surface">${formatBRL(item.valor)}</span>
+                <span class="text-[11px] text-on-surface-variant ml-1">(${item.qtd})</span>
+              </div>
+            </button>
+          `;
+        }).join('');
+      }
+
+      const catBox = document.getElementById('tr-disp-categorias-grid');
+      if (catBox) {
+        catBox.innerHTML = porCat.length
+          ? porCat.map(c => {
+              const active = currentTranspDispCat === c.categoria;
+              const cls = active ? 'border-primary bg-primary-fixed/40' : 'border-surface-container bg-surface-container-low';
+              return `
+                <button type="button" data-cat="${escapeHtml(c.categoria)}" onclick="setTranspDispCat(this.dataset.cat)" class="text-left p-2.5 rounded-xl border ${cls} hover:border-primary/60 transition-colors text-xs flex flex-col gap-0.5">
+                  <div class="flex items-center justify-between gap-1">
+                    <span class="font-bold text-on-surface truncate">${escapeHtml(c.categoria)}</span>
+                    <span class="font-extrabold text-primary shrink-0">${formatBRLCompact(c.valor_total)}</span>
+                  </div>
+                  <span class="text-[10px] text-on-surface-variant">${c.qtd} contratos • ${c.ausentes_qtd} ausentes no PNCP</span>
+                </button>
+              `;
+            }).join('')
+          : '<div class="col-span-2 p-4 text-center text-xs text-on-surface-variant">Nenhuma dispensa/inexigibilidade carregada.</div>';
+      }
+    }
+
+    function renderTranspDispTabela(data) {
+      const lbl = document.getElementById('tr-disp-total-lbl');
+      const remNote = !data.incluir_remanescentes && data.remanescentes_omitidos_qtd > 0
+        ? ` • ${data.remanescentes_omitidos_qtd} de anos ant. ocultas`
+        : '';
+      if (lbl) lbl.innerText = `${data.total} contratação(ões) direta(s) • Total filtrado: ${formatBRL(data.valor_filtrado || 0)}${remNote}`;
+      const tbody = document.getElementById('tr-disp-tbody');
+      if (!tbody) return;
+      const items = data.items || [];
+      if (!items.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-xs text-on-surface-variant">Nenhuma dispensa/inexigibilidade encontrada para este filtro.</td></tr>';
+      } else {
+        const stStyle = {
+          AUSENTE_PNCP: 'bg-error-container text-on-error-container',
+          FORNECEDOR_NO_PNCP: 'bg-amber-100 text-amber-950',
+          CONCILIADO: 'bg-emerald-100 text-emerald-900',
+        };
+        tbody.innerHTML = items.map(r => {
+          const cls = stStyle[r.status_pncp] || 'bg-surface-container text-on-surface-variant';
+          const tipoCls = r.tipo_contratacao === 'Inexigibilidade' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-secondary-container text-on-secondary-container';
+          const btn = r.pncp_match_url
+            ? `<a href="${escapeHtml(r.pncp_match_url)}" target="_blank" class="px-2.5 py-1 rounded-full bg-primary-fixed hover:bg-primary text-on-primary-fixed hover:text-on-primary text-[11px] font-bold">PNCP ↗</a>`
+            : `<button type="button" data-q="${escapeHtml(r.fornecedor_doc || r.fornecedor_nome)}" onclick="openPncpModal(currentTranspYear, '', this.dataset.q, '', 'maior_valor')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-primary-fixed text-on-surface text-[11px] font-bold">Buscar</button>`;
+          return `
+            <tr class="hover:bg-surface-container-low/60">
+              <td class="py-2.5 pr-3 max-w-[175px]">
+                <span class="inline-block px-2 py-0.5 rounded-full ${tipoCls} text-[10px] font-bold">${escapeHtml(r.tipo_contratacao)}</span>
+                <div class="text-[11px] text-on-surface-variant mt-0.5 truncate" title="${escapeHtml(r.entidade)}">${escapeHtml(r.entidade || r.secretaria_gestora)}</div>
+              </td>
+              <td class="py-2.5 pr-3 max-w-[200px]">
+                <div class="font-semibold text-on-surface">${escapeHtml(r.fornecedor_nome || '-')}</div>
+                <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(r.fornecedor_doc || 'Sem doc')}</div>
+              </td>
+              <td class="py-2.5 pr-3 max-w-[280px]">
+                <div class="text-on-surface line-clamp-2" title="${escapeHtml(r.objeto)}">${escapeHtml(r.objeto || '-')}</div>
+                <div class="text-[11px] text-on-surface-variant mt-0.5">${escapeHtml(r.categoria_tematica)} • Proc. ${escapeHtml(r.processo_adm || r.codigo || '-')}</div>
+              </td>
+              <td class="py-2.5 pr-3 text-right whitespace-nowrap">
+                <div class="font-extrabold text-on-surface">${formatBRL(r.valor_efetivo)}</div>
+                <div class="text-[10px] text-on-surface-variant">${r.valor_aditado > 0 ? '+Aditivo ' + formatBRLCompact(r.valor_aditado) : (r.ano || '')}</div>
+              </td>
+              <td class="py-2.5 pr-3 max-w-[180px]">
+                <span class="inline-block px-2 py-0.5 rounded-full ${cls} text-[10px] font-bold">${escapeHtml(r.status_pncp_label)}</span>
+                <div class="text-[10px] text-on-surface-variant mt-0.5 line-clamp-2">${escapeHtml(r.motivo_pncp)}</div>
+              </td>
+              <td class="py-2.5 text-right whitespace-nowrap">${btn}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const info = document.getElementById('tr-disp-page-info');
+      if (info) info.innerText = `Página ${data.pagina} de ${data.total_paginas} (${data.total} registros)`;
+      const prev = document.getElementById('tr-disp-prev');
+      const next = document.getElementById('tr-disp-next');
+      if (prev) prev.disabled = data.pagina <= 1;
+      if (next) next.disabled = data.pagina >= data.total_paginas;
+    }
+
+    async function triggerTransparenciaSync() {
+      const btn = document.getElementById('btn-tr-sync');
+      const icon = document.getElementById('tr-sync-spin');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('animate-spin');
+      try {
+        const anos = currentTranspYear ? [Number(currentTranspYear)] : [2025, 2026];
+        const res = await pncpFetch('/api/transparencia/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anos }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível sincronizar com o Portal Fiorilli neste ambiente.');
+          return;
+        }
+        await loadTransparenciaView();
+        showPncpToast(`Portal Fiorilli sincronizado (${data.total_registros || 0} registros em ${data.duracao_segundos || 0}s)!`);
+      } catch (err) {
+        alert(`Erro ao conectar com a API de sincronização: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+      }
     }
 
     function navigateSection(elementId, btnEl) {

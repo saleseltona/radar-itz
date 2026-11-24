@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.config import get_supabase_config, mask_secrets
 from src.database import build_pncp_resumo_from_rows
@@ -1312,3 +1312,232 @@ class SupabaseDatabase:
             anos_disponiveis=anos_disponiveis,
             total_ignorados=total_ignorados,
         )
+
+    def get_effective_pncp_contratos(
+        self,
+        ano: Optional[int] = None,
+        anos: Sequence[int] = (2025, 2026),
+    ) -> List[Dict[str, Any]]:
+        """Retorna todos os contratos PNCP ativos no Supabase (com retificações e sem ignorados)."""
+        filtered, _, _, _ = self._fetch_pncp_filtered(ano=ano)
+        if not ano and anos:
+            anos_set = {int(a) for a in anos if int(a) > 0}
+            filtered = [
+                r
+                for r in filtered
+                if int(r.get("ano_contrato") or 0) in anos_set
+                or any(str(r.get("data_publicacao") or "").startswith(str(y)) for y in anos_set)
+            ]
+        filtered.sort(key=lambda r: float(r.get("valor_global") or 0.0), reverse=True)
+        return filtered
+
+    # =========================================================================
+    # PORTAL TRANSPARÊNCIA FIORILLI (Receitas, Despesas e Contratos/Dispensas)
+    # =========================================================================
+
+    def _upsert_fiorilli_rows(
+        self,
+        table: str,
+        pk_col: str,
+        rows: List[Dict[str, Any]],
+        int_cols: Tuple[str, ...],
+        float_cols: Tuple[str, ...],
+        str_cols: Tuple[str, ...],
+    ) -> int:
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        dedup: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            pk_val = str(r.get(pk_col) or "").strip()
+            if not pk_val:
+                continue
+            item: Dict[str, Any] = {pk_col: pk_val}
+            for c in int_cols:
+                item[c] = int(r.get(c) or 0)
+            for c in float_cols:
+                item[c] = float(r.get(c) or 0.0)
+            for c in str_cols:
+                if c == pk_col:
+                    continue
+                if c == "atualizado_em":
+                    item[c] = str(r.get(c) or now_iso)
+                else:
+                    item[c] = str(r.get(c) or "")
+            dedup[pk_val] = item
+        payload = list(dedup.values())
+        if not payload:
+            return 0
+        return self.client.upsert(
+            table,
+            payload,
+            on_conflict=pk_col,
+            ignore_duplicates=False,
+            batch_size=200,
+        )
+
+    def upsert_fiorilli_receitas_batch(self, rows: List[Dict[str, Any]]) -> int:
+        return self._upsert_fiorilli_rows(
+            "fiorilli_receitas",
+            "chave_receita",
+            rows,
+            int_cols=("ano", "eh_raiz"),
+            float_cols=(
+                "previsao_inicial",
+                "previsao_atualizada",
+                "arrecadado_periodo",
+                "arrecadado_total",
+            ),
+            str_cols=("tipo_fonte", "ordem", "codigo", "nome", "atualizado_em"),
+        )
+
+    def upsert_fiorilli_despesas_orgaos_batch(self, rows: List[Dict[str, Any]]) -> int:
+        return self._upsert_fiorilli_rows(
+            "fiorilli_despesas_orgaos",
+            "chave_orgao",
+            rows,
+            int_cols=("ano",),
+            float_cols=(
+                "dotacao_inicial",
+                "alteracoes",
+                "dotacao_atualizada",
+                "empenhado",
+                "liquidado",
+                "pago",
+            ),
+            str_cols=("empresa", "codigo", "orgao_nome", "atualizado_em"),
+        )
+
+    def upsert_fiorilli_despesas_fornecedores_batch(self, rows: List[Dict[str, Any]]) -> int:
+        return self._upsert_fiorilli_rows(
+            "fiorilli_despesas_fornecedores",
+            "chave_fornecedor",
+            rows,
+            int_cols=("ano",),
+            float_cols=("empenhado", "liquidado", "pago"),
+            str_cols=(
+                "empresa",
+                "codigo_fornecedor",
+                "fornecedor_doc",
+                "fornecedor_nome",
+                "cidade",
+                "atualizado_em",
+            ),
+        )
+
+    def upsert_fiorilli_contratos_batch(self, rows: List[Dict[str, Any]]) -> int:
+        return self._upsert_fiorilli_rows(
+            "fiorilli_contratos",
+            "chave_contrato",
+            rows,
+            int_cols=("ano", "eh_contratacao_direta", "anulado"),
+            float_cols=(
+                "valor_contrato",
+                "valor_aditado",
+                "valor_efetivo",
+                "empenhado",
+                "liquidado",
+                "saldo_empenhar",
+            ),
+            str_cols=(
+                "empresa",
+                "entidade",
+                "codigo",
+                "contrato_num",
+                "processo_licitacao",
+                "processo_adm",
+                "fund_legal",
+                "modalidade",
+                "tipo_contratacao",
+                "fornecedor_doc",
+                "fornecedor_nome",
+                "objeto",
+                "secretaria_gestora",
+                "categoria_tematica",
+                "data_assinatura",
+                "data_publicacao",
+                "vigencia_inicio",
+                "vigencia_fim",
+                "data_anulacao",
+                "atualizado_em",
+            ),
+        )
+
+    def get_fiorilli_receitas(
+        self, ano: Optional[int] = None, tipo_fonte: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        params: Dict[str, str] = {}
+        if ano:
+            params["ano"] = f"eq.{int(ano)}"
+        if tipo_fonte:
+            params["tipo_fonte"] = f"eq.{tipo_fonte.strip()}"
+        rows = self.client.select("fiorilli_receitas", params=params or None)
+        rows.sort(
+            key=lambda r: (
+                -int(r.get("ano") or 0),
+                str(r.get("tipo_fonte") or ""),
+                str(r.get("codigo") or ""),
+            )
+        )
+        return rows
+
+    def get_fiorilli_despesas_orgaos(self, ano: Optional[int] = None) -> List[Dict[str, Any]]:
+        params = {"ano": f"eq.{int(ano)}"} if ano else None
+        rows = self.client.select("fiorilli_despesas_orgaos", params=params)
+        rows.sort(key=lambda r: (int(r.get("ano") or 0), float(r.get("pago") or 0.0)), reverse=True)
+        return rows
+
+    def get_fiorilli_despesas_fornecedores(self, ano: Optional[int] = None) -> List[Dict[str, Any]]:
+        params = {"ano": f"eq.{int(ano)}"} if ano else None
+        rows = self.client.select("fiorilli_despesas_fornecedores", params=params)
+        rows.sort(key=lambda r: (int(r.get("ano") or 0), float(r.get("pago") or 0.0)), reverse=True)
+        return rows
+
+    def get_fiorilli_contratos(
+        self,
+        ano: Optional[int] = None,
+        entidade: Optional[str] = None,
+        somente_diretas: bool = False,
+    ) -> List[Dict[str, Any]]:
+        params: Dict[str, str] = {}
+        if ano:
+            params["ano"] = f"eq.{int(ano)}"
+        if somente_diretas:
+            params["eh_contratacao_direta"] = "eq.1"
+        rows = self.client.select("fiorilli_contratos", params=params or None)
+        if entidade and entidade.strip().upper() not in ("TODAS", "ALL", ""):
+            ent_up = entidade.strip().upper()
+            rows = [r for r in rows if str(r.get("entidade") or "").strip().upper() == ent_up]
+        rows.sort(
+            key=lambda r: (int(r.get("ano") or 0), float(r.get("valor_efetivo") or 0.0)),
+            reverse=True,
+        )
+        return rows
+
+    def get_fiorilli_meta(self) -> Dict[str, Any]:
+        cnt_rec = self.client.count("fiorilli_receitas")
+        cnt_org = self.client.count("fiorilli_despesas_orgaos")
+        cnt_forn = self.client.count("fiorilli_despesas_fornecedores")
+        cnt_con = self.client.count("fiorilli_contratos")
+        rec_years = self.client.select("fiorilli_receitas", params={"select": "ano,atualizado_em"})
+        con_years = self.client.select("fiorilli_contratos", params={"select": "ano,atualizado_em"})
+        anos_set = {
+            int(r["ano"])
+            for r in (rec_years + con_years)
+            if str(r.get("ano") or "").isdigit() and int(r["ano"]) > 0
+        }
+        ultima = max(
+            (str(r.get("atualizado_em") or "") for r in (rec_years + con_years)),
+            default="",
+        )
+        return {
+            "sincronizado": (cnt_rec + cnt_org + cnt_forn + cnt_con) > 0,
+            "anos_disponiveis": sorted(anos_set, reverse=True) or [2026, 2025],
+            "ultima_atualizacao": ultima,
+            "contagens": {
+                "fiorilli_receitas": cnt_rec,
+                "fiorilli_despesas_orgaos": cnt_org,
+                "fiorilli_despesas_fornecedores": cnt_forn,
+                "fiorilli_contratos": cnt_con,
+            },
+        }

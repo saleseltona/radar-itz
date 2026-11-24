@@ -214,6 +214,98 @@ CREATE TABLE IF NOT EXISTS public.erros_coleta (
     UNIQUE (id_execucao, componente, alvo_url, data_registro)
 );
 
+-- 12. Portal Transparência Fiorilli — Receitas (Orçamentária, União e Estado)
+CREATE TABLE IF NOT EXISTS public.fiorilli_receitas (
+    chave_receita TEXT PRIMARY KEY,
+    ano INTEGER NOT NULL,
+    tipo_fonte TEXT NOT NULL,
+    ordem TEXT DEFAULT '',
+    codigo TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    eh_raiz INTEGER NOT NULL DEFAULT 0,
+    previsao_inicial DOUBLE PRECISION DEFAULT 0.0,
+    previsao_atualizada DOUBLE PRECISION DEFAULT 0.0,
+    arrecadado_periodo DOUBLE PRECISION DEFAULT 0.0,
+    arrecadado_total DOUBLE PRECISION DEFAULT 0.0,
+    atualizado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fiorilli_rec_ano_fonte ON public.fiorilli_receitas (ano, tipo_fonte);
+
+-- 13. Portal Transparência Fiorilli — Despesas por Órgão
+CREATE TABLE IF NOT EXISTS public.fiorilli_despesas_orgaos (
+    chave_orgao TEXT PRIMARY KEY,
+    ano INTEGER NOT NULL,
+    empresa TEXT DEFAULT '',
+    codigo TEXT NOT NULL,
+    orgao_nome TEXT NOT NULL,
+    dotacao_inicial DOUBLE PRECISION DEFAULT 0.0,
+    alteracoes DOUBLE PRECISION DEFAULT 0.0,
+    dotacao_atualizada DOUBLE PRECISION DEFAULT 0.0,
+    empenhado DOUBLE PRECISION DEFAULT 0.0,
+    liquidado DOUBLE PRECISION DEFAULT 0.0,
+    pago DOUBLE PRECISION DEFAULT 0.0,
+    atualizado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_org_ano ON public.fiorilli_despesas_orgaos (ano);
+
+-- 14. Portal Transparência Fiorilli — Despesas por Fornecedor (CNPJ/CPF)
+CREATE TABLE IF NOT EXISTS public.fiorilli_despesas_fornecedores (
+    chave_fornecedor TEXT PRIMARY KEY,
+    ano INTEGER NOT NULL,
+    empresa TEXT DEFAULT '',
+    codigo_fornecedor TEXT DEFAULT '',
+    fornecedor_doc TEXT DEFAULT '',
+    fornecedor_nome TEXT NOT NULL,
+    cidade TEXT DEFAULT '',
+    empenhado DOUBLE PRECISION DEFAULT 0.0,
+    liquidado DOUBLE PRECISION DEFAULT 0.0,
+    pago DOUBLE PRECISION DEFAULT 0.0,
+    atualizado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_forn_ano ON public.fiorilli_despesas_fornecedores (ano);
+CREATE INDEX IF NOT EXISTS idx_fiorilli_desp_forn_doc ON public.fiorilli_despesas_fornecedores (fornecedor_doc);
+
+-- 15. Portal Transparência Fiorilli — Contratos, Dispensas e Inexigibilidades
+CREATE TABLE IF NOT EXISTS public.fiorilli_contratos (
+    chave_contrato TEXT PRIMARY KEY,
+    ano INTEGER NOT NULL,
+    empresa TEXT DEFAULT '',
+    entidade TEXT DEFAULT '',
+    codigo TEXT DEFAULT '',
+    contrato_num TEXT DEFAULT '',
+    processo_licitacao TEXT DEFAULT '',
+    processo_adm TEXT DEFAULT '',
+    fund_legal TEXT DEFAULT '',
+    modalidade TEXT DEFAULT '',
+    tipo_contratacao TEXT DEFAULT '',
+    eh_contratacao_direta INTEGER NOT NULL DEFAULT 0,
+    fornecedor_doc TEXT DEFAULT '',
+    fornecedor_nome TEXT DEFAULT '',
+    objeto TEXT DEFAULT '',
+    secretaria_gestora TEXT DEFAULT '',
+    categoria_tematica TEXT DEFAULT '',
+    valor_contrato DOUBLE PRECISION DEFAULT 0.0,
+    valor_aditado DOUBLE PRECISION DEFAULT 0.0,
+    valor_efetivo DOUBLE PRECISION DEFAULT 0.0,
+    empenhado DOUBLE PRECISION DEFAULT 0.0,
+    liquidado DOUBLE PRECISION DEFAULT 0.0,
+    saldo_empenhar DOUBLE PRECISION DEFAULT 0.0,
+    data_assinatura TEXT DEFAULT '',
+    data_publicacao TEXT DEFAULT '',
+    vigencia_inicio TEXT DEFAULT '',
+    vigencia_fim TEXT DEFAULT '',
+    data_anulacao TEXT DEFAULT '',
+    anulado INTEGER NOT NULL DEFAULT 0,
+    atualizado_em TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_fiorilli_con_ano ON public.fiorilli_contratos (ano);
+CREATE INDEX IF NOT EXISTS idx_fiorilli_con_doc ON public.fiorilli_contratos (fornecedor_doc);
+CREATE INDEX IF NOT EXISTS idx_fiorilli_con_direta ON public.fiorilli_contratos (eh_contratacao_direta);
+
 -- ============================================================================
 -- Segurança: Row Level Security (RLS)
 -- O backend serverless e o script CLI usam SUPABASE_SERVICE_ROLE_KEY, que
@@ -233,3 +325,7 @@ ALTER TABLE public.historico_atualizacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pendencias_apuracao ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.itens_descartados ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.erros_coleta ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fiorilli_receitas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fiorilli_despesas_orgaos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fiorilli_despesas_fornecedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fiorilli_contratos ENABLE ROW LEVEL SECURITY;
