@@ -5,7 +5,9 @@ visualização de evidências, disparo de novos ciclos de varredura e download d
 """
 from __future__ import annotations
 
+import base64
 import csv
+import http.cookies
 import io
 import json
 import logging
@@ -27,8 +29,9 @@ from src.config import (
     FONTES_CSV_PATH,
     OUTPUT_DIR,
     ensure_runtime_files,
+    is_supabase_configured,
 )
-from src.database import RadarDatabase
+from src.database import RadarDatabase, get_database
 from src.pncp_client import PncpClient
 from src.source_manager import SourceManager
 
@@ -392,12 +395,72 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
     _db: Optional[RadarDatabase] = None
 
     @classmethod
-    def get_db(cls) -> RadarDatabase:
-        """Inicializa o banco SQLite sob demanda (copiando para /tmp na Vercel se necessário)."""
+    def get_db(cls) -> Any:
+        """Seleciona Supabase (quando configurado) ou inicializa SQLite local sob demanda."""
+        if is_supabase_configured():
+            if cls._db is None or getattr(cls._db, "backend_name", "") != "supabase":
+                cls._db = get_database(DB_PATH)
+            return cls._db
+
         ensure_runtime_files()
-        if cls._db is None or cls._db.db_path != DB_PATH or not DB_PATH.exists():
+        if (
+            cls._db is None
+            or getattr(cls._db, "backend_name", "") != "sqlite"
+            or cls._db.db_path != DB_PATH
+            or not DB_PATH.exists()
+        ):
             cls._db = RadarDatabase(DB_PATH)
         return cls._db
+
+    def _apply_request_pncp_retificacoes(self, db: Any) -> int:
+        """Sincroniza retificações via header/cookie no modo SQLite stateless (ignorado no Supabase)."""
+        if getattr(db, "backend_name", "sqlite") != "sqlite":
+            return 0
+        raw_b64 = str(self.headers.get("X-PNCP-Retificacoes") or "").strip()
+        if not raw_b64:
+            cookie_header = str(self.headers.get("Cookie") or "").strip()
+            if cookie_header:
+                try:
+                    jar = http.cookies.SimpleCookie()
+                    jar.load(cookie_header)
+                    morsel = jar.get("radar_pncp_retif")
+                    if morsel and morsel.value:
+                        raw_b64 = urllib.parse.unquote(morsel.value).strip()
+                except Exception:
+                    raw_b64 = ""
+        if not raw_b64 or len(raw_b64) > 32_768:
+            return 0
+        try:
+            padded = raw_b64 + ("=" * (-len(raw_b64) % 4))
+            decoded = base64.b64decode(padded).decode("utf-8", errors="strict")
+            parsed = json.loads(decoded)
+        except Exception:
+            return 0
+        if not isinstance(parsed, dict):
+            return 0
+
+        normalized: Dict[str, Any] = {}
+        for raw_ctrl, entry in list(parsed.items())[:100]:
+            ctrl = str(raw_ctrl or "").strip()
+            if not ctrl or not isinstance(entry, dict):
+                continue
+            if entry.get("r") or entry.get("restaurar"):
+                normalized[ctrl] = {"r": 1}
+                continue
+            raw_val = entry["v"] if "v" in entry else entry.get("valor_corrigido")
+            val = parse_brl_number(raw_val)
+            if val is None:
+                continue
+            just = str(
+                entry.get("j")
+                or entry.get("justificativa")
+                or entry.get("justificativa_retificacao")
+                or ""
+            ).strip()[:240]
+            normalized[ctrl] = {"v": val, "j": just}
+        if not normalized:
+            return 0
+        return int(db.sync_pncp_retificacoes_from_request(normalized) or 0)
 
     def _resolve_route(self) -> Tuple[str, Dict[str, List[str]]]:
         """Resolve a rota original considerando rewrites da Vercel (`?__route=...`)."""
@@ -416,12 +479,21 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-PNCP-Retificacoes")
         self.end_headers()
 
     def do_GET(self) -> None:
         path, query = self._resolve_route()
         db = self.get_db()
+        if path in (
+            "/api/stats",
+            "/api/pncp/contratos",
+            "/api/pncp/resumo",
+            "/api/pncp/estatisticas",
+            "/api/pncp/export/csv",
+            "/api/pncp/retificacoes",
+        ):
+            self._apply_request_pncp_retificacoes(db)
 
         # 1. Página principal / Dashboard HTML
         if path in ("/", "/index.html", "/dashboard"):
@@ -540,6 +612,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 "total_contratos_pncp": pncp_resumo.get("total_contratos", 0),
                 "valor_total_pncp": pncp_resumo.get("valor_total_global", 0.0),
                 "por_ano_pncp": pncp_resumo.get("por_ano", {}),
+                "storage_backend": getattr(db, "backend_name", "sqlite"),
             }
             self.send_json_response(stats)
             return
@@ -655,6 +728,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", 'attachment; filename="pncp_contratos_imperatriz.csv"')
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Pragma", "no-cache")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -806,6 +881,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     max_pages_per_window=max_pages,
                     mode=mode,
                 )
+                res["storage_backend"] = getattr(db, "backend_name", "sqlite")
+                sync_detalhes = getattr(db, "last_sync_stats", None)
+                if sync_detalhes:
+                    res["sync_detalhes"] = sync_detalhes
                 self.send_json_response(res)
             except Exception as e:
                 logger.error("Erro ao sincronizar PNCP via web: %s", e, exc_info=True)
@@ -823,6 +902,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 return
 
             if bool(body.get("restaurar")):
+                self._apply_request_pncp_retificacoes(db)
                 restored = db.restaurar_pncp_contrato(ctrl)
                 if not restored:
                     self.send_json_response(
@@ -852,8 +932,14 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"ok": True, "contrato": updated})
             return
 
-        # 2.2 Reaplicar retificações salvas em lote (reidratação serverless)
+        # 2.2 Reaplicar retificações salvas em lote (reidratação serverless SQLite)
         if path == "/api/pncp/retificacoes/sync":
+            backend_name = getattr(db, "backend_name", "sqlite")
+            if backend_name != "sqlite":
+                self.send_json_response(
+                    {"ok": True, "aplicadas": 0, "storage_backend": backend_name}
+                )
+                return
             lista = body.get("retificacoes")
             if not isinstance(lista, list):
                 self.send_json_response(
@@ -878,7 +964,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         }
                     )
             aplicadas = db.apply_pncp_retificacoes_batch(normalizadas)
-            self.send_json_response({"ok": True, "aplicadas": aplicadas})
+            self.send_json_response(
+                {"ok": True, "aplicadas": aplicadas, "storage_backend": backend_name}
+            )
             return
 
         # 3. Cadastrar nova fonte pela UI sem modificar código
@@ -933,6 +1021,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(json_bytes)))
         self.end_headers()
         self.wfile.write(json_bytes)

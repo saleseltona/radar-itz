@@ -179,3 +179,22 @@ O sistema funciona de forma completa e autônoma sem dependências de chaves pag
 - **0 a 54:** Prioridade Baixa
 - **Emergência Confirmada:** Sinalização especial máxima (`🚨 PRIORIDADE MÁXIMA / EMERGÊNCIA`).
 - **Segurança Editorial:** Nenhuma denúncia grave recebe status de fato confirmado apenas por alta relevância; exige documentação primária e registro obrigatório de contraditório.
+
+---
+
+## 5. Persistência na Nuvem com Supabase + Vercel (Carga Incremental)
+
+Para evitar a natureza efêmera do `/tmp` em instâncias serverless da Vercel (onde retificações em SQLite dependem de sincronização por sessão), você pode ativar o backend nativo em **Supabase PostgreSQL**:
+
+1. **Crie as tabelas:** No SQL Editor do seu projeto Supabase, execute [`supabase/schema.sql`](supabase/schema.sql).
+2. **Configure as variáveis:** No `.env` local (e em *Settings → Environment Variables* na Vercel), defina:
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+3. **Suba apenas dados novos (`--only-new` por padrão):**
+   ```bash
+   python scripts/supabase_sync.py --check
+   python scripts/supabase_sync.py --dry-run
+   python scripts/supabase_sync.py
+   ```
+   O script consulta antes as chaves já existentes no Supabase e envia **somente os registros novos**, preservando integralmente qualquer retificação já feita no painel.
+4. **Faça redeploy na Vercel:** A API detectará automaticamente `storage_backend = "supabase"`.

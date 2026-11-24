@@ -46,20 +46,7 @@ class ErrorMonitor:
             "data_registro": now_iso,
         }
         self.erros.append(erro_dict)
-
-        with self.db.connect() as conn:
-            conn.execute(
-                """
-                INSERT INTO erros_coleta (id_execucao, componente, alvo_url, mensagem_erro, data_registro)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (id_execucao, componente, sanitized_url, sanitized_msg, now_iso),
-            )
+        self.db.log_error(id_execucao, componente, sanitized_url, sanitized_msg, now_iso)
 
     def get_errors_for_execution(self, id_execucao: str) -> List[Dict[str, Any]]:
-        with self.db.connect() as conn:
-            rows = conn.execute(
-                "SELECT * FROM erros_coleta WHERE id_execucao = ? ORDER BY id ASC",
-                (id_execucao,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+        return self.db.get_errors_for_execution(id_execucao)

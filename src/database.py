@@ -6,13 +6,14 @@ Não apaga registros antigos silenciosamente e preserva todo o histórico.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
-from src.config import DB_PATH
+from src.config import DB_PATH, is_supabase_configured
 from src.pncp_analytics import (
     build_pncp_estatisticas,
     classify_pncp_contrato,
@@ -22,6 +23,8 @@ from src.pncp_analytics import (
 
 class RadarDatabase:
     """Gerencia a persistência relacional em SQLite do Radar de Pautas de Imperatriz."""
+
+    backend_name: str = "sqlite"
 
     def __init__(self, db_path: Path | None = None) -> None:
         self.db_path = db_path or DB_PATH
@@ -349,6 +352,40 @@ class RadarDatabase:
     def get_all_fontes(self) -> List[Dict[str, Any]]:
         with self.connect() as conn:
             rows = conn.execute("SELECT * FROM fontes ORDER BY id ASC").fetchall()
+            return [dict(r) for r in rows]
+
+    def get_fonte_by_url(self, url: str) -> Optional[Dict[str, Any]]:
+        """Busca uma fonte cadastrada pela URL exata."""
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM fontes WHERE url = ?", (url,)).fetchone()
+            return dict(row) if row else None
+
+    def log_error(
+        self,
+        id_execucao: str,
+        componente: str,
+        alvo_url: str,
+        mensagem_erro: str,
+        data_registro: Optional[str] = None,
+    ) -> None:
+        """Persiste falha operacional ou de rede na tabela erros_coleta."""
+        dt = data_registro or datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO erros_coleta (id_execucao, componente, alvo_url, mensagem_erro, data_registro)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (id_execucao, componente, alvo_url, mensagem_erro, dt),
+            )
+
+    def get_errors_for_execution(self, id_execucao: str) -> List[Dict[str, Any]]:
+        """Lista os erros registrados em uma execução específica."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM erros_coleta WHERE id_execucao = ? ORDER BY id ASC",
+                (id_execucao,),
+            ).fetchall()
             return [dict(r) for r in rows]
 
     def log_collected_page(
@@ -899,6 +936,121 @@ class RadarDatabase:
                     applied += 1
         return applied
 
+    def sync_pncp_retificacoes_from_request(self, overrides: Dict[str, Any]) -> int:
+        """Sincroniza retificações enviadas por header/cookie em uma única transação (stateless/serverless)."""
+        if not overrides or not isinstance(overrides, dict):
+            return 0
+
+        entries: List[tuple[str, Dict[str, Any]]] = []
+        for raw_ctrl, entry in list(overrides.items())[:100]:
+            ctrl = str(raw_ctrl or "").strip()
+            if ctrl and isinstance(entry, dict):
+                entries.append((ctrl, entry))
+        if not entries:
+            return 0
+
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        ctrls = [ctrl for ctrl, _ in entries]
+        placeholders = ",".join("?" for _ in ctrls)
+        applied = 0
+
+        with self.connect() as conn:
+            ret_rows = conn.execute(
+                f"""
+                SELECT numero_controle_pncp, valor_original_pncp, valor_corrigido, justificativa
+                FROM pncp_retificacoes
+                WHERE numero_controle_pncp IN ({placeholders})
+                """,
+                ctrls,
+            ).fetchall()
+            existing_ret = {r["numero_controle_pncp"]: r for r in ret_rows}
+
+            contract_rows = conn.execute(
+                f"""
+                SELECT numero_controle_pncp, valor_global
+                FROM pncp_contratos
+                WHERE numero_controle_pncp IN ({placeholders})
+                """,
+                ctrls,
+            ).fetchall()
+            existing_contracts = {r["numero_controle_pncp"]: r for r in contract_rows}
+
+            for ctrl, entry in entries:
+                if entry.get("r") or entry.get("restaurar"):
+                    ret_row = existing_ret.pop(ctrl, None)
+                    if ret_row is not None:
+                        orig_val = float(ret_row["valor_original_pncp"] or 0.0)
+                        conn.execute(
+                            """
+                            UPDATE pncp_contratos
+                            SET valor_inicial = ?, valor_global = ?, valor_acumulado = ?, atualizado_em = ?
+                            WHERE numero_controle_pncp = ?
+                            """,
+                            (orig_val, orig_val, orig_val, now_iso, ctrl),
+                        )
+                        conn.execute(
+                            "DELETE FROM pncp_retificacoes WHERE numero_controle_pncp = ?",
+                            (ctrl,),
+                        )
+                        applied += 1
+                    continue
+
+                raw_val = entry["v"] if "v" in entry else entry.get("valor_corrigido")
+                try:
+                    val = round(float(raw_val), 2)
+                except (TypeError, ValueError):
+                    continue
+                if val <= 0:
+                    continue
+
+                contract_row = existing_contracts.get(ctrl)
+                if contract_row is None:
+                    continue
+
+                just_clean = str(
+                    entry.get("j")
+                    or entry.get("justificativa")
+                    or entry.get("justificativa_retificacao")
+                    or ""
+                ).strip()[:240]
+
+                cur_ret = existing_ret.get(ctrl)
+                if cur_ret is not None:
+                    same_val = abs(float(cur_ret["valor_corrigido"] or 0.0) - val) < 0.005
+                    same_just = str(cur_ret["justificativa"] or "") == just_clean
+                    same_contract_val = abs(float(contract_row["valor_global"] or 0.0) - val) < 0.005
+                    if same_val and same_just and same_contract_val:
+                        continue
+
+                orig_val = (
+                    float(cur_ret["valor_original_pncp"] or 0.0)
+                    if cur_ret is not None
+                    else float(contract_row["valor_global"] or 0.0)
+                )
+                conn.execute(
+                    """
+                    INSERT INTO pncp_retificacoes (
+                        numero_controle_pncp, valor_original_pncp, valor_corrigido, justificativa, atualizado_em
+                    ) VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(numero_controle_pncp) DO UPDATE SET
+                        valor_corrigido = excluded.valor_corrigido,
+                        justificativa = excluded.justificativa,
+                        atualizado_em = excluded.atualizado_em
+                    """,
+                    (ctrl, orig_val, val, just_clean, now_iso),
+                )
+                conn.execute(
+                    """
+                    UPDATE pncp_contratos
+                    SET valor_inicial = ?, valor_global = ?, valor_acumulado = ?, atualizado_em = ?
+                    WHERE numero_controle_pncp = ?
+                    """,
+                    (val, val, val, now_iso, ctrl),
+                )
+                applied += 1
+
+        return applied
+
     @staticmethod
     def _build_pncp_where(
         ano: Optional[int] = None,
@@ -1134,88 +1286,7 @@ class RadarDatabase:
                 args,
             ).fetchall()
 
-            mensal_map: Dict[str, Dict[str, Any]] = {}
-            forn_map: Dict[str, Dict[str, Any]] = {}
-
-            for r in all_filtered_rows:
-                ref_date = (r["data_publicacao"] or r["data_assinatura"] or "").strip()
-                mes_key = ref_date[:7] if len(ref_date) >= 7 and ref_date[:4].isdigit() else f"{r['ano_contrato']}-01"
-                if mes_key not in mensal_map:
-                    mensal_map[mes_key] = {
-                        "mes": mes_key,
-                        "valor_global": 0.0,
-                        "valor_inicial": 0.0,
-                        "contratos": 0,
-                    }
-                vg = float(r["valor_global"] or 0.0)
-                vi = float(r["valor_inicial"] or 0.0)
-                mensal_map[mes_key]["valor_global"] += vg
-                mensal_map[mes_key]["valor_inicial"] += vi
-                mensal_map[mes_key]["contratos"] += 1
-
-                fnome = (r["fornecedor_nome"] or "").strip() or "Fornecedor não informado"
-                fcnpj = (r["fornecedor_cnpj"] or "").strip()
-                fkey = fcnpj or fnome.upper()
-                if fkey not in forn_map:
-                    forn_map[fkey] = {
-                        "fornecedor_cnpj": fcnpj,
-                        "fornecedor_nome": fnome,
-                        "total_valor": 0.0,
-                        "qtd_contratos": 0,
-                        "orgaos": set(),
-                        "vigencias": [],
-                    }
-                forn_map[fkey]["total_valor"] += vg
-                forn_map[fkey]["qtd_contratos"] += 1
-                if r["orgao_sigla"]:
-                    forn_map[fkey]["orgaos"].add(r["orgao_sigla"])
-
-                vi_dt = (r["data_vigencia_inicio"] or "").strip()[:10]
-                vf_dt = (r["data_vigencia_fim"] or "").strip()[:10]
-                if len(vi_dt) == 10 and len(vf_dt) == 10:
-                    try:
-                        d_start = datetime.strptime(vi_dt, "%Y-%m-%d").date()
-                        d_end = datetime.strptime(vf_dt, "%Y-%m-%d").date()
-                        total_days = (d_end - d_start).days
-                        if total_days > 0:
-                            elapsed = max(0, min(total_days, (today - d_start).days))
-                            forn_map[fkey]["vigencias"].append((elapsed / total_days) * 100.0)
-                    except ValueError:
-                        pass
-
-            evolucao_mensal = [
-                {
-                    "mes": k,
-                    "valor_global": round(v["valor_global"], 2),
-                    "valor_inicial": round(v["valor_inicial"], 2),
-                    "contratos": v["contratos"],
-                }
-                for k, v in sorted(mensal_map.items(), key=lambda x: x[0])
-            ]
-
-            sorted_forn = sorted(
-                forn_map.values(), key=lambda x: x["total_valor"], reverse=True
-            )[:8]
-            top_fornecedores: List[Dict[str, Any]] = []
-            for item in sorted_forn:
-                vigs = item["vigencias"]
-                vig_avg = round(sum(vigs) / len(vigs), 1) if vigs else None
-                part_pct = (
-                    round((item["total_valor"] / valor_total_global) * 100.0, 1)
-                    if valor_total_global > 0
-                    else 0.0
-                )
-                top_fornecedores.append(
-                    {
-                        "fornecedor_cnpj": item["fornecedor_cnpj"],
-                        "fornecedor_nome": item["fornecedor_nome"],
-                        "total_valor": round(item["total_valor"], 2),
-                        "qtd_contratos": item["qtd_contratos"],
-                        "orgaos": ", ".join(sorted(item["orgaos"])),
-                        "participacao_pct": part_pct,
-                        "vigencia_media_pct": vig_avg,
-                    }
-                )
+            filtered_rows = [dict(r) for r in all_filtered_rows]
 
             ultimos_rows = conn.execute(
                 f"""
@@ -1235,15 +1306,219 @@ class RadarDatabase:
             ).fetchall()
             ultimos_contratos = [self._format_pncp_row(r) for r in ultimos_rows]
 
-        return {
-            "total_contratos": total_contratos,
-            "valor_total_global": round(valor_total_global, 2),
-            "valor_total_inicial": round(valor_total_inicial, 2),
-            "anos_disponiveis": anos_disponiveis or [2026, 2025, 2024],
-            "por_ano": por_ano,
-            "por_orgao": por_orgao,
-            "evolucao_mensal": evolucao_mensal,
-            "top_fornecedores": top_fornecedores,
-            "ultimos_contratos": ultimos_contratos,
-            "ultima_sincronizacao": ultima_sincronizacao,
+        return build_pncp_resumo_from_rows(
+            filtered_rows=filtered_rows,
+            anos_disponiveis=anos_disponiveis,
+            today=today,
+            por_orgao_override=por_orgao,
+            por_ano_override=por_ano,
+            ultimos_contratos_override=ultimos_contratos,
+            agg_override={
+                "total_contratos": total_contratos,
+                "valor_total_global": valor_total_global,
+                "valor_total_inicial": valor_total_inicial,
+                "ultima_sincronizacao": ultima_sincronizacao,
+            },
+        )
+
+
+def build_pncp_resumo_from_rows(
+    filtered_rows: List[Dict[str, Any]],
+    org_rows: Optional[List[Dict[str, Any]]] = None,
+    anos_disponiveis: Optional[List[int]] = None,
+    today: Optional[date] = None,
+    por_orgao_override: Optional[List[Dict[str, Any]]] = None,
+    por_ano_override: Optional[Dict[str, Dict[str, Any]]] = None,
+    ultimos_contratos_override: Optional[List[Dict[str, Any]]] = None,
+    agg_override: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Agrega KPIs, série mensal, fornecedores e contratos recentes de forma idêntica para SQLite e Supabase."""
+    ref_today = today or datetime.now().date()
+
+    if agg_override is not None:
+        total_contratos = int(agg_override.get("total_contratos") or 0)
+        valor_total_global = float(agg_override.get("valor_total_global") or 0.0)
+        valor_total_inicial = float(agg_override.get("valor_total_inicial") or 0.0)
+        ultima_sincronizacao = str(agg_override.get("ultima_sincronizacao") or "")
+    else:
+        total_contratos = len(filtered_rows)
+        valor_total_global = sum(float(r.get("valor_global") or 0.0) for r in filtered_rows)
+        valor_total_inicial = sum(float(r.get("valor_inicial") or 0.0) for r in filtered_rows)
+        ultima_sincronizacao = max(
+            (str(r.get("atualizado_em") or "") for r in filtered_rows),
+            default="",
+        )
+
+    if por_ano_override is not None:
+        por_ano = por_ano_override
+    else:
+        source_ano = org_rows if org_rows is not None else filtered_rows
+        ano_map: Dict[str, Dict[str, Any]] = {}
+        for r in source_ano:
+            yr = str(r.get("ano_contrato") or "")
+            if not yr:
+                continue
+            if yr not in ano_map:
+                ano_map[yr] = {"contratos": 0, "valor_global": 0.0}
+            ano_map[yr]["contratos"] += 1
+            ano_map[yr]["valor_global"] += float(r.get("valor_global") or 0.0)
+        por_ano = {
+            k: {
+                "contratos": v["contratos"],
+                "valor_global": round(v["valor_global"], 2),
+            }
+            for k, v in sorted(ano_map.items(), key=lambda x: x[0], reverse=True)
         }
+
+    if por_orgao_override is not None:
+        por_orgao = por_orgao_override
+    else:
+        org_map: Dict[str, Dict[str, Any]] = {}
+        for r in filtered_rows:
+            cnpj = str(r.get("orgao_cnpj") or "")
+            sigla = str(r.get("orgao_sigla") or "")
+            nome = str(r.get("orgao_nome") or "")
+            okey = f"{cnpj}|{sigla}"
+            if okey not in org_map:
+                org_map[okey] = {
+                    "orgao_cnpj": cnpj,
+                    "orgao_sigla": sigla,
+                    "orgao_nome": nome,
+                    "contratos": 0,
+                    "valor_global": 0.0,
+                }
+            org_map[okey]["contratos"] += 1
+            org_map[okey]["valor_global"] += float(r.get("valor_global") or 0.0)
+        por_orgao = [
+            {
+                "orgao_cnpj": v["orgao_cnpj"],
+                "orgao_sigla": v["orgao_sigla"],
+                "orgao_nome": v["orgao_nome"],
+                "contratos": v["contratos"],
+                "valor_global": round(v["valor_global"], 2),
+            }
+            for v in sorted(org_map.values(), key=lambda x: x["valor_global"], reverse=True)
+        ]
+
+    mensal_map: Dict[str, Dict[str, Any]] = {}
+    forn_map: Dict[str, Dict[str, Any]] = {}
+
+    for r in filtered_rows:
+        ref_date = str(r.get("data_publicacao") or r.get("data_assinatura") or "").strip()
+        mes_key = (
+            ref_date[:7]
+            if len(ref_date) >= 7 and ref_date[:4].isdigit()
+            else f"{r.get('ano_contrato')}-01"
+        )
+        if mes_key not in mensal_map:
+            mensal_map[mes_key] = {
+                "mes": mes_key,
+                "valor_global": 0.0,
+                "valor_inicial": 0.0,
+                "contratos": 0,
+            }
+        vg = float(r.get("valor_global") or 0.0)
+        vi = float(r.get("valor_inicial") or 0.0)
+        mensal_map[mes_key]["valor_global"] += vg
+        mensal_map[mes_key]["valor_inicial"] += vi
+        mensal_map[mes_key]["contratos"] += 1
+
+        fnome = str(r.get("fornecedor_nome") or "").strip() or "Fornecedor não informado"
+        fcnpj = str(r.get("fornecedor_cnpj") or "").strip()
+        fkey = fcnpj or fnome.upper()
+        if fkey not in forn_map:
+            forn_map[fkey] = {
+                "fornecedor_cnpj": fcnpj,
+                "fornecedor_nome": fnome,
+                "total_valor": 0.0,
+                "qtd_contratos": 0,
+                "orgaos": set(),
+                "vigencias": [],
+            }
+        forn_map[fkey]["total_valor"] += vg
+        forn_map[fkey]["qtd_contratos"] += 1
+        if r.get("orgao_sigla"):
+            forn_map[fkey]["orgaos"].add(str(r["orgao_sigla"]))
+
+        vi_dt = str(r.get("data_vigencia_inicio") or "").strip()[:10]
+        vf_dt = str(r.get("data_vigencia_fim") or "").strip()[:10]
+        if len(vi_dt) == 10 and len(vf_dt) == 10:
+            try:
+                d_start = datetime.strptime(vi_dt, "%Y-%m-%d").date()
+                d_end = datetime.strptime(vf_dt, "%Y-%m-%d").date()
+                total_days = (d_end - d_start).days
+                if total_days > 0:
+                    elapsed = max(0, min(total_days, (ref_today - d_start).days))
+                    forn_map[fkey]["vigencias"].append((elapsed / total_days) * 100.0)
+            except ValueError:
+                pass
+
+    evolucao_mensal = [
+        {
+            "mes": k,
+            "valor_global": round(v["valor_global"], 2),
+            "valor_inicial": round(v["valor_inicial"], 2),
+            "contratos": v["contratos"],
+        }
+        for k, v in sorted(mensal_map.items(), key=lambda x: x[0])
+    ]
+
+    sorted_forn = sorted(forn_map.values(), key=lambda x: x["total_valor"], reverse=True)[:8]
+    top_fornecedores: List[Dict[str, Any]] = []
+    for item in sorted_forn:
+        vigs = item["vigencias"]
+        vig_avg = round(sum(vigs) / len(vigs), 1) if vigs else None
+        part_pct = (
+            round((item["total_valor"] / valor_total_global) * 100.0, 1)
+            if valor_total_global > 0
+            else 0.0
+        )
+        top_fornecedores.append(
+            {
+                "fornecedor_cnpj": item["fornecedor_cnpj"],
+                "fornecedor_nome": item["fornecedor_nome"],
+                "total_valor": round(item["total_valor"], 2),
+                "qtd_contratos": item["qtd_contratos"],
+                "orgaos": ", ".join(sorted(item["orgaos"])),
+                "participacao_pct": part_pct,
+                "vigencia_media_pct": vig_avg,
+            }
+        )
+
+    if ultimos_contratos_override is not None:
+        ultimos_contratos = ultimos_contratos_override
+    else:
+        ultimos_contratos = sorted(
+            filtered_rows,
+            key=lambda c: (
+                str(c.get("data_publicacao") or c.get("data_assinatura") or ""),
+                int(c.get("ano_contrato") or 0),
+                float(c.get("valor_global") or 0.0),
+            ),
+            reverse=True,
+        )[:8]
+
+    return {
+        "total_contratos": total_contratos,
+        "valor_total_global": round(valor_total_global, 2),
+        "valor_total_inicial": round(valor_total_inicial, 2),
+        "anos_disponiveis": anos_disponiveis or [2026, 2025, 2024],
+        "por_ano": por_ano,
+        "por_orgao": por_orgao,
+        "evolucao_mensal": evolucao_mensal,
+        "top_fornecedores": top_fornecedores,
+        "ultimos_contratos": ultimos_contratos,
+        "ultima_sincronizacao": ultima_sincronizacao,
+    }
+
+
+def get_database(db_path: Path | None = None) -> Any:
+    """Seleciona automaticamente o backend de persistência (`supabase` ou `sqlite`)."""
+    forced = os.environ.get("RADAR_STORAGE_BACKEND", "auto").strip().lower()
+    if forced == "sqlite":
+        return RadarDatabase(db_path)
+    if forced == "supabase" or (forced in ("", "auto") and is_supabase_configured()):
+        from src.supabase_store import SupabaseDatabase
+
+        return SupabaseDatabase.from_env()
+    return RadarDatabase(db_path)

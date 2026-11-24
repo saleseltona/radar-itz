@@ -1137,6 +1137,7 @@
     let pncpStatsLoaded = false;
     let pncpModalPage = 1;
     let pncpModalTimer = null;
+    let currentStorageBackend = 'sqlite';
     const pncpContractsCache = {};
 
     const DEFAULT_KEYWORDS = ['dispensa', 'inexigibilidade', 'alagamento', 'socorrão', 'interdição'];
@@ -1187,6 +1188,7 @@
     // Carregamento Inicial
     // ---------------------------
     async function loadAllData() {
+      syncPncpRetificacoesCookie();
       await syncLocalPncpRetificacoesToServer();
       await Promise.all([
         loadPautasAndStats(),
@@ -1201,8 +1203,8 @@
     async function loadPautasAndStats() {
       try {
         const [resPautas, resStats] = await Promise.all([
-          fetch(`/api/pautas?sort=${encodeURIComponent(currentSortOrder)}`),
-          fetch('/api/stats'),
+          pncpFetch(`/api/pautas?sort=${encodeURIComponent(currentSortOrder)}`),
+          pncpFetch('/api/stats'),
         ]);
         pautasData = await resPautas.json();
         const stats = resStats.ok ? await resStats.json() : null;
@@ -1239,6 +1241,16 @@
     }
 
     function updateHeroAndSidebarStats(stats) {
+      if (stats.storage_backend) {
+        currentStorageBackend = String(stats.storage_backend);
+        if (currentStorageBackend === 'supabase') syncPncpRetificacoesCookie();
+        const hdrPill = document.getElementById('header-pncp-pill');
+        if (hdrPill) {
+          hdrPill.title = currentStorageBackend === 'supabase'
+            ? 'Persistência ativa: Supabase PostgreSQL (nuvem)'
+            : 'Persistência ativa: SQLite com sincronização stateless';
+        }
+      }
       const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
       setTxt('kpi-total-pautas', `${stats.total_pautas} Pautas`);
       setTxt('kpi-emergencias-sub', `${stats.pautas_48h || 0} últimas 48h • ${stats.pautas_7d || 0} em 7d • ${stats.emergencias || 0} emergências`);
@@ -1564,7 +1576,7 @@
         const params = new URLSearchParams();
         if (currentPncpYear) params.set('ano', currentPncpYear);
         if (currentPncpOrgao) params.set('orgao', currentPncpOrgao);
-        const res = await fetch('/api/pncp/resumo?' + params.toString());
+        const res = await pncpFetch('/api/pncp/resumo?' + params.toString());
         const data = await res.json();
 
         // Quando sem filtros de ano/órgão, atualiza KPI 1 geral no Hero
@@ -1786,7 +1798,7 @@
       if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-on-surface-variant">Carregando contratos do PNCP...</td></tr>';
 
       try {
-        const res = await fetch('/api/pncp/contratos?' + params.toString());
+        const res = await pncpFetch('/api/pncp/contratos?' + params.toString());
         const data = await res.json();
         const items = data.items || [];
 
@@ -1904,26 +1916,116 @@
       try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
     }
 
+    function markLocalPncpRestauracao(ctrl) {
+      const map = getSavedPncpRetificacoes();
+      map[ctrl] = {
+        r: 1,
+        atualizado_em: new Date().toISOString(),
+      };
+      try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
     function removeLocalPncpRetificacao(ctrl) {
       const map = getSavedPncpRetificacoes();
       delete map[ctrl];
       try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
     }
 
-    async function syncLocalPncpRetificacoesToServer() {
+    function encodePncpRetificacoesWire() {
       const map = getSavedPncpRetificacoes();
-      const lista = Object.entries(map).map(([ctrl, v]) => ({
-        numero_controle_pncp: ctrl,
-        valor_corrigido: v.valor_corrigido,
-        justificativa: v.justificativa || '',
+      const entries = Object.entries(map).sort((a, b) =>
+        String((b[1] && b[1].atualizado_em) || '').localeCompare(String((a[1] && a[1].atualizado_em) || ''))
+      ).slice(0, 40);
+      const compact = {};
+      for (const [ctrl, item] of entries) {
+        if (!ctrl || !item || typeof item !== 'object') continue;
+        if (item.r || item.restaurar) {
+          compact[ctrl] = { r: 1 };
+          continue;
+        }
+        const val = parseBrlInput(item.valor_corrigido !== undefined ? item.valor_corrigido : item.v);
+        if (val === null) continue;
+        const just = String(item.justificativa || item.j || '').trim().slice(0, 80);
+        compact[ctrl] = just ? { v: val, j: just } : { v: val };
+      }
+      if (!Object.keys(compact).length) return '';
+      try {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(compact))));
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function syncPncpRetificacoesCookie() {
+      if (currentStorageBackend === 'supabase') {
+        document.cookie = 'radar_pncp_retif=; path=/; max-age=0; SameSite=Lax';
+        return '';
+      }
+      const wire = encodePncpRetificacoesWire();
+      if (wire) {
+        document.cookie = 'radar_pncp_retif=' + encodeURIComponent(wire) + '; path=/; max-age=31536000; SameSite=Lax';
+      } else {
+        document.cookie = 'radar_pncp_retif=; path=/; max-age=0; SameSite=Lax';
+      }
+      return wire;
+    }
+
+    function pncpFetch(url, options = {}) {
+      const headers = Object.assign({}, options.headers || {});
+      if (currentStorageBackend !== 'supabase') {
+        const wire = encodePncpRetificacoesWire();
+        if (wire && !headers['X-PNCP-Retificacoes']) {
+          headers['X-PNCP-Retificacoes'] = wire;
+        }
+      }
+      return fetch(url, Object.assign({}, options, {
+        cache: 'no-store',
+        headers,
       }));
+    }
+
+    function showPncpToast(message, isError = false) {
+      let toast = document.getElementById('pncp-toast-notice');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'pncp-toast-notice';
+        toast.className = 'fixed bottom-5 right-5 z-[90] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold transition-opacity duration-200 pointer-events-none';
+        document.body.appendChild(toast);
+      }
+      toast.className = 'fixed bottom-5 right-5 z-[90] px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold transition-opacity duration-200 pointer-events-none ' +
+        (isError ? 'bg-error text-on-error' : 'bg-slate-900 text-white border border-slate-700');
+      toast.innerText = message;
+      toast.style.opacity = '1';
+      clearTimeout(toast._hideTimer);
+      toast._hideTimer = setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 3200);
+    }
+
+    async function syncLocalPncpRetificacoesToServer() {
+      if (currentStorageBackend === 'supabase') return;
+      const map = getSavedPncpRetificacoes();
+      const lista = Object.entries(map)
+        .filter(([, v]) => v && typeof v === 'object' && !v.r && !v.restaurar && (v.valor_corrigido !== undefined || v.v !== undefined))
+        .map(([ctrl, v]) => ({
+          numero_controle_pncp: ctrl,
+          valor_corrigido: v.valor_corrigido !== undefined ? v.valor_corrigido : v.v,
+          justificativa: v.justificativa || v.j || '',
+        }));
       if (!lista.length) return;
       try {
-        await fetch('/api/pncp/retificacoes/sync', {
+        const res = await pncpFetch('/api/pncp/retificacoes/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ retificacoes: lista }),
         });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.storage_backend === 'supabase') {
+            currentStorageBackend = 'supabase';
+            syncPncpRetificacoesCookie();
+          }
+        }
       } catch (e) {
         console.warn('Aviso ao sincronizar retificações locais PNCP:', e);
       }
@@ -2021,7 +2123,7 @@
       const btn = document.getElementById('btn-pncp-salvar-edit');
       if (btn) btn.disabled = true;
       try {
-        const res = await fetch('/api/pncp/retificar', {
+        const res = await pncpFetch('/api/pncp/retificar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2035,10 +2137,14 @@
           alert(data.erro || 'Não foi possível salvar a retificação.');
           return;
         }
-        saveLocalPncpRetificacao(ctrl, val, just);
+        if (currentStorageBackend !== 'supabase') {
+          saveLocalPncpRetificacao(ctrl, val, just);
+          syncPncpRetificacoesCookie();
+        }
         if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
         closeModal('pncp-edit-modal');
         await refreshAfterPncpEdit();
+        showPncpToast(`Retificação salva: ${formatBRL(val)}`);
       } catch (err) {
         alert(`Erro ao salvar retificação: ${err.message}`);
       } finally {
@@ -2052,7 +2158,7 @@
       const btn = document.getElementById('btn-pncp-restaurar');
       if (btn) btn.disabled = true;
       try {
-        const res = await fetch('/api/pncp/retificar', {
+        const res = await pncpFetch('/api/pncp/retificar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ numero_controle_pncp: ctrl, restaurar: true }),
@@ -2062,10 +2168,14 @@
           alert(data.erro || 'Não foi possível restaurar o valor original.');
           return;
         }
-        removeLocalPncpRetificacao(ctrl);
+        if (currentStorageBackend !== 'supabase') {
+          markLocalPncpRestauracao(ctrl);
+          syncPncpRetificacoesCookie();
+        }
         if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
         closeModal('pncp-edit-modal');
         await refreshAfterPncpEdit();
+        showPncpToast('Valor original do PNCP restaurado!');
       } catch (err) {
         alert(`Erro ao restaurar valor original: ${err.message}`);
       } finally {
@@ -2080,14 +2190,17 @@
       if (icon) icon.classList.add('animate-spin');
 
       try {
-        const res = await fetch('/api/pncp/sync', {
+        const res = await pncpFetch('/api/pncp/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ anos: [2024, 2025, 2026] }),
         });
         const data = await res.json();
         if (res.ok) {
-          alert(`Sincronização PNCP concluída!\n• Contratos processados: ${data.total_sincronizados || 0}\n• Por ano: 2026 (${data.por_ano?.['2026'] || 0}), 2025 (${data.por_ano?.['2025'] || 0}), 2024 (${data.por_ano?.['2024'] || 0})`);
+          const det = data.sync_detalhes
+            ? `\n• Apenas novos/alterados: ${data.sync_detalhes.novos || 0} novos, ${data.sync_detalhes.ignorados_existentes || 0} já existentes ignorados`
+            : '';
+          alert(`Sincronização PNCP concluída!\n• Contratos processados: ${data.total_sincronizados || 0}${det}\n• Por ano: 2026 (${data.por_ano?.['2026'] || 0}), 2025 (${data.por_ano?.['2025'] || 0}), 2024 (${data.por_ano?.['2024'] || 0})`);
           await loadPncpSummary();
           await loadPautasAndStats();
           if (refreshModal) await loadPncpModal(1);
@@ -2468,7 +2581,7 @@
       if (expEl) expEl.href = '/api/pncp/export/csv?' + expParams.toString();
 
       try {
-        const res = await fetch('/api/pncp/estatisticas?' + params.toString());
+        const res = await pncpFetch('/api/pncp/estatisticas?' + params.toString());
         if (!res.ok) return;
         const data = await res.json();
         pncpStatsLoaded = true;

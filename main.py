@@ -21,7 +21,7 @@ from src.config import (
     mask_secrets,
 )
 from src.content_extractor import ContentExtractor
-from src.database import RadarDatabase
+from src.database import RadarDatabase, get_database
 from src.deduplicator import Deduplicator
 from src.editorial_classifier import EditorialClassifier
 from src.error_monitor import ErrorMonitor
@@ -54,7 +54,7 @@ def run_radar_cycle(
     logger.info("Modo: %s | Delimitador CSV: '%s'", modo, delimiter)
     logger.info("=================================================================")
 
-    db = RadarDatabase(DB_PATH)
+    db = get_database(DB_PATH)
     error_monitor = ErrorMonitor(db)
     source_manager = SourceManager(db, FONTES_CSV_PATH)
     page_collector = PageCollector(db, error_monitor)
@@ -339,7 +339,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    db = RadarDatabase(DB_PATH)
+    db = get_database(DB_PATH)
     source_mgr = SourceManager(db, FONTES_CSV_PATH)
 
     if args.add_source:
@@ -359,8 +359,10 @@ def main() -> None:
         fontes = db.get_all_fontes()
         pautas = db.get_all_pautas()
         execucoes = db.get_all_execucoes()
-        print(f"--- STATUS DO RADAR DE IMPERATRIZ ---")
-        print(f"Banco de Dados: {DB_PATH}")
+        backend_name = getattr(db, "backend_name", "sqlite")
+        print("--- STATUS DO RADAR DE IMPERATRIZ ---")
+        print(f"Backend de Dados: {backend_name}")
+        print(f"Banco de Dados: {getattr(db, 'db_path', None) or 'Supabase PostgreSQL'}")
         print(f"Total de Fontes Cadastradas: {len(fontes)}")
         print(f"Total de Pautas Armazenadas: {len(pautas)}")
         print(f"Total de Execuções Registradas: {len(execucoes)}")

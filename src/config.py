@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
@@ -241,7 +241,36 @@ SENSITIVE_ENV_VARS = (
     "BING_SEARCH_API_KEY",
     "INSTAGRAM_GRAPH_TOKEN",
     "ANA_TELEMETRIA_TOKEN",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_KEY",
+    "SUPABASE_ANON_KEY",
 )
+
+
+def get_supabase_config() -> Tuple[str, str]:
+    """Retorna (url, service_role_key) do Supabase a partir das variáveis de ambiente."""
+    url = (
+        os.environ.get("SUPABASE_URL")
+        or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+        or ""
+    ).strip().rstrip("/")
+    key = (
+        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        or os.environ.get("SUPABASE_SECRET_KEY")
+        or os.environ.get("SUPABASE_KEY")
+        or ""
+    ).strip()
+    return url, key
+
+
+def is_supabase_configured() -> bool:
+    """Indica se o backend Supabase deve ser utilizado nesta execução."""
+    forced = os.environ.get("RADAR_STORAGE_BACKEND", "auto").strip().lower()
+    if forced == "sqlite":
+        return False
+    url, key = get_supabase_config()
+    return bool(url and key)
 
 
 def mask_secrets(text: str) -> str:
@@ -273,4 +302,5 @@ def get_configured_integrations() -> Dict[str, bool]:
         "bing_search": bool(os.environ.get("BING_SEARCH_API_KEY")),
         "instagram_graph_api": bool(os.environ.get("INSTAGRAM_GRAPH_TOKEN")),
         "ana_telemetria": bool(os.environ.get("ANA_TELEMETRIA_TOKEN")),
+        "supabase": is_supabase_configured(),
     }

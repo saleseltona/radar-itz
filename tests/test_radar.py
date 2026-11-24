@@ -5,12 +5,17 @@ deduplicação, proteção de credenciais, geração de arquivos e persistência
 """
 from __future__ import annotations
 
+import base64
 import csv
+import email.message
+import io
 import json
 import os
 import tempfile
 import unittest
+import urllib.parse
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.config import mask_secrets
 from src.content_extractor import ContentExtractor
@@ -568,6 +573,497 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertEqual(len(est["faixas_valor"]), 4)
         self.assertEqual(len(est["alertas_auditoria"]["possiveis_erros_outliers"]), 1)  # CTRL-01 em CPF >= 500k
         self.assertGreaterEqual(est["alertas_auditoria"]["vencendo_em_60d"]["total_contratos"], 1)
+
+    def test_15_pncp_retificacao_stateless_header_e_cookie(self) -> None:
+        """Testa persistência stateless entre instâncias frias via header, cookie e Cache-Control: no-store."""
+        from src.web_server import RadarAPIHandler
+
+        cold_db_path = self.base_path / "cold_instance.db"
+        cold_db = RadarDatabase(cold_db_path)
+        ctrl = "06158455000116-2-000007/2026"
+        cold_db.upsert_pncp_contrato(
+            {
+                "numero_controle_pncp": ctrl,
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "unidade_nome": "Secretaria Municipal de Desenvolvimento Social",
+                "ano_contrato": 2026,
+                "numero_contrato": "001",
+                "processo": "02.06.00.098/2025",
+                "tipo_contrato": "Contrato",
+                "fornecedor_cnpj": "86052543353",
+                "fornecedor_nome": "Ruth Ribeiro Batista",
+                "objeto": "Locação de imóvel para funcionamento do Abrigo",
+                "valor_inicial": 159984000.0,
+                "valor_global": 159984000.0,
+                "valor_acumulado": 159984000.0,
+                "data_assinatura": "2026-01-29",
+                "data_publicacao": "2026-01-30",
+                "data_vigencia_inicio": "2026-01-29",
+                "data_vigencia_fim": "2026-12-31",
+                "url_pncp": "https://pncp.gov.br/app/contratos/06158455000116/2026/7",
+            }
+        )
+
+        class _HarnessHandler(RadarAPIHandler):
+            bound_db = cold_db
+
+            @classmethod
+            def get_db(cls) -> Any:
+                return cls.bound_db
+
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                return
+
+        def dispatch(method: str, req_path: str, req_headers: Dict[str, str], body: Optional[bytes] = None) -> Tuple[int, Dict[str, str], bytes]:
+            h = _HarnessHandler.__new__(_HarnessHandler)
+            h.command = method
+            h.path = req_path
+            h.request_version = "HTTP/1.1"
+            h.requestline = f"{method} {req_path} HTTP/1.1"
+            h.client_address = ("127.0.0.1", 0)
+            h.close_connection = True
+            h._headers_buffer = []
+            msg = email.message.Message()
+            for k, v in req_headers.items():
+                msg[k] = v
+            h.headers = msg
+            h.rfile = io.BytesIO(body or b"")
+            h.wfile = io.BytesIO()
+            if method == "GET":
+                h.do_GET()
+            else:
+                h.do_POST()
+            raw = h.wfile.getvalue()
+            head_bytes, _, body_bytes = raw.partition(b"\r\n\r\n")
+            lines = head_bytes.decode("latin-1").split("\r\n")
+            status = int(lines[0].split(" ", 2)[1])
+            parsed_headers: Dict[str, str] = {}
+            for line in lines[1:]:
+                if ":" in line:
+                    hk, hv = line.split(":", 1)
+                    parsed_headers[hk.strip().lower()] = hv.strip()
+            return status, parsed_headers, body_bytes
+
+        wire_payload = {ctrl: {"v": 159984.0, "j": "Locação anual ajustada em contrato"}}
+        wire_b64 = base64.b64encode(json.dumps(wire_payload, ensure_ascii=False).encode("utf-8")).decode("ascii")
+
+        # 1. Header em instância fria atualiza listagem, resumo e estatísticas e retorna Cache-Control: no-store
+        st, hdrs, body = dispatch("GET", "/api/pncp/contratos?ordem=maior_valor", {"X-PNCP-Retificacoes": wire_b64})
+        self.assertEqual(st, 200)
+        self.assertIn("no-store", hdrs.get("cache-control", ""))
+        contratos_json = json.loads(body.decode("utf-8"))
+        self.assertTrue(contratos_json["items"][0]["retificado"])
+        self.assertAlmostEqual(contratos_json["items"][0]["valor_global"], 159984.0)
+
+        st_res, hdrs_res, body_res = dispatch("GET", "/api/pncp/resumo", {"X-PNCP-Retificacoes": wire_b64})
+        self.assertEqual(st_res, 200)
+        self.assertIn("no-store", hdrs_res.get("cache-control", ""))
+        self.assertAlmostEqual(json.loads(body_res.decode("utf-8"))["valor_total_global"], 159984.0)
+
+        st_est, _, body_est = dispatch("GET", "/api/pncp/estatisticas", {"X-PNCP-Retificacoes": wire_b64})
+        self.assertEqual(st_est, 200)
+        self.assertAlmostEqual(json.loads(body_est.decode("utf-8"))["resumo_geral"]["valor_total_global"], 159984.0)
+
+        # 2. Export CSV lendo via Cookie em nova instância fria sem header
+        cold_db_2 = RadarDatabase(self.base_path / "cold_cookie.db")
+        cold_db_2.upsert_pncp_contrato(
+            {
+                "numero_controle_pncp": ctrl,
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "ano_contrato": 2026,
+                "fornecedor_nome": "Ruth Ribeiro Batista",
+                "objeto": "Locação de imóvel",
+                "valor_inicial": 159984000.0,
+                "valor_global": 159984000.0,
+                "valor_acumulado": 159984000.0,
+            }
+        )
+        _HarnessHandler.bound_db = cold_db_2
+        st_csv, hdrs_csv, body_csv = dispatch(
+            "GET",
+            "/api/pncp/export/csv",
+            {"Cookie": f"radar_pncp_retif={urllib.parse.quote(wire_b64)}"},
+        )
+        self.assertEqual(st_csv, 200)
+        self.assertIn("no-store", hdrs_csv.get("cache-control", ""))
+        csv_text = body_csv.decode("utf-8-sig")
+        self.assertIn("159984.0", csv_text)
+        self.assertNotIn("159984000.0;2026-", csv_text)
+
+        # 3. Tombstone de restauração reverte valor original no banco
+        restore_b64 = base64.b64encode(json.dumps({ctrl: {"r": 1}}).encode("utf-8")).decode("ascii")
+        st_rst, _, body_rst = dispatch("GET", "/api/pncp/contratos", {"X-PNCP-Retificacoes": restore_b64})
+        self.assertEqual(st_rst, 200)
+        restored_item = json.loads(body_rst.decode("utf-8"))["items"][0]
+        self.assertFalse(restored_item["retificado"])
+        self.assertAlmostEqual(restored_item["valor_global"], 159984000.0)
+
+    @staticmethod
+    def _build_fake_supabase_transport() -> Any:
+        tables: Dict[str, List[Dict[str, Any]]] = {}
+        seq_counter: Dict[str, int] = {}
+        serial_tables = {
+            "fontes",
+            "paginas_coletadas",
+            "evidencias",
+            "historico_atualizacoes",
+            "pendencias_apuracao",
+            "itens_descartados",
+            "erros_coleta",
+        }
+
+        def match_filters(row: Dict[str, Any], qs: Dict[str, List[str]]) -> bool:
+            for k, vals in qs.items():
+                if k in ("select", "order", "limit", "on_conflict"):
+                    continue
+                for raw_expr in vals:
+                    if raw_expr.startswith("eq."):
+                        target = raw_expr[3:]
+                        if str(row.get(k, "")) != target:
+                            return False
+            return True
+
+        def parse_prefer(raw: str) -> Dict[str, str]:
+            out: Dict[str, str] = {}
+            for part in (raw or "").split(","):
+                part = part.strip()
+                if "=" in part:
+                    pk, pv = part.split("=", 1)
+                    out[pk.strip().lower()] = pv.strip().lower()
+            return out
+
+        def transport(
+            method: str,
+            url: str,
+            headers: Dict[str, str],
+            body: Optional[bytes],
+            timeout: int,
+        ) -> Tuple[int, Dict[str, str], bytes]:
+            parsed = urllib.parse.urlparse(url)
+            table = parsed.path.rsplit("/", 1)[-1]
+            qs = urllib.parse.parse_qs(parsed.query)
+            prefer = parse_prefer(headers.get("Prefer", ""))
+            rows = tables.setdefault(table, [])
+
+            if method == "GET":
+                matched = [dict(r) for r in rows if match_filters(r, qs)]
+                if "order" in qs:
+                    col, _, direction = qs["order"][0].partition(".")
+                    matched.sort(
+                        key=lambda r: (r.get(col) is None, r.get(col) if isinstance(r.get(col), (int, float)) else str(r.get(col) or "")),
+                        reverse=(direction.lower() == "desc"),
+                    )
+                total = len(matched)
+                start, end = 0, max(0, total - 1)
+                if "Range" in headers and "-" in headers["Range"]:
+                    r_a, r_b = headers["Range"].split("-", 1)
+                    start = int(r_a or 0)
+                    end = int(r_b or max(0, total - 1))
+                    sliced = matched[start : end + 1]
+                else:
+                    sliced = matched
+                if "limit" in qs:
+                    sliced = sliced[: int(qs["limit"][0])]
+                if "select" in qs and qs["select"][0].strip() != "*":
+                    cols = [c.strip() for c in qs["select"][0].split(",") if c.strip()]
+                    sliced = [{c: r.get(c) for c in cols} for r in sliced]
+                c_range = f"*/{total}" if total == 0 else f"{start}-{min(end, total - 1)}/{total}"
+                return 200, {"Content-Range": c_range}, json.dumps(sliced, ensure_ascii=False).encode("utf-8")
+
+            if method == "POST":
+                payload = json.loads((body or b"[]").decode("utf-8"))
+                if not isinstance(payload, list):
+                    payload = [payload]
+                conflict_cols = [c.strip() for c in (qs.get("on_conflict", [""])[0]).split(",") if c.strip()]
+                ignore_dups = prefer.get("resolution") == "ignore-duplicates"
+
+                for item in payload:
+                    rec = dict(item)
+                    matched_idx: Optional[int] = None
+                    if conflict_cols:
+                        key_tuple = tuple(str(rec.get(c, "")) for c in conflict_cols)
+                        for idx, existing in enumerate(rows):
+                            if tuple(str(existing.get(c, "")) for c in conflict_cols) == key_tuple:
+                                matched_idx = idx
+                                break
+                    if matched_idx is not None:
+                        if not ignore_dups:
+                            keep_id = rows[matched_idx].get("id")
+                            rows[matched_idx].update(rec)
+                            if keep_id is not None:
+                                rows[matched_idx]["id"] = keep_id
+                    else:
+                        if table in serial_tables and "id" not in rec:
+                            seq_counter[table] = seq_counter.get(table, 0) + 1
+                            rec["id"] = seq_counter[table]
+                        rows.append(rec)
+                return 201, {}, b""
+
+            if method == "PATCH":
+                payload = json.loads((body or b"{}").decode("utf-8"))
+                for existing in rows:
+                    if match_filters(existing, qs):
+                        existing.update(payload)
+                return 204, {}, b""
+
+            if method == "DELETE":
+                tables[table] = [r for r in rows if not match_filters(r, qs)]
+                return 204, {}, b""
+
+            return 405, {}, b""
+
+        transport._tables = tables  # type: ignore[attr-defined]
+        return transport
+
+    def test_16_supabase_database_crud_e_retificacao_persistente(self) -> None:
+        """Testa SupabaseDatabase com PostgREST simulado: CRUD, upsert só-novos e retificação persistente."""
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+
+        transport = self._build_fake_supabase_transport()
+        client = SupabaseRestClient("https://projeto.supabase.co", "service-role-key-secret", transport=transport)
+        supa = SupabaseDatabase(client)
+
+        ctrl_ruth = "06158455000116-2-000007/2026"
+        batch = [
+            {
+                "numero_controle_pncp": ctrl_ruth,
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "unidade_nome": "SEDES",
+                "ano_contrato": 2026,
+                "numero_contrato": "001",
+                "processo": "02.06.00.098/2025",
+                "tipo_contrato": "Contrato",
+                "fornecedor_cnpj": "86052543353",
+                "fornecedor_nome": "Ruth Ribeiro Batista",
+                "objeto": "Locação de imóvel para funcionamento do Abrigo",
+                "valor_inicial": 159984000.0,
+                "valor_global": 159984000.0,
+                "valor_acumulado": 159984000.0,
+                "data_assinatura": "2026-01-29",
+                "data_publicacao": "2026-01-30",
+                "data_vigencia_inicio": "2026-01-29",
+                "data_vigencia_fim": "2026-12-31",
+                "url_pncp": "https://pncp.gov.br/app/contratos/06158455000116/2026/7",
+            },
+            {
+                "numero_controle_pncp": "06158455000116-2-000008/2026",
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "unidade_nome": "SEDES",
+                "ano_contrato": 2026,
+                "numero_contrato": "002",
+                "processo": "02.06.00.100/2026",
+                "tipo_contrato": "Contrato",
+                "fornecedor_cnpj": "12345678000199",
+                "fornecedor_nome": "Alimentos Maranhão LTDA",
+                "objeto": "Aquisição de gêneros alimentícios e cestas básicas",
+                "valor_inicial": 50000.0,
+                "valor_global": 50000.0,
+                "valor_acumulado": 50000.0,
+                "data_assinatura": "2026-02-01",
+                "data_publicacao": "2026-02-02",
+                "data_vigencia_inicio": "2026-02-01",
+                "data_vigencia_fim": "2026-12-31",
+                "url_pncp": "https://pncp.gov.br/app/contratos/06158455000116/2026/8",
+            },
+        ]
+
+        # 1ª carga: 2 novos contratos
+        enviados_1 = supa.upsert_pncp_contratos_batch(batch)
+        self.assertEqual(enviados_1, 2)
+        self.assertEqual(supa.last_sync_stats["novos"], 2)
+
+        # Reenvio idêntico: 0 novos, 2 ignorados
+        enviados_2 = supa.upsert_pncp_contratos_batch(batch)
+        self.assertEqual(enviados_2, 0)
+        self.assertEqual(supa.last_sync_stats["ignorados_existentes"], 2)
+
+        # Retificação persistente
+        editado = supa.retificar_pncp_contrato(ctrl_ruth, 159984.0, "Locação anual conferida")
+        self.assertIsNotNone(editado)
+        self.assertTrue(editado["retificado"])
+        self.assertAlmostEqual(editado["valor_global"], 159984.0)
+
+        # Re-sincronização com valor antigo do PNCP preserva retificação no Supabase
+        supa.upsert_pncp_contratos_batch(batch)
+        q = supa.query_pncp_contratos(ordem="maior_valor")
+        self.assertEqual(q["items"][0]["numero_controle_pncp"], ctrl_ruth)
+        self.assertAlmostEqual(q["items"][0]["valor_global"], 159984.0)
+
+        resumo = supa.get_pncp_resumo()
+        self.assertAlmostEqual(resumo["valor_total_global"], 209984.0)
+        est = supa.get_pncp_estatisticas()
+        self.assertEqual(est["resumo_geral"]["contratos_retificados"], 1)
+
+        # No modo Supabase, cabeçalhos legados são ignorados
+        self.assertEqual(supa.sync_pncp_retificacoes_from_request({ctrl_ruth: {"v": 999999.0}}), 0)
+        self.assertAlmostEqual(supa.get_pncp_resumo()["valor_total_global"], 209984.0)
+
+        # Fontes, pautas e erros
+        supa.upsert_fonte({"nome": "Portal PMI", "tipo": "Portal Oficial", "url": "https://imperatriz.ma.gov.br/", "prioridade": "Alta", "temas": "obras"})
+        self.assertEqual(len(supa.get_all_fontes()), 1)
+        supa.log_error("EXEC-1", "Coletor", "https://imperatriz.ma.gov.br/", "Timeout temporário", "2026-11-24T10:00:00")
+        self.assertEqual(len(supa.get_errors_for_execution("EXEC-1")), 1)
+
+        # Restauração de valor original
+        restored = supa.restaurar_pncp_contrato(ctrl_ruth)
+        self.assertIsNotNone(restored)
+        self.assertFalse(restored["retificado"])
+        self.assertAlmostEqual(restored["valor_global"], 159984000.0)
+
+    def test_17_supabase_sync_incremental_so_novos(self) -> None:
+        """Testa carga incremental do SQLite para Supabase garantindo envio apenas de novos e preservação de retificações."""
+        from scripts.supabase_sync import sync_sqlite_to_supabase
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+
+        transport = self._build_fake_supabase_transport()
+        client = SupabaseRestClient("https://projeto.supabase.co", "service-role-key-secret", transport=transport)
+        supa_db = SupabaseDatabase(client)
+
+        self.db.upsert_fonte(
+            {"nome": "PMI", "tipo": "Portal Oficial", "url": "https://imperatriz.ma.gov.br/", "prioridade": "Alta", "temas": "cidade"}
+        )
+        self.db.start_execution("EXEC-SYNC-1", modo="manual")
+        self.db.insert_pauta(
+            {
+                "id_pauta": "PAUTA-01",
+                "prioridade": "Alta",
+                "pontuacao_editorial": 85,
+                "justificativa_pontuacao": "Fato relevante",
+                "categoria": "Pautas de serviço público",
+                "tema_especifico": "Obras",
+                "titulo_jornalistico": "Obra na Bernardo Sayão",
+                "titulo_normalizado": "obra bernardo sayao",
+                "resumo_3_linhas": "Resumo breve.",
+                "descricao_detalhada": "Detalhe.",
+                "fonte_principal": "PMI",
+                "url_original": "https://imperatriz.ma.gov.br/noticia-1",
+                "veiculo_instituicao": "PMI",
+                "evidencias_verificadas": "Nota oficial",
+                "angulo_jornalistico": "Mobilidade",
+                "publico_afetado": "Moradores",
+                "bairros_locais_instituicoes": "Centro",
+                "formato_sugerido": "Matéria jornalística",
+                "nivel_verificacao": "Confirmado",
+                "situacao_editorial": "Pauta Inédita",
+            },
+            "EXEC-SYNC-1",
+        )
+        self.db.upsert_pncp_contratos_batch(
+            [
+                {
+                    "numero_controle_pncp": "CTRL-SYNC-1",
+                    "orgao_cnpj": "06158455000116",
+                    "orgao_sigla": "PMI",
+                    "orgao_nome": "Município de Imperatriz",
+                    "ano_contrato": 2026,
+                    "fornecedor_nome": "Fornecedor 1",
+                    "objeto": "Locação de imóvel",
+                    "valor_inicial": 1000000.0,
+                    "valor_global": 1000000.0,
+                    "valor_acumulado": 1000000.0,
+                },
+                {
+                    "numero_controle_pncp": "CTRL-SYNC-2",
+                    "orgao_cnpj": "06158455000116",
+                    "orgao_sigla": "PMI",
+                    "orgao_nome": "Município de Imperatriz",
+                    "ano_contrato": 2026,
+                    "fornecedor_nome": "Fornecedor 2",
+                    "objeto": "Aquisição de merenda escolar",
+                    "valor_inicial": 200000.0,
+                    "valor_global": 200000.0,
+                    "valor_acumulado": 200000.0,
+                },
+            ]
+        )
+        # Mesmo timestamp em erros_coleta local testa deduplicação segura antes do envio em lote
+        self.db.log_error("EXEC-SYNC-1", "Coletor", "https://exemplo.test", "Erro 500", "2026-11-24T12:00:00")
+        self.db.log_error("EXEC-SYNC-1", "Coletor", "https://exemplo.test", "Erro 500", "2026-11-24T12:00:00")
+
+        # 1. Dry-run não grava no Supabase
+        dry = sync_sqlite_to_supabase(self.db, client, dry_run=True)
+        self.assertEqual(dry["pncp_contratos"]["novos_pendentes"], 2)
+        self.assertEqual(dry["pncp_contratos"]["novos_enviados"], 0)
+        self.assertEqual(client.count("pncp_contratos"), 0)
+
+        # 2. Carga inicial
+        res_1 = sync_sqlite_to_supabase(self.db, client)
+        self.assertEqual(res_1["pncp_contratos"]["novos_enviados"], 2)
+        self.assertEqual(res_1["pautas"]["novos_enviados"], 1)
+        self.assertEqual(res_1["erros_coleta"]["novos_enviados"], 1)
+        self.assertEqual(client.count("pncp_contratos"), 2)
+
+        # Retificação feita no Supabase deve sobreviver a sincronizações futuras
+        supa_db.retificar_pncp_contrato("CTRL-SYNC-1", 100000.0, "Correção verificada na nuvem")
+
+        # 3. Reexecução imediata: zero uploads
+        res_2 = sync_sqlite_to_supabase(self.db, client)
+        for stats in res_2.values():
+            self.assertEqual(stats["novos_enviados"], 0)
+
+        # 4. Novo registro local -> sobe estritamente o novo sem tocar nos existentes nem na retificação
+        self.db.upsert_pncp_contrato(
+            {
+                "numero_controle_pncp": "CTRL-SYNC-3",
+                "orgao_cnpj": "06158455000116",
+                "orgao_sigla": "PMI",
+                "orgao_nome": "Município de Imperatriz",
+                "ano_contrato": 2026,
+                "fornecedor_nome": "Fornecedor 3",
+                "objeto": "Aquisição de medicamentos",
+                "valor_inicial": 350000.0,
+                "valor_global": 350000.0,
+                "valor_acumulado": 350000.0,
+            }
+        )
+        res_3 = sync_sqlite_to_supabase(self.db, client)
+        self.assertEqual(res_3["pncp_contratos"]["novos_enviados"], 1)
+        self.assertEqual(res_3["pautas"]["novos_enviados"], 0)
+        self.assertEqual(client.count("pncp_contratos"), 3)
+
+        supa_ctrl1 = supa_db.query_pncp_contratos(q="CTRL-SYNC-1")["items"][0]
+        self.assertTrue(supa_ctrl1["retificado"])
+        self.assertAlmostEqual(supa_ctrl1["valor_global"], 100000.0)
+
+    def test_18_factory_get_database_selecao_backend(self) -> None:
+        """Testa seleção automática e forçada entre RadarDatabase (SQLite) e SupabaseDatabase."""
+        from src.database import get_database
+        from src.supabase_store import SupabaseDatabase
+
+        keys = ("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY", "SUPABASE_KEY", "RADAR_STORAGE_BACKEND")
+        backup = {k: os.environ.get(k) for k in keys}
+        try:
+            for k in keys:
+                os.environ.pop(k, None)
+
+            db_local = get_database(self.db_path)
+            self.assertIsInstance(db_local, RadarDatabase)
+            self.assertEqual(db_local.backend_name, "sqlite")
+
+            os.environ["SUPABASE_URL"] = "https://exemplo.supabase.co"
+            os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "service-role-secret-key"
+            db_supa = get_database(self.db_path)
+            self.assertIsInstance(db_supa, SupabaseDatabase)
+            self.assertEqual(db_supa.backend_name, "supabase")
+
+            os.environ["RADAR_STORAGE_BACKEND"] = "sqlite"
+            db_forced_sqlite = get_database(self.db_path)
+            self.assertIsInstance(db_forced_sqlite, RadarDatabase)
+            self.assertEqual(db_forced_sqlite.backend_name, "sqlite")
+        finally:
+            for k, old in backup.items():
+                if old is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = old
 
 
 if __name__ == "__main__":

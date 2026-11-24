@@ -197,9 +197,7 @@ class SourceManager:
             dados["observacoes_limitacoes"] = observacoes
 
         # Recupera registro atual para mesclar
-        with self.db.connect() as conn:
-            row = conn.execute("SELECT * FROM fontes WHERE url = ?", (url,)).fetchone()
-            if row:
-                atual = dict(row)
-                atual.update(dados)
-                self.db.upsert_fonte(atual)
+        atual = self.db.get_fonte_by_url(url)
+        if atual:
+            atual.update(dados)
+            self.db.upsert_fonte(atual)
