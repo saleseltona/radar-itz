@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/", "destination": "/api/index?__route=/" },
+    { "source": "/dashboard", "destination": "/api/index?__route=/dashboard" },
+    { "source": "/index.html", "destination": "/api/index?__route=/index.html" },
+    { "source": "/clipping", "destination": "/api/index?__route=/clipping" },
+    { "source": "/clipping.html", "destination": "/api/index?__route=/clipping.html" },
+    { "source": "/export/pautas.csv", "destination": "/api/index?__route=/export/pautas.csv" },
+    { "source": "/static/:path*", "destination": "/api/index?__route=/static/:path*" },
+    { "source": "/api/pautas", "destination": "/api/index?__route=/api/pautas" },
+    { "source": "/api/stats", "destination": "/api/index?__route=/api/stats" },
+    { "source": "/api/clipping", "destination": "/api/index?__route=/api/clipping" },
+    { "source": "/api/export/csv", "destination": "/api/index?__route=/api/export/csv" },
+    { "source": "/api/fontes", "destination": "/api/index?__route=/api/fontes" },
+    { "source": "/api/executar", "destination": "/api/index?__route=/api/executar" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "{static/**,data/**,output/**,src/**,fontes.csv,main.py}"
+    }
+  }
+}

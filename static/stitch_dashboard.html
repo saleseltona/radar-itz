@@ -737,6 +737,7 @@
         (p.resumo_3_linhas && p.resumo_3_linhas.toLowerCase().includes(q)) ||
         (p.bairros_locais_instituicoes && p.bairros_locais_instituicoes.toLowerCase().includes(q)) ||
         (p.fonte_principal && p.fonte_principal.toLowerCase().includes(q)) ||
+        (p.angulo_jornalistico && p.angulo_jornalistico.toLowerCase().includes(q)) ||
         (p.pauta_sugerida && p.pauta_sugerida.toLowerCase().includes(q))
       );
 
@@ -763,6 +764,9 @@
     }
 
     container.innerHTML = list.map(p => {
+      const pautaId = p.id_pauta || p.id || '';
+      const score = p.pontuacao_editorial ?? p.score_relevancia ?? 0;
+
       let borderClass = 'bg-outline-variant';
       let badgeClass = 'bg-surface-container text-on-surface-variant';
 
@@ -782,20 +786,20 @@
       const statusColor = isConfirmado ? 'text-emerald-700' : 'text-error';
 
       return `
-        <article class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm relative overflow-hidden flex flex-col gap-space-sm group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${p.id}')">
+        <article class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm relative overflow-hidden flex flex-col gap-space-sm group hover:shadow-md transition-all cursor-pointer" onclick="openModal('${escapeHtml(pautaId)}')">
           <div class="absolute left-0 top-0 bottom-0 w-1.5 ${borderClass}"></div>
           
           <div class="flex items-center justify-between pl-2">
             <div class="flex items-center gap-2 flex-wrap">
               <span class="${badgeClass} font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1">
                 ${p.prioridade === 'Emergência' ? '<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>' : ''}
-                ${p.prioridade} • Score ${p.score_relevancia}/100
+                ${escapeHtml(p.prioridade)} • Score ${score}/100
               </span>
-              <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold">${p.fonte_principal}</span>
+              <span class="text-on-surface-variant font-label-sm text-label-sm font-semibold">${escapeHtml(p.fonte_principal)}</span>
             </div>
             <span class="font-label-sm text-label-sm ${statusColor} font-semibold flex items-center gap-1">
               <span class="material-symbols-outlined text-[14px]">${statusIcon}</span>
-              ${p.nivel_verificacao}
+              ${escapeHtml(p.nivel_verificacao)}
             </span>
           </div>
 
@@ -814,11 +818,11 @@
               <span class="truncate max-w-[180px]">${escapeHtml(p.bairros_locais_instituicoes || 'Imperatriz • MA')}</span>
             </div>
             <div class="flex items-center gap-2">
-              <button onclick="event.stopPropagation(); window.open('${p.url_original}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button" title="Ver Link Original">
+              <button onclick="event.stopPropagation(); window.open('${escapeHtml(p.url_original || '#')}', '_blank')" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm font-semibold transition-colors flex items-center gap-1" type="button" title="Ver Link Original">
                 <span class="material-symbols-outlined text-[15px]">open_in_new</span>
                 Fonte
               </button>
-              <button onclick="event.stopPropagation(); openModal('${p.id}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm hover:bg-primary-container transition-all flex items-center gap-1" type="button">
+              <button onclick="event.stopPropagation(); openModal('${escapeHtml(pautaId)}')" class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold shadow-sm hover:bg-primary-container transition-all flex items-center gap-1" type="button">
                 <span>Dossiê</span>
                 <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
               </button>
@@ -831,7 +835,7 @@
 
   // 7. Modal de Dossiê Detalhado
   function openModal(id) {
-    const p = pautasData.find(item => String(item.id) === String(id));
+    const p = pautasData.find(item => String(item.id_pauta || item.id) === String(id));
     if (!p) return;
 
     document.getElementById('modal-title').innerText = p.titulo_jornalistico || '';
@@ -839,16 +843,16 @@
     document.getElementById('modal-fonte').innerText = p.fonte_principal || '';
     document.getElementById('modal-nivel').innerText = p.nivel_verificacao || '';
     document.getElementById('modal-data-pub').innerText = p.data_publicacao || 'Não informada';
-    document.getElementById('modal-data-fato').innerText = p.data_fato || 'Recente';
+    document.getElementById('modal-data-fato').innerText = p.data_acontecimento || p.data_fato || 'Recente';
     document.getElementById('modal-locais').innerText = p.bairros_locais_instituicoes || 'Imperatriz, MA';
-    document.getElementById('modal-contraditorio').innerText = p.status_contraditorio || 'Exige contato formal com a assessoria/órgão competente.';
-    document.getElementById('modal-angulo').innerText = p.pauta_sugerida || 'Pauta prioritária para cobertura investigativa local.';
+    document.getElementById('modal-contraditorio').innerText = p.informacoes_pendentes || p.proxima_acao_recomendada || p.status_contraditorio || 'Exige contato formal com a assessoria/órgão competente.';
+    document.getElementById('modal-angulo').innerText = p.angulo_jornalistico || p.pauta_sugerida || 'Pauta prioritária para cobertura investigativa local.';
 
-    let evid = p.evidencias_primarias || 'Documentos em verificação.';
+    let evid = p.evidencias_verificadas || p.evidencias_primarias || 'Documentos em verificação.';
     if (typeof evid === 'string' && evid.startsWith('[')) {
       try {
         const parsed = JSON.parse(evid);
-        evid = parsed.join('\\n• ');
+        evid = parsed.join('\n• ');
         if (evid) evid = '• ' + evid;
       } catch (e) {}
     }
@@ -868,7 +872,7 @@
     }
 
     document.getElementById('modal-categoria').innerText = p.categoria || '';
-    document.getElementById('modal-score').innerText = `Score: ${p.score_relevancia}/100`;
+    document.getElementById('modal-score').innerText = `Score: ${p.pontuacao_editorial ?? p.score_relevancia ?? 0}/100`;
 
     document.getElementById('stitch-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -894,7 +898,7 @@
       const res = await fetch('/api/executar', { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        alert(`Varredura concluída com sucesso!\\n• Execução: #${data.execucao_id}\\n• Novas pautas: ${data.total_novas_pautas}\\n• Fontes verificadas: ${data.fontes_consultadas}`);
+        alert(`Varredura concluída com sucesso!\n• Execução: #${data.id_execucao || data.execucao_id || 'N/A'}\n• Novas pautas: ${data.pautas_novas ?? data.total_novas_pautas ?? 0}\n• Fontes verificadas: ${data.fontes_consultadas}`);
         await loadData();
       } else {
         alert(`Aviso durante varredura: ${data.erro || 'Não foi possível completar.'}`);

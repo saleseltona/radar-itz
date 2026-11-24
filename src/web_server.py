@@ -15,10 +15,10 @@ import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from main import run_radar_cycle
-from src.config import BASE_DIR, DB_PATH, OUTPUT_DIR
+from src.config import BASE_DIR, DB_PATH, OUTPUT_DIR, ensure_runtime_files
 from src.database import RadarDatabase
 from src.source_manager import SourceManager
 
@@ -346,14 +346,41 @@ def _get_fallback_dashboard_html() -> str:
 
 
 class RadarAPIHandler(BaseHTTPRequestHandler):
-    """Manipulador HTTP REST e servidor estático embutido."""
+    """Manipulador HTTP REST e servidor estático embutido (compatível com local e Vercel)."""
 
-    db = RadarDatabase(DB_PATH)
+    _db: Optional[RadarDatabase] = None
+
+    @classmethod
+    def get_db(cls) -> RadarDatabase:
+        """Inicializa o banco SQLite sob demanda (copiando para /tmp na Vercel se necessário)."""
+        ensure_runtime_files()
+        if cls._db is None or cls._db.db_path != DB_PATH or not DB_PATH.exists():
+            cls._db = RadarDatabase(DB_PATH)
+        return cls._db
+
+    def _resolve_route(self) -> Tuple[str, Dict[str, List[str]]]:
+        """Resolve a rota original considerando rewrites da Vercel (`?__route=...`)."""
+        parsed = urllib.parse.urlparse(self.path)
+        query = urllib.parse.parse_qs(parsed.query)
+        route_param = query.get("__route", [None])[0]
+        if route_param:
+            path = route_param if route_param.startswith("/") else f"/{route_param}"
+        else:
+            path = parsed.path or "/"
+        if path in ("/api/index", "/api/index.py", "/api"):
+            path = "/"
+        return path, query
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
     def do_GET(self) -> None:
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        query = urllib.parse.parse_qs(parsed.query)
+        path, query = self._resolve_route()
+        db = self.get_db()
 
         # 1. Página principal / Dashboard HTML
         if path in ("/", "/index.html", "/dashboard"):
@@ -408,21 +435,27 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b)
                 return
+            self.send_error(404, "Clipping não encontrado")
+            return
 
         # 2. Endpoint REST: Listar pautas
         if path == "/api/pautas":
-            pautas = self.db.get_all_pautas()
+            pautas = db.get_all_pautas()
             self.send_json_response(pautas)
             return
 
         # 3. Endpoint REST: Estatísticas
         if path == "/api/stats":
-            pautas = self.db.get_all_pautas()
-            execucoes = self.db.get_all_execucoes()
-            fontes = self.db.get_all_fontes()
+            pautas = db.get_all_pautas()
+            execucoes = db.get_all_execucoes()
+            fontes = db.get_all_fontes()
             stats = {
                 "total_pautas": len(pautas),
-                "emergencias": sum(1 for p in pautas if p.get("prioridade") == "Emergência"),
+                "emergencias": sum(
+                    1
+                    for p in pautas
+                    if p.get("prioridade") == "Emergência" or p.get("emergencia_sinalizada")
+                ),
                 "em_apuracao": sum(1 for p in pautas if p.get("nivel_verificacao") != "Confirmado"),
                 "total_execucoes": len(execucoes),
                 "total_fontes": len(fontes),
@@ -434,11 +467,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         if path == "/api/clipping":
             clipping_file = OUTPUT_DIR / "clipping_do_dia.md"
             if clipping_file.exists():
-                text = clipping_file.read_text(encoding="utf-8")
+                raw = clipping_file.read_text(encoding="utf-8").encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
-                self.wfile.write(text.encode("utf-8"))
+                self.wfile.write(raw)
             else:
                 self.send_error(404, "Clipping não encontrado")
             return
@@ -447,10 +481,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         if path in ("/api/export/csv", "/export/pautas.csv"):
             csv_file = OUTPUT_DIR / "pautas_novas.csv"
             if not csv_file.exists():
-                pautas = self.db.get_all_pautas()
+                pautas = db.get_all_pautas()
                 from src.exporter import CSVExporter
 
-                CSVExporter(self.db).export_pautas_novas(pautas)
+                CSVExporter(db).export_pautas_novas(pautas)
 
             data = csv_file.read_bytes()
             self.send_response(200)
@@ -463,7 +497,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
         # 6. Endpoint REST: Fontes cadastradas
         if path == "/api/fontes":
-            fontes = self.db.get_all_fontes()
+            fontes = db.get_all_fontes()
             self.send_json_response(fontes)
             return
 
@@ -471,8 +505,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         self.send_error(404, "Endpoint não encontrado")
 
     def do_POST(self) -> None:
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
+        path, _ = self._resolve_route()
+        self.get_db()
 
         # Disparar ciclo sob demanda
         if path == "/api/executar":
