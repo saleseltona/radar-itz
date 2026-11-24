@@ -23,6 +23,13 @@ logger = logging.getLogger("radar_imperatriz.pncp")
 
 PNCP_CONTRATOS_API = "https://pncp.gov.br/api/consulta/v1/contratos"
 
+# Retificações documentais verificadas contra erro evidente de digitação no lançamento do PNCP
+PNCP_VALUE_CORRECTIONS: Dict[str, float] = {
+    # Processo 02.18.00.033/2026-SEDES / Pregão Eletrônico 006/2025 (BATISTA E COELHO LTDA):
+    # lançado no PNCP como R$ 1.682.632.750,00 (1000x), valor real em contrato: R$ 1.682.632,75
+    "06158455000116-2-000069/2026": 1682632.75,
+}
+
 
 class PncpClient:
     """Conector resiliente para consulta e cache local em SQLite dos contratos do PNCP."""
@@ -115,6 +122,12 @@ class PncpClient:
         valor_ini = float(raw_item.get("valorInicial") or 0.0)
         valor_glob = float(raw_item.get("valorGlobal") or valor_ini or 0.0)
         valor_acum = float(raw_item.get("valorAcumulado") or valor_glob or 0.0)
+
+        if num_controle in PNCP_VALUE_CORRECTIONS and valor_glob > 1_000_000_000.0:
+            corrected_val = PNCP_VALUE_CORRECTIONS[num_controle]
+            valor_ini = corrected_val
+            valor_glob = corrected_val
+            valor_acum = corrected_val
 
         if seq not in (None, ""):
             url_pncp = f"https://pncp.gov.br/app/contratos/{orgao_cnpj_digits}/{ano_contrato}/{seq}"
