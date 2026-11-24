@@ -18,6 +18,9 @@
     { "source": "/api/pncp/resumo", "destination": "/api/index?__route=/api/pncp/resumo" },
     { "source": "/api/pncp/sync", "destination": "/api/index?__route=/api/pncp/sync" },
     { "source": "/api/pncp/export/csv", "destination": "/api/index?__route=/api/pncp/export/csv" },
+    { "source": "/api/pncp/retificar", "destination": "/api/index?__route=/api/pncp/retificar" },
+    { "source": "/api/pncp/retificacoes", "destination": "/api/index?__route=/api/pncp/retificacoes" },
+    { "source": "/api/pncp/retificacoes/sync", "destination": "/api/index?__route=/api/pncp/retificacoes/sync" },
     { "source": "/api/pendencias", "destination": "/api/index?__route=/api/pendencias" },
     { "source": "/api/telemetria", "destination": "/api/index?__route=/api/telemetria" }
   ],

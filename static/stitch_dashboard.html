@@ -801,6 +801,78 @@
   </div>
 
   <!-- ========================================== -->
+  <!-- MODAL 5: RETIFICAÇÃO DE VALOR PNCP         -->
+  <!-- ========================================== -->
+  <div id="pncp-edit-modal" class="fixed inset-0 bg-black/65 backdrop-blur-sm z-[120] hidden flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest text-on-surface rounded-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-outline-variant/30 p-5 flex flex-col gap-4">
+      <div class="flex items-start justify-between border-b border-surface-container pb-3">
+        <div>
+          <span class="px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold uppercase tracking-wider">Auditoria Documental PNCP</span>
+          <h3 class="font-headline-md text-headline-md text-on-surface mt-1">Retificar Valor de Contrato (PNCP)</h3>
+        </div>
+        <button onclick="closeModal('pncp-edit-modal')" class="p-1 rounded-full hover:bg-surface-container text-on-surface-variant" type="button" title="Fechar (ESC)">
+          <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
+      </div>
+
+      <div class="bg-surface-container-low rounded-xl p-3.5 border border-surface-container flex flex-col gap-1.5 text-xs">
+        <div class="flex items-start justify-between gap-2">
+          <span id="pncp-edit-fornecedor" class="font-bold text-on-surface text-sm leading-snug"></span>
+          <a id="pncp-edit-link" href="#" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-on-primary font-bold shrink-0">
+            <span>Conferir no PNCP</span>
+            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+          </a>
+        </div>
+        <p id="pncp-edit-orgao" class="text-on-surface-variant font-medium"></p>
+        <p id="pncp-edit-meta" class="text-[11px] font-mono text-on-surface-variant"></p>
+        <p id="pncp-edit-objeto" class="text-on-surface leading-relaxed mt-1 line-clamp-3"></p>
+        <div class="pt-2 mt-1 border-t border-surface-container flex items-center justify-between text-[11px]">
+          <span class="text-on-surface-variant">Valor publicado no PNCP (base):</span>
+          <span id="pncp-edit-orig-valor" class="font-bold text-on-surface"></span>
+        </div>
+      </div>
+
+      <form id="form-pncp-edit" onsubmit="submitPncpEdit(event)" class="flex flex-col gap-3">
+        <input id="pncp-edit-ctrl" type="hidden"/>
+        <div>
+          <label for="pncp-edit-valor" class="block text-xs font-bold text-on-surface mb-1">Valor Real Conferido no Contrato (R$)</label>
+          <input id="pncp-edit-valor" required oninput="updatePncpEditPreview()" class="w-full h-10 px-3.5 rounded-xl bg-surface-container-low border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Ex.: 1.682.632,75" type="text"/>
+          <div class="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-[11px] text-on-surface-variant">Pré-visualização: <strong id="pncp-edit-preview" class="text-primary">-</strong></span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] text-on-surface-variant uppercase font-semibold">Ajuste rápido:</span>
+              <button onclick="applyPncpDivisor(100)" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-primary-fixed text-[11px] font-bold text-on-surface transition-colors" type="button" title="Dividir valor original do PNCP por 100 (erro de 2 casas decimais)">÷ 100</button>
+              <button onclick="applyPncpDivisor(1000)" class="px-2.5 py-1 rounded-full bg-surface-container hover:bg-primary-fixed text-[11px] font-bold text-on-surface transition-colors" type="button" title="Dividir valor original do PNCP por 1.000 (erro de milhar)">÷ 1.000</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="pncp-edit-justificativa" class="block text-xs font-bold text-on-surface mb-1">Justificativa / Documento Conferido (opcional)</label>
+          <input id="pncp-edit-justificativa" maxlength="400" class="w-full h-9 px-3 rounded-xl bg-surface-container-low border border-outline-variant/40 text-xs text-on-surface focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Ex.: Conferido no PDF do contrato — erro de preenchimento no PNCP" type="text"/>
+        </div>
+
+        <div class="bg-primary-fixed/35 rounded-xl p-2.5 text-[11px] text-on-surface-variant flex items-start gap-2">
+          <span class="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">info</span>
+          <span>Recalcula na hora KPIs, gráfico mensal, ranking de fornecedores e CSV. Fica salvo no banco SQLite local e espelhado neste navegador (em deploy serverless Vercel, é reaplicado automaticamente ao abrir o painel neste navegador).</span>
+        </div>
+
+        <div class="pt-2 border-t border-surface-container flex flex-wrap items-center justify-between gap-2">
+          <button id="btn-pncp-restaurar" onclick="restaurarPncpContrato()" class="hidden px-3.5 py-2 rounded-full bg-error-container text-on-error-container hover:opacity-90 text-xs font-bold transition-all" type="button">
+            Restaurar original PNCP
+          </button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button onclick="closeModal('pncp-edit-modal')" class="px-4 py-2 rounded-full bg-surface-container hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors" type="button">Cancelar</button>
+            <button id="btn-pncp-salvar-edit" type="submit" class="px-5 py-2 rounded-full bg-primary hover:bg-primary-container text-on-primary text-xs font-bold shadow-sm transition-colors">
+              Salvar Retificação
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
   <!-- SCRIPTS DE INTEGRAÇÃO COMPLETA COM APIs     -->
   <!-- ========================================== -->
   <script>
@@ -814,6 +886,7 @@
     let currentPncpOrgao = '';
     let pncpModalPage = 1;
     let pncpModalTimer = null;
+    const pncpContractsCache = {};
 
     const DEFAULT_KEYWORDS = ['dispensa', 'inexigibilidade', 'alagamento', 'socorrão', 'interdição'];
 
@@ -863,6 +936,7 @@
     // Carregamento Inicial
     // ---------------------------
     async function loadAllData() {
+      await syncLocalPncpRetificacoesToServer();
       await Promise.all([
         loadPautasAndStats(),
         loadPncpSummary(),
@@ -1356,7 +1430,15 @@
         return;
       }
 
-      tbody.innerHTML = list.slice(0, 6).map(c => `
+      list.forEach(c => {
+        if (c && c.numero_controle_pncp) pncpContractsCache[c.numero_controle_pncp] = c;
+      });
+
+      tbody.innerHTML = list.slice(0, 6).map(c => {
+        const retBadge = c.retificado
+          ? `<span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[9px] font-bold uppercase align-middle" title="${escapeHtml((c.valor_original_pncp ? 'Original PNCP: ' + formatBRL(c.valor_original_pncp) + ' • ' : '') + (c.justificativa_retificacao || 'Valor retificado'))}">Retificado</span>`
+          : '';
+        return `
         <tr class="hover:bg-surface-container-low/60 transition-colors">
           <td class="py-2.5 pr-2 max-w-[200px]">
             <div class="font-semibold text-on-surface line-clamp-1" title="${escapeHtml(c.objeto)}">${escapeHtml(c.objeto || 'Objeto não detalhado')}</div>
@@ -1365,15 +1447,19 @@
           <td class="py-2.5 pr-2">
             <span class="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold">${escapeHtml(c.orgao_sigla)}</span>
           </td>
-          <td class="py-2.5 pr-2 font-bold text-on-surface whitespace-nowrap">${formatBRLCompact(c.valor_global)}</td>
+          <td class="py-2.5 pr-2 font-bold text-on-surface whitespace-nowrap">${formatBRLCompact(c.valor_global)}${retBadge}</td>
           <td class="py-2.5 text-right whitespace-nowrap">
             <span class="text-[11px] text-on-surface-variant mr-1">${escapeHtml(c.data_publicacao || c.ano_contrato)}</span>
-            <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="text-primary font-bold hover:underline" title="Abrir no PNCP">
+            <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="text-primary font-bold hover:underline mr-1" title="Abrir no PNCP">
               <span class="material-symbols-outlined text-[15px] align-middle">open_in_new</span>
             </a>
+            <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center justify-center p-1 rounded-full hover:bg-tertiary-fixed text-on-surface-variant hover:text-on-surface transition-colors align-middle" title="Editar / retificar valor deste contrato">
+              <span class="material-symbols-outlined text-[15px]">edit</span>
+            </button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     // ---------------------------
@@ -1438,7 +1524,15 @@
           return;
         }
 
-        tbody.innerHTML = items.map(c => `
+        items.forEach(c => {
+          if (c && c.numero_controle_pncp) pncpContractsCache[c.numero_controle_pncp] = c;
+        });
+
+        tbody.innerHTML = items.map(c => {
+          const retInfo = c.retificado
+            ? `<div class="mt-0.5 flex flex-col items-end gap-0.5"><span class="px-1.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold" title="${escapeHtml(c.justificativa_retificacao || 'Valor retificado manualmente')}">Retificado</span>${c.valor_original_pncp ? `<span class="text-[10px] text-on-surface-variant line-through font-normal">Orig.: ${formatBRL(c.valor_original_pncp)}</span>` : ''}</div>`
+            : '';
+          return `
           <tr class="hover:bg-surface-container-low/60">
             <td class="py-2.5 pr-3 whitespace-nowrap">
               <div class="font-semibold">${escapeHtml(c.data_publicacao || '-')}</div>
@@ -1457,18 +1551,235 @@
               <div class="text-[11px] text-on-surface-variant mt-0.5">Contrato ${escapeHtml(c.numero_contrato || '-')} ${c.processo ? '• Proc. ' + escapeHtml(c.processo) : ''}</div>
             </td>
             <td class="py-2.5 pr-3 text-right font-bold text-on-surface whitespace-nowrap">
-              ${formatBRL(c.valor_global)}
+              <div>${formatBRL(c.valor_global)}</div>
+              ${retInfo}
             </td>
             <td class="py-2.5 text-right whitespace-nowrap">
-              <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-on-primary font-bold">
-                <span>Abrir</span>
-                <span class="material-symbols-outlined text-[14px]">open_in_new</span>
-              </a>
+              <div class="inline-flex items-center justify-end gap-1.5">
+                <a href="${escapeHtml(c.url_pncp || 'https://pncp.gov.br')}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-on-primary font-bold">
+                  <span>Abrir</span>
+                  <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+                </a>
+                <button type="button" data-ctrl="${escapeHtml(c.numero_controle_pncp || '')}" onclick="openPncpEditModal(this.dataset.ctrl)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container hover:bg-tertiary-fixed text-on-surface font-bold transition-colors" title="Corrigir valor deste contrato">
+                  <span class="material-symbols-outlined text-[14px]">edit</span>
+                  <span>Editar</span>
+                </button>
+              </div>
             </td>
           </tr>
-        `).join('');
+        `;
+        }).join('');
       } catch (err) {
         if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-error">Erro ao consultar contratos do PNCP.</td></tr>';
+      }
+    }
+
+    // ---------------------------
+    // Edição / Retificação de Contrato PNCP + Espelhamento localStorage
+    // ---------------------------
+    const PNCP_RETIF_STORAGE_KEY = 'radar_itz_pncp_retificacoes';
+
+    function parseBrlInput(raw) {
+      if (raw === null || raw === undefined) return null;
+      if (typeof raw === 'number') return (raw > 0 && isFinite(raw)) ? Math.round(raw * 100) / 100 : null;
+      let s = String(raw).trim().replace(/[^\d,.\-]/g, '');
+      if (!s || s === '-' || s === '.' || s === ',') return null;
+      if (s.includes(',') && s.includes('.')) {
+        s = s.lastIndexOf(',') > s.lastIndexOf('.')
+          ? s.replace(/\./g, '').replace(',', '.')
+          : s.replace(/,/g, '');
+      } else if (s.includes(',')) {
+        s = s.replace(',', '.');
+      } else if ((s.match(/\./g) || []).length > 1) {
+        s = s.replace(/\./g, '');
+      }
+      const n = Number(s);
+      if (!isFinite(n) || n <= 0) return null;
+      return Math.round(n * 100) / 100;
+    }
+
+    function getSavedPncpRetificacoes() {
+      try {
+        const raw = localStorage.getItem(PNCP_RETIF_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+      return {};
+    }
+
+    function saveLocalPncpRetificacao(ctrl, valorCorrigido, justificativa) {
+      const map = getSavedPncpRetificacoes();
+      map[ctrl] = {
+        valor_corrigido: valorCorrigido,
+        justificativa: justificativa || '',
+        atualizado_em: new Date().toISOString(),
+      };
+      try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    function removeLocalPncpRetificacao(ctrl) {
+      const map = getSavedPncpRetificacoes();
+      delete map[ctrl];
+      try { localStorage.setItem(PNCP_RETIF_STORAGE_KEY, JSON.stringify(map)); } catch (e) {}
+    }
+
+    async function syncLocalPncpRetificacoesToServer() {
+      const map = getSavedPncpRetificacoes();
+      const lista = Object.entries(map).map(([ctrl, v]) => ({
+        numero_controle_pncp: ctrl,
+        valor_corrigido: v.valor_corrigido,
+        justificativa: v.justificativa || '',
+      }));
+      if (!lista.length) return;
+      try {
+        await fetch('/api/pncp/retificacoes/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retificacoes: lista }),
+        });
+      } catch (e) {
+        console.warn('Aviso ao sincronizar retificações locais PNCP:', e);
+      }
+    }
+
+    function openPncpEditModal(ctrl) {
+      const c = pncpContractsCache[ctrl];
+      if (!c) return;
+      const origVal = c.valor_original_pncp !== null && c.valor_original_pncp !== undefined
+        ? Number(c.valor_original_pncp)
+        : Number(c.valor_global || 0);
+
+      document.getElementById('pncp-edit-ctrl').value = c.numero_controle_pncp;
+      document.getElementById('pncp-edit-fornecedor').innerText =
+        (c.fornecedor_nome || 'Fornecedor não informado') + (c.fornecedor_cnpj ? ` (${c.fornecedor_cnpj})` : '');
+      document.getElementById('pncp-edit-orgao').innerText =
+        `${c.orgao_sigla || 'ITZ'} • ${c.unidade_nome || c.orgao_nome || ''}`;
+      document.getElementById('pncp-edit-meta').innerText =
+        `Contrato ${c.numero_contrato || '-'} • Proc. ${c.processo || '-'} • Controle ${c.numero_controle_pncp}`;
+      document.getElementById('pncp-edit-objeto').innerText = c.objeto || 'Objeto não detalhado';
+      document.getElementById('pncp-edit-link').href = c.url_pncp || 'https://pncp.gov.br';
+      document.getElementById('pncp-edit-orig-valor').innerText = formatBRL(origVal);
+
+      const valorInput = document.getElementById('pncp-edit-valor');
+      valorInput.value = Number(c.valor_global || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      document.getElementById('pncp-edit-justificativa').value = c.justificativa_retificacao || '';
+
+      const btnRestaurar = document.getElementById('btn-pncp-restaurar');
+      if (btnRestaurar) btnRestaurar.classList.toggle('hidden', !c.retificado);
+
+      updatePncpEditPreview();
+      document.getElementById('pncp-edit-modal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => { valorInput.focus(); valorInput.select(); }, 30);
+    }
+
+    function updatePncpEditPreview() {
+      const val = parseBrlInput(document.getElementById('pncp-edit-valor')?.value);
+      const preview = document.getElementById('pncp-edit-preview');
+      if (!preview) return;
+      if (val === null) {
+        preview.innerText = 'Valor inválido';
+        preview.className = 'text-error font-bold';
+      } else {
+        preview.innerText = formatBRL(val);
+        preview.className = 'text-primary font-bold';
+      }
+    }
+
+    function applyPncpDivisor(factor) {
+      const ctrl = document.getElementById('pncp-edit-ctrl')?.value;
+      const c = ctrl ? pncpContractsCache[ctrl] : null;
+      const origVal = c
+        ? Number((c.valor_original_pncp !== null && c.valor_original_pncp !== undefined) ? c.valor_original_pncp : c.valor_global)
+        : 0;
+      const currentVal = parseBrlInput(document.getElementById('pncp-edit-valor')?.value) || 0;
+      const base = origVal > 0 ? origVal : currentVal;
+      if (base <= 0) return;
+      const nextVal = Math.round((base / factor) * 100) / 100;
+      const input = document.getElementById('pncp-edit-valor');
+      input.value = nextVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const just = document.getElementById('pncp-edit-justificativa');
+      if (just && !just.value.trim()) {
+        just.value = `Correção de escala PNCP (÷ ${factor.toLocaleString('pt-BR')}) conferida no instrumento contratual.`;
+      }
+      updatePncpEditPreview();
+    }
+
+    async function refreshAfterPncpEdit() {
+      await Promise.all([loadPncpSummary(), loadPautasAndStats()]);
+      const pncpModal = document.getElementById('pncp-modal');
+      if (pncpModal && !pncpModal.classList.contains('hidden')) {
+        await loadPncpModal(pncpModalPage);
+      }
+    }
+
+    async function submitPncpEdit(event) {
+      event.preventDefault();
+      const ctrl = document.getElementById('pncp-edit-ctrl').value.trim();
+      const val = parseBrlInput(document.getElementById('pncp-edit-valor').value);
+      const just = document.getElementById('pncp-edit-justificativa').value.trim();
+      if (val === null) {
+        alert('Informe um valor válido maior que zero (ex.: 1.682.632,75).');
+        return;
+      }
+
+      const btn = document.getElementById('btn-pncp-salvar-edit');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/pncp/retificar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            numero_controle_pncp: ctrl,
+            valor_corrigido: val,
+            justificativa: just,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível salvar a retificação.');
+          return;
+        }
+        saveLocalPncpRetificacao(ctrl, val, just);
+        if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
+        closeModal('pncp-edit-modal');
+        await refreshAfterPncpEdit();
+      } catch (err) {
+        alert(`Erro ao salvar retificação: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function restaurarPncpContrato() {
+      const ctrl = document.getElementById('pncp-edit-ctrl').value.trim();
+      if (!ctrl) return;
+      const btn = document.getElementById('btn-pncp-restaurar');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/pncp/retificar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero_controle_pncp: ctrl, restaurar: true }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.erro || 'Não foi possível restaurar o valor original.');
+          return;
+        }
+        removeLocalPncpRetificacao(ctrl);
+        if (data.contrato) pncpContractsCache[ctrl] = data.contrato;
+        closeModal('pncp-edit-modal');
+        await refreshAfterPncpEdit();
+      } catch (err) {
+        alert(`Erro ao restaurar valor original: ${err.message}`);
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 
@@ -1728,7 +2039,7 @@
     function closeModal(modalId = 'stitch-modal') {
       const m = document.getElementById(modalId);
       if (m) m.classList.add('hidden');
-      const anyOpen = ['stitch-modal', 'pncp-modal', 'fontes-modal', 'pendencias-modal'].some(id => {
+      const anyOpen = ['stitch-modal', 'pncp-modal', 'fontes-modal', 'pendencias-modal', 'pncp-edit-modal'].some(id => {
         const el = document.getElementById(id);
         return el && !el.classList.contains('hidden');
       });
@@ -1914,6 +2225,11 @@
     // Atalhos globais de teclado (ESC fecha modais, Ctrl+K foca busca)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        const editModal = document.getElementById('pncp-edit-modal');
+        if (editModal && !editModal.classList.contains('hidden')) {
+          closeModal('pncp-edit-modal');
+          return;
+        }
         ['stitch-modal', 'pncp-modal', 'fontes-modal', 'pendencias-modal'].forEach(closeModal);
         toggleNotificationsDropdown(false);
       }

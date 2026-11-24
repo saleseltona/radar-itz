@@ -154,6 +154,14 @@ class RadarDatabase:
                 CREATE INDEX IF NOT EXISTS idx_pncp_orgao ON pncp_contratos(orgao_cnpj);
                 CREATE INDEX IF NOT EXISTS idx_pncp_pub ON pncp_contratos(data_publicacao DESC);
 
+                CREATE TABLE IF NOT EXISTS pncp_retificacoes (
+                    numero_controle_pncp TEXT PRIMARY KEY,
+                    valor_original_pncp REAL NOT NULL DEFAULT 0.0,
+                    valor_corrigido REAL NOT NULL,
+                    justificativa TEXT DEFAULT '',
+                    atualizado_em TEXT NOT NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS evidencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_pauta TEXT NOT NULL,
@@ -727,7 +735,162 @@ class RadarDatabase:
             return 0
         with self.connect() as conn:
             conn.executemany(sql, params)
+            # Reaplica automaticamente quaisquer retificações manuais salvas pela redação
+            conn.execute(
+                """
+                UPDATE pncp_contratos
+                SET valor_inicial = (
+                        SELECT r.valor_corrigido FROM pncp_retificacoes r
+                        WHERE r.numero_controle_pncp = pncp_contratos.numero_controle_pncp
+                    ),
+                    valor_global = (
+                        SELECT r.valor_corrigido FROM pncp_retificacoes r
+                        WHERE r.numero_controle_pncp = pncp_contratos.numero_controle_pncp
+                    ),
+                    valor_acumulado = (
+                        SELECT r.valor_corrigido FROM pncp_retificacoes r
+                        WHERE r.numero_controle_pncp = pncp_contratos.numero_controle_pncp
+                    )
+                WHERE numero_controle_pncp IN (SELECT numero_controle_pncp FROM pncp_retificacoes)
+                """
+            )
         return len(params)
+
+    @staticmethod
+    def _format_pncp_row(row: sqlite3.Row) -> Dict[str, Any]:
+        """Converte linha PNCP enriquecida com JOIN de `pncp_retificacoes` para dict serializável."""
+        d = dict(row)
+        d["retificado"] = bool(d.pop("retificado_flag", 0))
+        if d.get("valor_original_pncp") is not None:
+            d["valor_original_pncp"] = float(d["valor_original_pncp"])
+        else:
+            d["valor_original_pncp"] = None
+        d["justificativa_retificacao"] = str(d.get("justificativa_retificacao") or "")
+        return d
+
+    def _select_pncp_single_row(
+        self, conn: sqlite3.Connection, numero_controle_pncp: str
+    ) -> Optional[Dict[str, Any]]:
+        row = conn.execute(
+            """
+            SELECT c.*,
+                   CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                   r.valor_original_pncp,
+                   COALESCE(r.justificativa, '') AS justificativa_retificacao
+            FROM pncp_contratos c
+            LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
+            WHERE c.numero_controle_pncp = ?
+            """,
+            (numero_controle_pncp,),
+        ).fetchone()
+        return self._format_pncp_row(row) if row else None
+
+    def retificar_pncp_contrato(
+        self,
+        numero_controle_pncp: str,
+        valor_corrigido: float,
+        justificativa: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """Retifica manualmente o valor de um contrato PNCP preservando o valor original para auditoria."""
+        ctrl = (numero_controle_pncp or "").strip()
+        val = float(valor_corrigido)
+        if not ctrl or val <= 0:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        just_clean = (justificativa or "").strip()[:500]
+        with self.connect() as conn:
+            cur_row = conn.execute(
+                "SELECT valor_global FROM pncp_contratos WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            ).fetchone()
+            if not cur_row:
+                return None
+
+            existing_ret = conn.execute(
+                "SELECT valor_original_pncp FROM pncp_retificacoes WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            ).fetchone()
+            orig_val = (
+                float(existing_ret["valor_original_pncp"])
+                if existing_ret
+                else float(cur_row["valor_global"] or 0.0)
+            )
+            conn.execute(
+                """
+                INSERT INTO pncp_retificacoes (
+                    numero_controle_pncp, valor_original_pncp, valor_corrigido, justificativa, atualizado_em
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(numero_controle_pncp) DO UPDATE SET
+                    valor_corrigido = excluded.valor_corrigido,
+                    justificativa = excluded.justificativa,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                (ctrl, orig_val, val, just_clean, now_iso),
+            )
+            conn.execute(
+                """
+                UPDATE pncp_contratos
+                SET valor_inicial = ?, valor_global = ?, valor_acumulado = ?, atualizado_em = ?
+                WHERE numero_controle_pncp = ?
+                """,
+                (val, val, val, now_iso, ctrl),
+            )
+            return self._select_pncp_single_row(conn, ctrl)
+
+    def restaurar_pncp_contrato(self, numero_controle_pncp: str) -> Optional[Dict[str, Any]]:
+        """Restaura o valor original publicado no PNCP removendo a retificação local."""
+        ctrl = (numero_controle_pncp or "").strip()
+        if not ctrl:
+            return None
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            ret_row = conn.execute(
+                "SELECT valor_original_pncp FROM pncp_retificacoes WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            ).fetchone()
+            if not ret_row:
+                return None
+            orig_val = float(ret_row["valor_original_pncp"] or 0.0)
+            conn.execute(
+                """
+                UPDATE pncp_contratos
+                SET valor_inicial = ?, valor_global = ?, valor_acumulado = ?, atualizado_em = ?
+                WHERE numero_controle_pncp = ?
+                """,
+                (orig_val, orig_val, orig_val, now_iso, ctrl),
+            )
+            conn.execute(
+                "DELETE FROM pncp_retificacoes WHERE numero_controle_pncp = ?",
+                (ctrl,),
+            )
+            return self._select_pncp_single_row(conn, ctrl)
+
+    def get_all_pncp_retificacoes(self) -> List[Dict[str, Any]]:
+        """Lista todas as retificações aplicadas aos contratos do PNCP."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM pncp_retificacoes ORDER BY atualizado_em DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def apply_pncp_retificacoes_batch(self, retificacoes: List[Dict[str, Any]]) -> int:
+        """Aplica retificações em lote (ex.: reidratação em ambiente serverless)."""
+        if not retificacoes:
+            return 0
+        applied = 0
+        for item in retificacoes:
+            if not isinstance(item, dict):
+                continue
+            ctrl = str(item.get("numero_controle_pncp") or "").strip()
+            just = str(item.get("justificativa") or item.get("justificativa_retificacao") or "").strip()
+            try:
+                val = float(item.get("valor_corrigido") or 0.0)
+            except (TypeError, ValueError):
+                val = 0.0
+            if ctrl and val > 0:
+                if self.retificar_pncp_contrato(ctrl, val, just):
+                    applied += 1
+        return applied
 
     @staticmethod
     def _build_pncp_where(
@@ -740,31 +903,32 @@ class RadarDatabase:
         args: List[Any] = []
         if ano:
             clauses.append(
-                "(ano_contrato = ? OR substr(data_publicacao, 1, 4) = ?)"
+                "(c.ano_contrato = ? OR substr(c.data_publicacao, 1, 4) = ?)"
             )
             args.extend([int(ano), str(int(ano))])
         if orgao and orgao.lower() not in ("todos", "all", ""):
             org_clean = orgao.strip()
-            clauses.append("(UPPER(orgao_sigla) = UPPER(?) OR orgao_cnpj = ?)")
+            clauses.append("(UPPER(c.orgao_sigla) = UPPER(?) OR c.orgao_cnpj = ?)")
             args.extend([org_clean, org_clean])
         if fornecedor and fornecedor.strip():
             f_clean = fornecedor.strip()
-            clauses.append("(fornecedor_cnpj = ? OR UPPER(fornecedor_nome) LIKE UPPER(?))")
+            clauses.append("(c.fornecedor_cnpj = ? OR UPPER(c.fornecedor_nome) LIKE UPPER(?))")
             args.extend([f_clean, f"%{f_clean}%"])
         if q and q.strip():
             like = f"%{q.strip()}%"
             clauses.append(
                 "("
-                "objeto LIKE ? OR "
-                "fornecedor_nome LIKE ? OR "
-                "fornecedor_cnpj LIKE ? OR "
-                "numero_contrato LIKE ? OR "
-                "unidade_nome LIKE ? OR "
-                "processo LIKE ? OR "
-                "orgao_nome LIKE ?"
+                "c.objeto LIKE ? OR "
+                "c.fornecedor_nome LIKE ? OR "
+                "c.fornecedor_cnpj LIKE ? OR "
+                "c.numero_contrato LIKE ? OR "
+                "c.numero_controle_pncp LIKE ? OR "
+                "c.unidade_nome LIKE ? OR "
+                "c.processo LIKE ? OR "
+                "c.orgao_nome LIKE ?"
                 ")"
             )
-            args.extend([like, like, like, like, like, like, like])
+            args.extend([like, like, like, like, like, like, like, like])
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         return where_sql, args
 
@@ -783,23 +947,28 @@ class RadarDatabase:
         where_sql, args = self._build_pncp_where(ano=ano, orgao=orgao, fornecedor=fornecedor, q=q)
         with self.connect() as conn:
             total_row = conn.execute(
-                f"SELECT COUNT(*) AS cnt FROM pncp_contratos {where_sql}", args
+                f"SELECT COUNT(*) AS cnt FROM pncp_contratos c {where_sql}", args
             ).fetchone()
             total = int(total_row["cnt"]) if total_row else 0
             rows = conn.execute(
                 f"""
-                SELECT * FROM pncp_contratos
+                SELECT c.*,
+                       CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                       r.valor_original_pncp,
+                       COALESCE(r.justificativa, '') AS justificativa_retificacao
+                FROM pncp_contratos c
+                LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
                 {where_sql}
-                ORDER BY COALESCE(NULLIF(data_publicacao, ''), data_assinatura) DESC,
-                         ano_contrato DESC,
-                         valor_global DESC
+                ORDER BY COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC,
+                         c.ano_contrato DESC,
+                         c.valor_global DESC
                 LIMIT ? OFFSET ?
                 """,
                 args + [limite, offset],
             ).fetchall()
         total_paginas = max(1, (total + limite - 1) // limite)
         return {
-            "items": [dict(r) for r in rows],
+            "items": [self._format_pncp_row(r) for r in rows],
             "total": total,
             "pagina": pagina,
             "limite": limite,
@@ -817,10 +986,10 @@ class RadarDatabase:
             agg_row = conn.execute(
                 f"""
                 SELECT COUNT(*) AS total_contratos,
-                       COALESCE(SUM(valor_global), 0.0) AS valor_total_global,
-                       COALESCE(SUM(valor_inicial), 0.0) AS valor_total_inicial,
-                       MAX(atualizado_em) AS ultima_sincronizacao
-                FROM pncp_contratos
+                       COALESCE(SUM(c.valor_global), 0.0) AS valor_total_global,
+                       COALESCE(SUM(c.valor_inicial), 0.0) AS valor_total_inicial,
+                       MAX(c.atualizado_em) AS ultima_sincronizacao
+                FROM pncp_contratos c
                 {where_sql}
                 """,
                 args,
@@ -840,13 +1009,13 @@ class RadarDatabase:
             org_where, org_args = self._build_pncp_where(ano=None, orgao=orgao)
             por_ano_rows = conn.execute(
                 f"""
-                SELECT ano_contrato,
+                SELECT c.ano_contrato,
                        COUNT(*) AS contratos,
-                       COALESCE(SUM(valor_global), 0.0) AS valor_global
-                FROM pncp_contratos
+                       COALESCE(SUM(c.valor_global), 0.0) AS valor_global
+                FROM pncp_contratos c
                 {org_where}
-                GROUP BY ano_contrato
-                ORDER BY ano_contrato DESC
+                GROUP BY c.ano_contrato
+                ORDER BY c.ano_contrato DESC
                 """,
                 org_args,
             ).fetchall()
@@ -861,12 +1030,12 @@ class RadarDatabase:
             # Totais por órgão
             por_orgao_rows = conn.execute(
                 f"""
-                SELECT orgao_cnpj, orgao_sigla, orgao_nome,
+                SELECT c.orgao_cnpj, c.orgao_sigla, c.orgao_nome,
                        COUNT(*) AS contratos,
-                       COALESCE(SUM(valor_global), 0.0) AS valor_global
-                FROM pncp_contratos
+                       COALESCE(SUM(c.valor_global), 0.0) AS valor_global
+                FROM pncp_contratos c
                 {where_sql}
-                GROUP BY orgao_cnpj, orgao_sigla, orgao_nome
+                GROUP BY c.orgao_cnpj, c.orgao_sigla, c.orgao_nome
                 ORDER BY valor_global DESC
                 """,
                 args,
@@ -885,11 +1054,11 @@ class RadarDatabase:
             # Evolução mensal (YYYY-MM) usando data_publicacao ou data_assinatura
             all_filtered_rows = conn.execute(
                 f"""
-                SELECT fornecedor_cnpj, fornecedor_nome, orgao_sigla,
-                       valor_global, valor_inicial,
-                       data_publicacao, data_assinatura,
-                       data_vigencia_inicio, data_vigencia_fim, ano_contrato
-                FROM pncp_contratos
+                SELECT c.fornecedor_cnpj, c.fornecedor_nome, c.orgao_sigla,
+                       c.valor_global, c.valor_inicial,
+                       c.data_publicacao, c.data_assinatura,
+                       c.data_vigencia_inicio, c.data_vigencia_fim, c.ano_contrato
+                FROM pncp_contratos c
                 {where_sql}
                 """,
                 args,
@@ -980,16 +1149,21 @@ class RadarDatabase:
 
             ultimos_rows = conn.execute(
                 f"""
-                SELECT * FROM pncp_contratos
+                SELECT c.*,
+                       CASE WHEN r.valor_corrigido IS NOT NULL THEN 1 ELSE 0 END AS retificado_flag,
+                       r.valor_original_pncp,
+                       COALESCE(r.justificativa, '') AS justificativa_retificacao
+                FROM pncp_contratos c
+                LEFT JOIN pncp_retificacoes r ON c.numero_controle_pncp = r.numero_controle_pncp
                 {where_sql}
-                ORDER BY COALESCE(NULLIF(data_publicacao, ''), data_assinatura) DESC,
-                         ano_contrato DESC,
-                         valor_global DESC
+                ORDER BY COALESCE(NULLIF(c.data_publicacao, ''), c.data_assinatura) DESC,
+                         c.ano_contrato DESC,
+                         c.valor_global DESC
                 LIMIT 8
                 """,
                 args,
             ).fetchall()
-            ultimos_contratos = [dict(r) for r in ultimos_rows]
+            ultimos_contratos = [self._format_pncp_row(r) for r in ultimos_rows]
 
         return {
             "total_contratos": total_contratos,

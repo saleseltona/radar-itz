@@ -11,6 +11,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import sys
 import urllib.parse
 from datetime import datetime
@@ -34,6 +35,37 @@ from src.source_manager import SourceManager
 logger = logging.getLogger("radar_imperatriz.web")
 
 STATIC_DIR = BASE_DIR / "static"
+
+
+def parse_brl_number(raw: Any) -> Optional[float]:
+    """Converte valor monetário PT-BR ('R$ 1.682.632,75') ou decimal ('1682632.75') para float positivo."""
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        val = float(raw)
+        return round(val, 2) if (val > 0 and val == val and abs(val) < 1e15) else None
+    txt = str(raw or "").strip()
+    if not txt:
+        return None
+    cleaned = re.sub(r"[^\d,.\-]", "", txt)
+    if not cleaned or cleaned in ("-", ".", ","):
+        return None
+    if "," in cleaned and "." in cleaned:
+        if cleaned.rfind(",") > cleaned.rfind("."):
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        else:
+            cleaned = cleaned.replace(",", "")
+    elif "," in cleaned:
+        cleaned = cleaned.replace(",", ".")
+    elif cleaned.count(".") > 1:
+        cleaned = cleaned.replace(".", "")
+    try:
+        val = float(cleaned)
+    except ValueError:
+        return None
+    if val <= 0 or val != val or abs(val) >= 1e15:
+        return None
+    return round(val, 2)
 
 
 def get_dashboard_html() -> str:
@@ -589,6 +621,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 "data_publicacao",
                 "data_vigencia_inicio",
                 "data_vigencia_fim",
+                "retificado",
+                "valor_original_pncp",
+                "justificativa_retificacao",
                 "url_pncp",
             ]
             writer.writerow(cols)
@@ -602,6 +637,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
             self.wfile.write(data)
+            return
+
+        if path == "/api/pncp/retificacoes":
+            self.send_json_response(db.get_all_pncp_retificacoes())
             return
 
         # 4. Endpoint REST: Clipping diário em Markdown
@@ -750,6 +789,75 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 logger.error("Erro ao sincronizar PNCP via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
+            return
+
+        # 2.1 Retificar ou restaurar valor de um contrato do PNCP
+        if path == "/api/pncp/retificar":
+            ctrl = str(body.get("numero_controle_pncp") or "").strip()
+            if not ctrl:
+                self.send_json_response(
+                    {"erro": "Informe numero_controle_pncp do contrato."},
+                    status=400,
+                )
+                return
+
+            if bool(body.get("restaurar")):
+                restored = db.restaurar_pncp_contrato(ctrl)
+                if not restored:
+                    self.send_json_response(
+                        {"erro": "Nenhuma retificação localizada para este contrato."},
+                        status=404,
+                    )
+                    return
+                self.send_json_response({"ok": True, "restaurado": True, "contrato": restored})
+                return
+
+            valor = parse_brl_number(body.get("valor_corrigido"))
+            if valor is None:
+                self.send_json_response(
+                    {"erro": "Informe um valor monetário válido maior que zero (ex.: 1.682.632,75)."},
+                    status=400,
+                )
+                return
+
+            justificativa = str(body.get("justificativa") or "").strip()
+            updated = db.retificar_pncp_contrato(ctrl, valor, justificativa)
+            if not updated:
+                self.send_json_response(
+                    {"erro": "Contrato PNCP não encontrado no banco local."},
+                    status=404,
+                )
+                return
+            self.send_json_response({"ok": True, "contrato": updated})
+            return
+
+        # 2.2 Reaplicar retificações salvas em lote (reidratação serverless)
+        if path == "/api/pncp/retificacoes/sync":
+            lista = body.get("retificacoes")
+            if not isinstance(lista, list):
+                self.send_json_response(
+                    {"erro": "Campo 'retificacoes' deve ser uma lista."},
+                    status=400,
+                )
+                return
+            normalizadas: List[Dict[str, Any]] = []
+            for item in lista[:200]:
+                if not isinstance(item, dict):
+                    continue
+                ctrl = str(item.get("numero_controle_pncp") or "").strip()
+                val = parse_brl_number(item.get("valor_corrigido"))
+                if ctrl and val is not None:
+                    normalizadas.append(
+                        {
+                            "numero_controle_pncp": ctrl,
+                            "valor_corrigido": val,
+                            "justificativa": str(
+                                item.get("justificativa") or item.get("justificativa_retificacao") or ""
+                            ).strip(),
+                        }
+                    )
+            aplicadas = db.apply_pncp_retificacoes_batch(normalizadas)
+            self.send_json_response({"ok": True, "aplicadas": aplicadas})
             return
 
         # 3. Cadastrar nova fonte pela UI sem modificar código

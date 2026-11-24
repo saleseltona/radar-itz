@@ -406,6 +406,64 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             "https://media.imperatriz.ma.gov.br/abc/120x90/novo.imperatriz.ma.gov.br/media/foto.jpg",
         )
 
+    def test_13_pncp_retificacao_restauracao_e_preservacao_sync(self) -> None:
+        """Testa retificação de valor PNCP, preservação após nova sincronização, restauração e parser BRL."""
+        from src.web_server import parse_brl_number
+
+        self.assertAlmostEqual(parse_brl_number("R$ 1.682.632,75"), 1682632.75)
+        self.assertAlmostEqual(parse_brl_number("159.984,00"), 159984.0)
+        self.assertAlmostEqual(parse_brl_number("159984.5"), 159984.5)
+        self.assertIsNone(parse_brl_number("-10"))
+        self.assertIsNone(parse_brl_number("abc"))
+
+        raw_errado = {
+            "numeroControlePNCP": "06158455000116-2-000999/2026",
+            "orgaoEntidade": {"cnpj": "06158455000116", "razaoSocial": "Município de Imperatriz"},
+            "unidadeOrgao": {"nomeUnidade": "SEDES"},
+            "anoContrato": 2026,
+            "sequencialContrato": 999,
+            "numeroContratoEmpenho": "999/2026",
+            "niFornecedor": "99888777000166",
+            "nomeRazaoSocialFornecedor": "Fornecedor Teste Erro Digitação Ltda",
+            "objetoContrato": "Aquisição de cestas básicas",
+            "valorInicial": 159984000.0,
+            "valorGlobal": 159984000.0,
+            "dataPublicacaoPncp": "2026-11-10T09:00:00",
+        }
+        contrato = PncpClient.normalize_contrato(
+            raw_errado, {"cnpj": "06158455000116", "sigla": "PMI", "nome": "Prefeitura"}
+        )
+        self.db.upsert_pncp_contratos_batch([contrato])
+
+        updated = self.db.retificar_pncp_contrato(
+            "06158455000116-2-000999/2026",
+            159984.0,
+            "Conferido no PDF oficial do contrato",
+        )
+        self.assertIsNotNone(updated)
+        self.assertTrue(updated["retificado"])
+        self.assertAlmostEqual(updated["valor_global"], 159984.0)
+        self.assertAlmostEqual(updated["valor_original_pncp"], 159984000.0)
+
+        q = self.db.query_pncp_contratos(q="000999/2026")
+        self.assertEqual(q["total"], 1)
+        self.assertTrue(q["items"][0]["retificado"])
+        self.assertAlmostEqual(q["items"][0]["valor_global"], 159984.0)
+
+        resumo = self.db.get_pncp_resumo()
+        self.assertAlmostEqual(resumo["valor_total_global"], 159984.0)
+        self.assertTrue(resumo["ultimos_contratos"][0]["retificado"])
+
+        # Simula nova sincronização trazendo o valor errado da API do PNCP: deve preservar a retificação
+        self.db.upsert_pncp_contratos_batch([contrato])
+        resumo_pos_sync = self.db.get_pncp_resumo()
+        self.assertAlmostEqual(resumo_pos_sync["valor_total_global"], 159984.0)
+
+        restored = self.db.restaurar_pncp_contrato("06158455000116-2-000999/2026")
+        self.assertIsNotNone(restored)
+        self.assertFalse(restored["retificado"])
+        self.assertAlmostEqual(restored["valor_global"], 159984000.0)
+
 
 if __name__ == "__main__":
     unittest.main()
