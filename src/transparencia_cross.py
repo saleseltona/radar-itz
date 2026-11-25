@@ -27,6 +27,33 @@ ALERTA_LABELS: Dict[str, str] = {
     "SEM_ALERTA": "Pagamento sem PNCP abaixo do corte",
 }
 
+CLASSIFICACAO_VINCULO_LABELS: Dict[str, str] = {
+    "IDENTIFICADOR_EXATO": "Identificador exato",
+    "CORRESPONDENCIA_PROVAVEL": "Correspondência provável",
+    "SEM_CORRESPONDENCIA_COLETA": "Sem correspondência na coleta",
+    "REVISAO_MANUAL_NECESSARIA": "Revisão manual necessária",
+}
+
+NAO_PNCP_SITUACOES: Dict[str, str] = {
+    "NAO_LOCALIZADO_PNCP": "Não localizado na consulta ao PNCP",
+    "POSSIVEL_CORRESPONDENCIA": "Possível correspondência — revisão necessária",
+    "LOCALIZADO_PNCP": "Localizado no PNCP",
+    "CONSULTA_INCONCLUSIVA": "Consulta inconclusiva — falha ou cobertura insuficiente",
+    "APLICABILIDADE_ANALISE": "Aplicabilidade ou prazo de publicação em análise",
+}
+
+FIORILLI_PORTAL_URL = "http://scpi3.adtrcloud.com.br:8079/transparencia"
+
+_ENTIDADE_TO_CNPJ: Tuple[Tuple[str, str], ...] = (
+    ("CAMARA", "69555019000109"),
+    ("SAUDE", "00939023000166"),
+    ("FMS", "00939023000166"),
+    ("EDUCACAO", "07801241000189"),
+    ("FME", "07801241000189"),
+    ("PREFEITURA", "06158455000116"),
+    ("MUNICIPIO", "06158455000116"),
+)
+
 _MUNICIPAL_PUBLIC_DOCS = {
     "06158455000116",
     "69555019000109",
@@ -341,6 +368,465 @@ def _aggregate_receitas_bloco(receitas_rows: List[Dict[str, Any]]) -> Dict[str, 
     }
 
 
+def _classificar_situacao_contrato_pncp(
+    match: Dict[str, Any],
+    *,
+    consulta_conclusiva: bool,
+    tem_identificador: bool,
+) -> Tuple[str, str]:
+    """Traduz o resultado bruto do match para as situações editoriais do resumo.
+
+    Distingue correspondência encontrada, ausência apenas no recorte consultado e
+    consulta inconclusiva, sem afirmar ausência no portal PNCP inteiro.
+    """
+    if not tem_identificador:
+        return "APLICABILIDADE_ANALISE", (
+            "Contrato sem processo administrativo e sem CPF/CNPJ do fornecedor no recorte; "
+            "não há identificador suficiente para afirmar ausência no PNCP."
+        )
+    status = str(match.get("status_pncp") or "")
+    if status == "CONCILIADO":
+        return "LOCALIZADO_PNCP", str(
+            match.get("motivo_pncp") or "Correspondência localizada no recorte do PNCP."
+        )
+    if status == "FORNECEDOR_NO_PNCP":
+        return "POSSIVEL_CORRESPONDENCIA", str(
+            match.get("motivo_pncp")
+            or "Fornecedor localizado no PNCP, mas sem vínculo confirmado com este contrato."
+        )
+    if not consulta_conclusiva:
+        return "CONSULTA_INCONCLUSIVA", (
+            "Ausência não pode ser afirmada: a consulta ao PNCP está indisponível ou com "
+            "cobertura insuficiente para este recorte."
+        )
+    return "NAO_LOCALIZADO_PNCP", (
+        "Não localizado no recorte do PNCP consultado (processo e CPF/CNPJ do fornecedor ausentes). "
+        "A ausência não é afirmação sobre o portal PNCP inteiro."
+    )
+
+
+def build_contratos_nao_localizados_pncp(
+    pncp_rows: List[Dict[str, Any]],
+    fiorilli_contratos_rows: List[Dict[str, Any]],
+    ano: Optional[int] = None,
+    revisoes_map: Optional[Dict[str, Dict[str, Any]]] = None,
+    ultima_consulta_pncp: str = "",
+    pncp_sync_error: Optional[str] = None,
+    pagina: int = 1,
+    limite: int = 10,
+) -> Dict[str, Any]:
+    """Lista contratos Fiorilli do exercício confrontados com o recorte PNCP disponível.
+
+    Cada contrato recebe uma situação explícita (localizado, possível correspondência,
+    não localizado no recorte, consulta inconclusiva ou aplicabilidade em análise).
+    `revisoes_map` é opcional: quando traz uma situação reconhecida, ela prevalece.
+    """
+    pncp_f = _filter_pncp_rows(pncp_rows, ano=ano)
+    con_f = [
+        c
+        for c in _filter_year_rows(fiorilli_contratos_rows, ano=ano)
+        if int(c.get("anulado") or 0) == 0
+    ]
+    con_ex, _con_rem = _split_fiorilli_contratos_by_exercicio(con_f)
+    by_proc, by_doc = _build_pncp_indexes(pncp_f)
+
+    erro = str(pncp_sync_error or "").strip()
+    consulta_conclusiva = (not erro) and len(pncp_f) > 0
+    if erro:
+        motivo_consulta = f"Falha na consulta/sincronização ao PNCP: {erro}"
+    elif len(pncp_f) == 0:
+        motivo_consulta = (
+            "Nenhum contrato PNCP disponível no recorte; cobertura insuficiente para concluir ausências."
+        )
+    else:
+        motivo_consulta = ""
+
+    revisoes = revisoes_map or {}
+    items: List[Dict[str, Any]] = []
+    situacao_counts: Dict[str, Dict[str, Any]] = {
+        code: {"qtd": 0, "valor": 0.0, "label": label}
+        for code, label in NAO_PNCP_SITUACOES.items()
+    }
+
+    for c in con_ex:
+        proc = normalize_processo(c.get("processo_adm"))
+        doc = normalize_doc(c.get("fornecedor_doc"))
+        match = _match_dispensa_with_pncp(c, by_proc, by_doc)
+        code, motivo = _classificar_situacao_contrato_pncp(
+            match,
+            consulta_conclusiva=consulta_conclusiva,
+            tem_identificador=bool(proc or doc),
+        )
+
+        revisao_manual = False
+        if revisoes:
+            chave = str(c.get("chave_contrato") or "")
+            codigo = str(c.get("codigo") or "")
+            entry = revisoes.get(chave) if chave else None
+            if entry is None and codigo:
+                entry = revisoes.get(codigo)
+            if isinstance(entry, dict):
+                rev_situacao = str(entry.get("situacao") or "").strip().upper()
+                if rev_situacao in NAO_PNCP_SITUACOES:
+                    code = rev_situacao
+                    motivo = str(entry.get("observacao") or entry.get("motivo") or motivo)
+                    revisao_manual = True
+
+        valor = round(float(c.get("valor_efetivo") or c.get("valor_contrato") or 0.0), 2)
+        items.append(
+            {
+                "chave_contrato": str(c.get("chave_contrato") or ""),
+                "codigo": str(c.get("codigo") or ""),
+                "ano": int(c.get("ano") or 0),
+                "entidade": str(c.get("entidade") or ""),
+                "tipo_contratacao": str(c.get("tipo_contratacao") or ""),
+                "fornecedor_doc": doc,
+                "fornecedor_nome": str(c.get("fornecedor_nome") or ""),
+                "objeto": str(c.get("objeto") or ""),
+                "valor_efetivo": valor,
+                "situacao": code,
+                "situacao_label": NAO_PNCP_SITUACOES[code],
+                "motivo": motivo,
+                "consulta_conclusiva": consulta_conclusiva,
+                "revisao_manual": revisao_manual,
+                "status_pncp_bruto": str(match.get("status_pncp") or ""),
+                "pncp_match_controle": str(match.get("pncp_match_controle") or ""),
+                "pncp_match_valor": round(float(match.get("pncp_match_valor") or 0.0), 2),
+                "pncp_match_url": str(match.get("pncp_match_url") or ""),
+            }
+        )
+        situacao_counts[code]["qtd"] += 1
+        situacao_counts[code]["valor"] = round(situacao_counts[code]["valor"] + valor, 2)
+
+    prioridade = {
+        "NAO_LOCALIZADO_PNCP": 0,
+        "POSSIVEL_CORRESPONDENCIA": 1,
+        "CONSULTA_INCONCLUSIVA": 2,
+        "APLICABILIDADE_ANALISE": 3,
+        "LOCALIZADO_PNCP": 4,
+    }
+    items.sort(key=lambda r: (prioridade.get(r["situacao"], 9), -r["valor_efetivo"]))
+
+    total = len(items)
+    pagina = max(1, int(pagina))
+    limite = max(1, min(200, int(limite)))
+    total_paginas = max(1, (total + limite - 1) // limite)
+    offset = (pagina - 1) * limite
+
+    resumo = {
+        "ano_filtro": ano,
+        "total_contratos_analisados": total,
+        "nao_localizados_qtd": situacao_counts["NAO_LOCALIZADO_PNCP"]["qtd"],
+        "nao_localizados_valor": situacao_counts["NAO_LOCALIZADO_PNCP"]["valor"],
+        "possivel_correspondencia_qtd": situacao_counts["POSSIVEL_CORRESPONDENCIA"]["qtd"],
+        "possivel_correspondencia_valor": situacao_counts["POSSIVEL_CORRESPONDENCIA"]["valor"],
+        "localizados_qtd": situacao_counts["LOCALIZADO_PNCP"]["qtd"],
+        "localizados_valor": situacao_counts["LOCALIZADO_PNCP"]["valor"],
+        "inconclusivos_qtd": situacao_counts["CONSULTA_INCONCLUSIVA"]["qtd"],
+        "inconclusivos_valor": situacao_counts["CONSULTA_INCONCLUSIVA"]["valor"],
+        "aplicabilidade_analise_qtd": situacao_counts["APLICABILIDADE_ANALISE"]["qtd"],
+        "aplicabilidade_analise_valor": situacao_counts["APLICABILIDADE_ANALISE"]["valor"],
+        "por_situacao": situacao_counts,
+        "consulta_conclusiva": consulta_conclusiva,
+        "motivo_consulta": motivo_consulta,
+        "ultima_consulta_pncp": str(ultima_consulta_pncp or ""),
+        "pncp_sync_error": erro,
+        "cobertura_pncp_contratos": len(pncp_f),
+        "escopo": (
+            "Comparação restrita ao recorte local de contratos Fiorilli e aos contratos PNCP "
+            "sincronizados para os exercícios monitorados; não representa consulta ao portal PNCP inteiro."
+        ),
+        "aviso": (
+            "Ausência no recorte não equivale a inexistência de contrato no PNCP. "
+            "Itens inconclusivos exigem nova consulta/sincronização antes de qualquer afirmação."
+        ),
+    }
+
+    return {
+        "ano_filtro": ano,
+        "resumo": resumo,
+        "items": items[offset : offset + limite],
+        "total": total,
+        "pagina": pagina,
+        "limite": limite,
+        "total_paginas": total_paginas,
+    }
+
+
+_PONTO_SEVERIDADE_ORDEM: Dict[str, int] = {"ALTA": 0, "MEDIA": 1, "BAIXA": 2, "INFO": 3}
+
+
+def build_pontos_apuracao(
+    cruzamento_res: Optional[Dict[str, Any]] = None,
+    nao_pncp_res: Optional[Dict[str, Any]] = None,
+    ano: Optional[int] = None,
+    pncp_meta: Optional[Dict[str, Any]] = None,
+    fiorilli_meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Consolida pontos que exigem apuração, preservando o estado da cobertura.
+
+    Diferencia correspondência encontrada, ausência apenas no recorte consultado e
+    consulta/base indisponível ou com cobertura insuficiente. Nunca devolve lista
+    vazia silenciosa: limitações de cobertura viram pontos explícitos.
+    """
+    cruz = cruzamento_res or {}
+    nao_loc = nao_pncp_res or {}
+    pmeta = pncp_meta or {}
+    fmeta = fiorilli_meta or {}
+
+    pncp_sincronizado = bool(pmeta.get("sincronizado"))
+    pncp_erro = str(pmeta.get("erro") or "").strip()
+    pncp_conclusivo = pncp_sincronizado and not pncp_erro
+    fiorilli_sincronizado = bool(fmeta.get("sincronizado"))
+
+    limitacoes: List[str] = []
+    if pncp_erro:
+        limitacoes.append(f"Consulta ao PNCP com erro: {pncp_erro}")
+    elif not pncp_sincronizado:
+        limitacoes.append("PNCP sem sincronização registrada para o recorte.")
+    if not fiorilli_sincronizado:
+        limitacoes.append("Base Fiorilli sem sincronização registrada.")
+
+    cobertura = {
+        "pncp": {
+            "sincronizado": pncp_sincronizado,
+            "conclusiva": pncp_conclusivo,
+            "ultima_atualizacao": str(pmeta.get("ultima_atualizacao") or ""),
+            "total_contratos_recorte": int(pmeta.get("total_contratos") or 0),
+            "erro": pncp_erro,
+        },
+        "fiorilli": {
+            "sincronizado": fiorilli_sincronizado,
+            "conclusiva": fiorilli_sincronizado,
+            "ultima_atualizacao": str(fmeta.get("ultima_atualizacao") or ""),
+            "anos_disponiveis": list(fmeta.get("anos_disponiveis") or []),
+        },
+        "limitacoes": limitacoes,
+        "conclusiva": pncp_conclusivo and fiorilli_sincronizado and not limitacoes,
+    }
+
+    cruz_items = cruz.get("items") or []
+    resumo_alertas = cruz.get("resumo_alertas") or {}
+
+    def fornecedores_por_alerta(codigo: str) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for r in cruz_items:
+            if r.get("alerta_codigo") != codigo:
+                continue
+            out.append(
+                {
+                    "fornecedor_doc": str(r.get("fornecedor_doc") or ""),
+                    "fornecedor_nome": str(r.get("fornecedor_nome") or ""),
+                    "pago": round(float(r.get("pago") or 0.0), 2),
+                    "pncp_valor": round(float(r.get("pncp_valor") or 0.0), 2),
+                    "fiorilli_valor": round(float(r.get("fiorilli_valor") or 0.0), 2),
+                    "classificacao_vinculo": str(r.get("classificacao_vinculo") or ""),
+                    "classificacao_vinculo_label": str(r.get("classificacao_vinculo_label") or ""),
+                    "campos_comparados": list(r.get("campos_comparados") or []),
+                }
+            )
+        return out
+
+    items: List[Dict[str, Any]] = []
+
+    alerta_defs = (
+        (
+            "PAGO_SEM_PNCP",
+            "PAGAMENTO_SEM_CONTRATO_PNCP",
+            "ALTA",
+            "Pagamento no Fiorilli sem contrato correspondente localizado no PNCP.",
+            "ausencia_no_recorte",
+        ),
+        (
+            "PAGO_ACIMA_PNCP",
+            "PAGAMENTO_ACIMA_PNCP",
+            "ALTA",
+            "Pagamento no Fiorilli superior ao valor contratado no PNCP.",
+            "correspondencia_encontrada",
+        ),
+        (
+            "DIVERGENCIA_VALOR",
+            "DIVERGENCIA_VALOR_PNCP_FIORILLI",
+            "MEDIA",
+            "Divergência relevante entre valor contratado no PNCP e no Fiorilli.",
+            "correspondencia_encontrada",
+        ),
+        (
+            "FIORILLI_SEM_PNCP",
+            "CONTRATO_FIORILLI_SEM_PNCP",
+            "MEDIA",
+            "Contrato no Fiorilli sem contrato correspondente localizado no PNCP.",
+            "ausencia_no_recorte",
+        ),
+        (
+            "CONTRATO_SEM_PAGAMENTO",
+            "CONTRATO_PNCP_SEM_PAGAMENTO",
+            "BAIXA",
+            "Contrato no PNCP sem pagamento correspondente no Fiorilli.",
+            "correspondencia_encontrada",
+        ),
+    )
+    for codigo, tipo, severidade, descricao, base in alerta_defs:
+        agg = resumo_alertas.get(codigo) or {}
+        qtd = int(agg.get("qtd") or 0)
+        if qtd <= 0:
+            continue
+        conclusivo = pncp_conclusivo if base == "ausencia_no_recorte" else True
+        items.append(
+            {
+                "tipo": tipo,
+                "severidade": severidade,
+                "situacao_vinculo": base,
+                "conclusivo": conclusivo,
+                "qtd": qtd,
+                "pago": round(float(agg.get("pago") or 0.0), 2),
+                "pncp": round(float(agg.get("pncp") or 0.0), 2),
+                "descricao": descricao,
+                "limitacao": (
+                    ""
+                    if conclusivo
+                    else "Cobertura PNCP insuficiente: a ausência refere-se apenas ao recorte consultado."
+                ),
+                "fonte": "PNCP × Fiorilli",
+                "fornecedores": fornecedores_por_alerta(codigo),
+            }
+        )
+
+    if not pncp_conclusivo:
+        items.append(
+            {
+                "tipo": "COBERTURA_INSUFICIENTE_PNCP",
+                "severidade": "ALTA" if pncp_erro else "MEDIA",
+                "situacao_vinculo": "consulta_indisponivel",
+                "conclusivo": False,
+                "qtd": 0,
+                "pago": 0.0,
+                "pncp": 0.0,
+                "descricao": "Consulta/base PNCP indisponível ou com cobertura insuficiente para o recorte.",
+                "limitacao": pncp_erro or "Nenhum contrato PNCP sincronizado para o recorte.",
+                "fonte": "PNCP",
+                "fornecedores": [],
+            }
+        )
+
+    nao_resumo = nao_loc.get("resumo") or {}
+    nao_items = nao_loc.get("items") or []
+    por_situacao = nao_resumo.get("por_situacao") or {}
+
+    def contratos_por_situacao(code: str) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for r in nao_items:
+            if r.get("situacao") != code:
+                continue
+            out.append(
+                {
+                    "chave_contrato": str(r.get("chave_contrato") or ""),
+                    "codigo": str(r.get("codigo") or ""),
+                    "entidade": str(r.get("entidade") or ""),
+                    "fornecedor_doc": str(r.get("fornecedor_doc") or ""),
+                    "fornecedor_nome": str(r.get("fornecedor_nome") or ""),
+                    "objeto": str(r.get("objeto") or ""),
+                    "valor_efetivo": round(float(r.get("valor_efetivo") or 0.0), 2),
+                    "motivo": str(r.get("motivo") or ""),
+                    "pncp_match_controle": str(r.get("pncp_match_controle") or ""),
+                }
+            )
+        return out
+
+    situacao_defs = (
+        (
+            "NAO_LOCALIZADO_PNCP",
+            "CONTRATO_NAO_LOCALIZADO_PNCP",
+            "ALTA",
+            "Contrato Fiorilli sem correspondência localizada no recorte do PNCP.",
+            True,
+        ),
+        (
+            "POSSIVEL_CORRESPONDENCIA",
+            "CONTRATO_POSSIVEL_CORRESPONDENCIA",
+            "MEDIA",
+            "Fornecedor presente no PNCP, mas sem vínculo confirmado com o contrato Fiorilli.",
+            False,
+        ),
+        (
+            "CONSULTA_INCONCLUSIVA",
+            "CONTRATO_INCONCLUSIVO_PNCP",
+            "ALTA",
+            "Não foi possível concluir sobre a existência do contrato no PNCP.",
+            False,
+        ),
+        (
+            "APLICABILIDADE_ANALISE",
+            "CONTRATO_APLICABILIDADE_ANALISE",
+            "BAIXA",
+            "Contrato sem identificadores suficientes para busca automática no PNCP.",
+            False,
+        ),
+    )
+    for code, tipo, severidade, descricao, base_ausencia in situacao_defs:
+        agg = por_situacao.get(code) or {}
+        qtd = int(agg.get("qtd") or 0)
+        if qtd <= 0:
+            continue
+        contratos = contratos_por_situacao(code)
+        conclusivo = bool(nao_resumo.get("consulta_conclusiva")) if base_ausencia else False
+        items.append(
+            {
+                "tipo": tipo,
+                "severidade": severidade,
+                "situacao_vinculo": (
+                    "ausencia_no_recorte" if base_ausencia else "revisao_manual_necessaria"
+                ),
+                "conclusivo": conclusivo,
+                "qtd": qtd,
+                "valor_contratos": round(float(agg.get("valor") or 0.0), 2),
+                "descricao": descricao,
+                "limitacao": str(nao_resumo.get("motivo_consulta") or ""),
+                "fonte": "Fiorilli × PNCP",
+                "amostra_limitada": qtd > len(contratos),
+                "contratos": contratos,
+            }
+        )
+
+    if "resumo" not in nao_loc:
+        items.append(
+            {
+                "tipo": "RESUMO_NAO_LOCALIZADOS_INDISPONIVEL",
+                "severidade": "INFO",
+                "situacao_vinculo": "consulta_indisponivel",
+                "conclusivo": False,
+                "qtd": 0,
+                "valor_contratos": 0.0,
+                "descricao": "Resumo de contratos não localizados no PNCP não foi fornecido.",
+                "limitacao": "Sem dados para avaliar ausência ou correspondência.",
+                "fonte": "Fiorilli × PNCP",
+                "amostra_limitada": False,
+                "contratos": [],
+            }
+        )
+
+    items.sort(
+        key=lambda p: (
+            _PONTO_SEVERIDADE_ORDEM.get(str(p.get("severidade") or ""), 9),
+            -float(p.get("pago") or 0.0),
+            -float(p.get("valor_contratos") or 0.0),
+        )
+    )
+
+    por_tipo: Dict[str, int] = {}
+    for p in items:
+        tipo = str(p.get("tipo") or "")
+        por_tipo[tipo] = por_tipo.get(tipo, 0) + 1
+
+    return {
+        "ano_filtro": ano,
+        "cobertura": cobertura,
+        "total_pontos": len(items),
+        "por_tipo": por_tipo,
+        "items": items,
+    }
+
+
 def build_transparencia_resumo(
     pncp_rows: List[Dict[str, Any]],
     receitas_rows: List[Dict[str, Any]],
@@ -349,6 +835,9 @@ def build_transparencia_resumo(
     fiorilli_contratos_rows: List[Dict[str, Any]],
     ano: Optional[int] = None,
     meta: Optional[Dict[str, Any]] = None,
+    pncp_meta: Optional[Dict[str, Any]] = None,
+    revisoes_map: Optional[Dict[str, Dict[str, Any]]] = None,
+    pncp_sync_error: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Consolida painel fiscal PNCP × Receitas × Despesas × Dispensas para 2025 e 2026."""
     pncp_f = _filter_pncp_rows(pncp_rows, ano=ano)
@@ -442,28 +931,39 @@ def build_transparencia_resumo(
 
     arr_liq = receitas["arrecadado_liquido"]
 
-    # Comparativo anual fixo (2026 vs 2025)
+    # Comparativo anual fixo (2026 vs 2025) sem calcular variação quando períodos não são comparáveis
     comparativo_anual = []
     for y in sorted(ALLOWED_CROSS_YEARS, reverse=True):
-        ry = _aggregate_receitas_bloco(_filter_year_rows(receitas_rows, ano=y))
+        rec_y_rows = _filter_year_rows(receitas_rows, ano=y)
+        ry = _aggregate_receitas_bloco(rec_y_rows)
         oy = _filter_year_rows(desp_orgaos_rows, ano=y)
         py = _filter_pncp_rows(pncp_rows, ano=y)
         cy_all = [c for c in _filter_year_rows(fiorilli_contratos_rows, ano=y) if int(c.get("anulado") or 0) == 0]
         cy = [c for c in cy_all if _is_contrato_do_exercicio(c)]
         dy = [c for c in cy if int(c.get("eh_contratacao_direta") or 0) == 1]
+
+        has_rec_y = len(rec_y_rows) > 0
+        has_org_y = len(oy) > 0
+        has_pncp_y = len(py) > 0
+        has_con_y = len(cy_all) > 0
+
         comparativo_anual.append(
             {
                 "ano": y,
-                "receita_arrecadada": ry["arrecadado_liquido"],
-                "receita_prevista": ry["previsao_atualizada_liquida"],
-                "despesa_paga": round(sum(float(x.get("pago") or 0.0) for x in oy), 2),
-                "despesa_empenhada": round(sum(float(x.get("empenhado") or 0.0) for x in oy), 2),
+                "tem_receita": has_rec_y,
+                "tem_despesa": has_org_y,
+                "tem_pncp": has_pncp_y,
+                "tem_fiorilli_contratos": has_con_y,
+                "receita_arrecadada": ry["arrecadado_liquido"] if has_rec_y else None,
+                "receita_prevista": ry["previsao_atualizada_liquida"] if has_rec_y else None,
+                "despesa_paga": round(sum(float(x.get("pago") or 0.0) for x in oy), 2) if has_org_y else None,
+                "despesa_empenhada": round(sum(float(x.get("empenhado") or 0.0) for x in oy), 2) if has_org_y else None,
                 "pncp_contratos": len(py),
-                "pncp_valor": round(sum(float(x.get("valor_global") or 0.0) for x in py), 2),
+                "pncp_valor": round(sum(float(x.get("valor_global") or 0.0) for x in py), 2) if has_pncp_y else None,
                 "fiorilli_contratos": len(cy),
-                "fiorilli_valor": round(sum(float(x.get("valor_efetivo") or 0.0) for x in cy), 2),
+                "fiorilli_valor": round(sum(float(x.get("valor_efetivo") or 0.0) for x in cy), 2) if has_con_y else None,
                 "diretas_qtd": len(dy),
-                "diretas_valor": round(sum(float(x.get("valor_efetivo") or 0.0) for x in dy), 2),
+                "diretas_valor": round(sum(float(x.get("valor_efetivo") or 0.0) for x in dy), 2) if has_con_y else None,
             }
         )
 
@@ -474,10 +974,90 @@ def build_transparencia_resumo(
             entidades_map[ent] = entidades_map.get(ent, 0) + 1
     entidades_disponiveis = [k for k, _ in sorted(entidades_map.items(), key=lambda x: (-x[1], x[0]))]
 
+    pncp_ultima = str((pncp_meta or {}).get("ultima_sincronizacao") or "").strip()
+    if not pncp_ultima and pncp_rows:
+        pncp_ultima = max((str(r.get("atualizado_em") or "") for r in pncp_rows), default="")
+
+    pncp_meta_out = {
+        "sincronizado": len(pncp_rows) > 0,
+        "ultima_atualizacao": pncp_ultima,
+        "total_contratos": len(pncp_f),
+        "erro": pncp_sync_error or "",
+    }
+
+    # Resumo de contratos não localizados no PNCP + pontos para apuração
+    nao_loc_res = build_contratos_nao_localizados_pncp(
+        pncp_rows=pncp_rows,
+        fiorilli_contratos_rows=fiorilli_contratos_rows,
+        ano=ano,
+        revisoes_map=revisoes_map,
+        ultima_consulta_pncp=pncp_ultima,
+        pncp_sync_error=pncp_sync_error,
+        pagina=1,
+        limite=10,
+    )
+    cruz_sample = build_cruzamento_fornecedores(
+        pncp_rows=pncp_rows,
+        desp_forn_rows=desp_forn_rows,
+        fiorilli_contratos_rows=fiorilli_contratos_rows,
+        ano=ano,
+        alerta="ALERTAS",
+        limite=50,
+    )
+    pontos_apuracao = build_pontos_apuracao(
+        cruzamento_res=cruz_sample,
+        nao_pncp_res=nao_loc_res,
+        ano=ano,
+        pncp_meta=pncp_meta_out,
+        fiorilli_meta=meta or {},
+    )
+
+    comparabilidade = {
+        "comparavel_entre_exercicios": False if ano is None else False,
+        "motivo": (
+            "2026 representa exercício em curso (parcial até a data da última coleta), enquanto 2025 abrange o "
+            "exercício completo. Por isso, não são calculadas variações percentuais automáticas entre 2025 e 2026."
+        ),
+        "aviso_saldo": (
+            "A diferença entre valor contratado (PNCP ou Fiorilli) e valor pago no exercício não representa saldo "
+            "contratual líquido sem comprovação prévia de vínculo contratual e abrangência temporal equivalentes."
+        ),
+        "tratamento_remanescentes": (
+            f"Contratos assinados em exercícios anteriores que seguem vigentes em {ano or '2025–2026'} "
+            f"({fiorilli_rem_qtd} registro(s) único(s)) são isolados dos novos contratos do exercício e deduplicados."
+        ),
+    }
+
+    metodologia = {
+        "receita": {
+            "fonte": "Portal Transparência Fiorilli (ReceitaOrcamentaria / União / Estado)",
+            "periodo": f"Exercício {ano}" if ano else "Exercícios 2025 e 2026",
+            "universo": "Contas-raiz contábeis (eh_raiz=1) sem dupla contagem, com deduções FUNDEB separadas.",
+        },
+        "despesa_paga": {
+            "fonte": "Portal Transparência Fiorilli (DespesasPorOrgao / DespesasPorFornecedor)",
+            "periodo": f"Exercício {ano}" if ano else "Exercícios 2025 e 2026",
+            "universo": "Valores empenhados, liquidados e efetivamente pagos no exercício.",
+        },
+        "contratos_pncp": {
+            "fonte": "API Pública PNCP (/api/consulta/v1/contratos)",
+            "periodo": f"Exercício {ano}" if ano else "Exercícios 2025 e 2026",
+            "universo": "Contratos homologados dos 4 CNPJs públicos monitorados de Imperatriz (excluídos ignorados).",
+        },
+        "contratos_fiorilli": {
+            "fonte": "Portal Transparência Fiorilli (LicitacoesEContratos / Contratos)",
+            "periodo": f"Exercício {ano}" if ano else "Exercícios 2025 e 2026",
+            "universo": "Contratos ativos do exercício (anulados excluídos e remanescentes de anos anteriores separados).",
+        },
+    }
+
     return {
         "ano_filtro": ano,
         "anos_suportados": list(ALLOWED_CROSS_YEARS),
         "meta": meta or {},
+        "pncp_meta": pncp_meta_out,
+        "comparabilidade": comparabilidade,
+        "metodologia": metodologia,
         "receitas": receitas,
         "despesas": {
             "dotacao_atualizada": desp_dotacao,
@@ -489,19 +1069,24 @@ def build_transparencia_resumo(
             "fornecedores_empenhado_total": forn_emp_total,
             "fornecedores_unicos": forn_unicos_fiorilli,
             "por_orgao": desp_orgaos_lista,
+            "tem_dados": len(org_f) > 0,
         },
         "contratos_comparativo": {
             "pncp_qtd": pncp_qtd,
-            "pncp_valor_total": pncp_valor_total,
+            "pncp_valor_total": pncp_valor_total if len(pncp_f) > 0 else None,
             "fiorilli_qtd": fiorilli_qtd,
-            "fiorilli_valor_total": fiorilli_valor_total,
+            "fiorilli_valor_total": fiorilli_valor_total if len(con_f_all) > 0 else None,
             "fiorilli_remanescentes_qtd": fiorilli_rem_qtd,
-            "fiorilli_remanescentes_valor": fiorilli_rem_valor,
+            "fiorilli_remanescentes_valor": fiorilli_rem_valor if len(con_f_all) > 0 else None,
             "fiorilli_anuladas_qtd": len(con_f_all) - len(con_f),
-            "diferenca_fiorilli_menos_pncp": round(fiorilli_valor_total - pncp_valor_total, 2),
-            "pct_pago_sobre_receita": _safe_pct(desp_pago, arr_liq),
-            "pct_pncp_sobre_receita": _safe_pct(pncp_valor_total, arr_liq),
-            "pct_fiorilli_sobre_receita": _safe_pct(fiorilli_valor_total, arr_liq),
+            "diferenca_fiorilli_menos_pncp": (
+                round(fiorilli_valor_total - pncp_valor_total, 2)
+                if (len(pncp_f) > 0 and len(con_f_all) > 0)
+                else None
+            ),
+            "pct_pago_sobre_receita": _safe_pct(desp_pago, arr_liq) if (len(org_f) > 0 and len(rec_f) > 0) else None,
+            "pct_pncp_sobre_receita": _safe_pct(pncp_valor_total, arr_liq) if (len(pncp_f) > 0 and len(rec_f) > 0) else None,
+            "pct_fiorilli_sobre_receita": _safe_pct(fiorilli_valor_total, arr_liq) if (len(con_f_all) > 0 and len(rec_f) > 0) else None,
         },
         "dispensas_resumo": {
             "diretas_qtd": len(diretas),
@@ -512,6 +1097,8 @@ def build_transparencia_resumo(
             "inexigibilidades_valor": round(sum(float(d.get("valor_efetivo") or 0.0) for d in inexig_rows), 2),
             "por_status_pncp": status_counts,
         },
+        "nao_localizados_pncp_resumo": nao_loc_res["resumo"],
+        "pontos_apuracao": pontos_apuracao,
         "comparativo_anual": comparativo_anual,
         "entidades_disponiveis": entidades_disponiveis,
     }
@@ -665,6 +1252,35 @@ def build_cruzamento_fornecedores(
         code, label = _classify_supplier_alert(row, corte_sem_pncp=corte_sem_pncp)
         row["alerta_codigo"] = code
         row["alerta_label"] = label
+
+        # Classificação explícita do vínculo + campos comparados (nunca afirma vínculo só por nome/valor)
+        has_doc = bool(entry["fornecedor_doc"])
+        has_pncp = entry["pncp_contratos_qtd"] > 0
+        has_fior = (entry["fiorilli_contratos_qtd"] + entry["fiorilli_remanescentes_qtd"]) > 0
+        campos_comparados = []
+        if has_doc:
+            campos_comparados.append(entry["tipo_pessoa"])
+        if has_pncp:
+            campos_comparados.append("Contratos PNCP (exercício)")
+        if has_fior:
+            campos_comparados.append("Contratos Fiorilli")
+        if pag_v > 0 or emp_v > 0:
+            campos_comparados.append("Despesas pagas/empenhadas")
+
+        if not has_doc:
+            vinc_code = "REVISAO_MANUAL_NECESSARIA"
+        elif has_pncp and has_fior and code in ("CONCILIADO", "CONTRATO_SEM_PAGAMENTO"):
+            vinc_code = "IDENTIFICADOR_EXATO"
+        elif has_pncp and code in ("PAGO_ACIMA_PNCP", "DIVERGENCIA_VALOR"):
+            vinc_code = "REVISAO_MANUAL_NECESSARIA"
+        elif has_pncp:
+            vinc_code = "CORRESPONDENCIA_PROVAVEL"
+        else:
+            vinc_code = "SEM_CORRESPONDENCIA_COLETA"
+
+        row["classificacao_vinculo"] = vinc_code
+        row["classificacao_vinculo_label"] = CLASSIFICACAO_VINCULO_LABELS[vinc_code]
+        row["campos_comparados"] = campos_comparados
         all_rows.append(row)
 
         resumo_alertas[code]["qtd"] += 1

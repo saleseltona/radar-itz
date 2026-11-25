@@ -1679,6 +1679,143 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         ):
             self.assertIn(route, sources)
 
+    def test_25_transparencia_nao_localizados_e_pontos_apuracao(self) -> None:
+        """Valida situações de correspondência, ausência no recorte e cobertura insuficiente."""
+        from src.transparencia_cross import (
+            build_contratos_nao_localizados_pncp,
+            build_pontos_apuracao,
+            build_transparencia_resumo,
+        )
+
+        def contrato_fiorilli(chave: str, codigo: str, processo: str, doc: str, valor: float) -> Dict[str, Any]:
+            return {
+                "chave_contrato": chave,
+                "ano": 2026,
+                "empresa": "2",
+                "entidade": "PREFEITURA",
+                "codigo": codigo,
+                "processo_adm": processo,
+                "tipo_contratacao": "Dispensa",
+                "eh_contratacao_direta": 1,
+                "fornecedor_doc": doc,
+                "fornecedor_nome": f"FORNECEDOR {codigo}",
+                "objeto": "Objeto de teste",
+                "valor_contrato": valor,
+                "valor_efetivo": valor,
+                "anulado": 0,
+                "data_assinatura": "2026-02-01",
+            }
+
+        def contrato_pncp(ctrl: str, processo: str, doc: str, valor: float) -> Dict[str, Any]:
+            return {
+                "numero_controle_pncp": ctrl,
+                "orgao_cnpj": "06158455000116",
+                "ano_contrato": 2026,
+                "numero_contrato": ctrl,
+                "processo": processo,
+                "fornecedor_cnpj": doc,
+                "fornecedor_nome": "FORNECEDOR PNCP",
+                "objeto": "Objeto PNCP",
+                "valor_global": valor,
+                "valor_inicial": valor,
+            }
+
+        # Cenário A: base vazia não pode silenciar ausência — vira indisponibilidade explícita.
+        vazio = build_contratos_nao_localizados_pncp([], [], ano=2026)
+        self.assertEqual(vazio["resumo"]["total_contratos_analisados"], 0)
+        self.assertFalse(vazio["resumo"]["consulta_conclusiva"])
+        self.assertEqual(vazio["resumo"]["cobertura_pncp_contratos"], 0)
+        self.assertTrue(vazio["resumo"]["motivo_consulta"])
+        self.assertEqual(vazio["items"], [])
+
+        pontos_vazio = build_pontos_apuracao(
+            cruzamento_res={"items": [], "resumo_alertas": {}},
+            nao_pncp_res=vazio,
+            ano=2026,
+            pncp_meta={"sincronizado": False, "total_contratos": 0},
+            fiorilli_meta={"sincronizado": False},
+        )
+        tipos_vazio = {p["tipo"] for p in pontos_vazio["items"]}
+        self.assertIn("COBERTURA_INSUFICIENTE_PNCP", tipos_vazio)
+        self.assertFalse(pontos_vazio["cobertura"]["conclusiva"])
+        json.dumps(pontos_vazio)  # contrato: saída serializável para a API
+
+        # Cenário B: correspondência, ausência no recorte e possível correspondência.
+        pncp_rows = [contrato_pncp("CTRL-1", "02.04.00.0010/2026", "11111111000111", 100000.0)]
+        fiorilli_rows = [
+            contrato_fiorilli("2026|2|C1", "C1", "02.04.00.0010/2026", "11111111000111", 100000.0),
+            contrato_fiorilli("2026|2|C2", "C2", "9999999999/2026", "11111111000111", 50000.0),
+            contrato_fiorilli("2026|2|C3", "C3", "8888888888/2026", "22222222000122", 30000.0),
+        ]
+
+        nao_loc = build_contratos_nao_localizados_pncp(pncp_rows, fiorilli_rows, ano=2026, limite=50)
+        resumo_loc = nao_loc["resumo"]
+        self.assertTrue(resumo_loc["consulta_conclusiva"])
+        self.assertEqual(resumo_loc["total_contratos_analisados"], 3)
+        self.assertEqual(resumo_loc["localizados_qtd"], 1)
+        self.assertEqual(resumo_loc["possivel_correspondencia_qtd"], 1)
+        self.assertEqual(resumo_loc["nao_localizados_qtd"], 1)
+        situacoes = {i["codigo"]: i["situacao"] for i in nao_loc["items"]}
+        self.assertEqual(situacoes["C1"], "LOCALIZADO_PNCP")
+        self.assertEqual(situacoes["C2"], "POSSIVEL_CORRESPONDENCIA")
+        self.assertEqual(situacoes["C3"], "NAO_LOCALIZADO_PNCP")
+
+        pontos = build_pontos_apuracao(
+            cruzamento_res={"items": [], "resumo_alertas": {"PAGO_SEM_PNCP": {"qtd": 1, "pago": 5000.0, "pncp": 0.0}}},
+            nao_pncp_res=nao_loc,
+            ano=2026,
+            pncp_meta={"sincronizado": True, "total_contratos": 1},
+            fiorilli_meta={"sincronizado": True},
+        )
+        tipos = {p["tipo"]: p for p in pontos["items"]}
+        self.assertIn("CONTRATO_NAO_LOCALIZADO_PNCP", tipos)
+        self.assertTrue(tipos["CONTRATO_NAO_LOCALIZADO_PNCP"]["conclusivo"])
+        self.assertIn("CONTRATO_POSSIVEL_CORRESPONDENCIA", tipos)
+        self.assertIn("PAGAMENTO_SEM_CONTRATO_PNCP", tipos)
+        self.assertNotIn("COBERTURA_INSUFICIENTE_PNCP", tipos)
+        self.assertTrue(pontos["cobertura"]["conclusiva"])
+        self.assertEqual(pontos["ano_filtro"], 2026)
+
+        # Cenário C: falha de sincronização impede afirmar ausência no PNCP.
+        nao_loc_erro = build_contratos_nao_localizados_pncp(
+            pncp_rows, fiorilli_rows, ano=2026, pncp_sync_error="timeout"
+        )
+        self.assertFalse(nao_loc_erro["resumo"]["consulta_conclusiva"])
+        # Correspondências já localizadas permanecem válidas; só a ausência vira inconclusiva.
+        self.assertEqual(nao_loc_erro["resumo"]["localizados_qtd"], 1)
+        self.assertEqual(nao_loc_erro["resumo"]["possivel_correspondencia_qtd"], 1)
+        self.assertEqual(nao_loc_erro["resumo"]["inconclusivos_qtd"], 1)
+        self.assertEqual(nao_loc_erro["resumo"]["nao_localizados_qtd"], 0)
+
+        pontos_erro = build_pontos_apuracao(
+            cruzamento_res={"items": [], "resumo_alertas": {}},
+            nao_pncp_res=nao_loc_erro,
+            ano=2026,
+            pncp_meta={"sincronizado": True, "erro": "timeout", "total_contratos": 1},
+            fiorilli_meta={"sincronizado": True},
+        )
+        tipos_erro = {p["tipo"] for p in pontos_erro["items"]}
+        self.assertIn("COBERTURA_INSUFICIENTE_PNCP", tipos_erro)
+        self.assertIn("CONTRATO_INCONCLUSIVO_PNCP", tipos_erro)
+        self.assertNotIn("CONTRATO_NAO_LOCALIZADO_PNCP", tipos_erro)
+
+        # Integração: o resumo expõe as novas chaves consumidas pela API.
+        resumo = build_transparencia_resumo(
+            pncp_rows,
+            [],
+            [],
+            [],
+            fiorilli_rows,
+            ano=2026,
+            meta={"sincronizado": True},
+        )
+        self.assertIn("nao_localizados_pncp_resumo", resumo)
+        self.assertIn("pontos_apuracao", resumo)
+        self.assertEqual(resumo["nao_localizados_pncp_resumo"]["localizados_qtd"], 1)
+        self.assertEqual(resumo["nao_localizados_pncp_resumo"]["nao_localizados_qtd"], 1)
+        self.assertTrue(resumo["pontos_apuracao"]["items"])
+        json.dumps(resumo)
+
 
 if __name__ == "__main__":
     unittest.main()
