@@ -238,7 +238,7 @@
   background: var(--mt-card); color: var(--mt-accent); box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
   opacity: 0; transform: translateY(0); pointer-events: none;
 }
-.mt-ptr.go .material-symbols-outlined { animation: mt-spin 900ms linear infinite; }
+.mt-ptr.go .material-symbols-outlined, .mt-girando { animation: mt-spin 900ms linear infinite; }
 .mt-ptr.settle { transition: transform var(--mt-dur) ease, opacity var(--mt-dur) ease; }
 @keyframes mt-spin { to { transform: rotate(360deg); } }
 

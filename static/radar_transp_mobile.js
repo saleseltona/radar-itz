@@ -331,19 +331,36 @@
     st.dir = Object.assign(st.dir, { items: [], page: 0, totalPages: 1, error: '', all: false });
     st.pend = Object.assign(st.pend, { items: [], page: 0, totalPages: 1, error: '', all: false });
     st.org.shown = FIRST; st.org.all = false;
-    if (!st.resumo) { renderAba(st.tab); }
     var p = new URLSearchParams();
     if (curYear()) { p.set('ano', curYear()); }
+    var url = '/api/transparencia/resumo?' + p.toString();
+    // O resumo leva de 15 a 30 s no servidor: mostra já o último carregamento guardado
+    // neste aparelho (com "dados de [data/hora]") e troca quando a resposta nova chegar.
+    var guardado = lerCache(url);
+    if (guardado && guardado.d) {
+      st.resumo = guardado.d;
+      st.resumoFrom = guardado.t;
+      st.atualizando = true;
+      renderCabecalho();
+      TABS.forEach(function (t) { if (t.k !== 'contratos' && t.k !== 'pendencias') { renderAba(t.k); } });
+    } else {
+      st.resumo = null;
+      st.resumoFrom = 0;
+      st.atualizando = false;
+      renderAba(st.tab);
+      avisoDemora(seq);
+    }
     try {
-      var r = await buscar('/api/transparencia/resumo?' + p.toString(), true);
+      var r = await buscar(url, true);
       if (seq !== st.seq) { return; }
       st.resumo = r.data;
       st.resumoFrom = r.from;
     } catch (e) {
       if (seq !== st.seq) { return; }
       st.resumoErr = msgErro(e);
-      st.resumo = null;
+      if (!guardado) { st.resumo = null; }
     }
+    st.atualizando = false;
     st.resumoLoading = false;
     renderCabecalho();
     TABS.forEach(function (t) { if (t.k !== 'contratos' && t.k !== 'pendencias') { renderAba(t.k); } });
@@ -431,6 +448,11 @@
     if (st.tab === 'pendencias') { t = st.pend.from || t; }
     if (!t) { el.hidden = true; return; }
     el.hidden = false;
+    if (st.atualizando && t === st.resumoFrom) {
+      el.innerHTML = ic('sync', 'mt-girando') + '<div><strong>Atualizando…</strong> Mostrando dados de ' +
+        esc(dataHora(t)) + ' enquanto o servidor calcula o resumo (pode levar até 30 s).</div>';
+      return;
+    }
     el.innerHTML = ic('cloud_off') + '<div><strong>Sem conexão com o servidor.</strong> Mostrando dados de ' +
       esc(dataHora(t)) + ' (último carregamento neste aparelho). Puxe para baixo para tentar de novo.</div>';
   }
@@ -442,7 +464,16 @@
       out += '<div class="mt-card" aria-hidden="true"><div class="mt-skel" style="height:14px;width:40%"></div>' +
         '<div class="mt-skel" style="height:' + (h || 26) + 'px;width:70%"></div><div class="mt-skel" style="height:8px;width:100%"></div></div>';
     }
-    return '<div role="status" aria-label="Carregando" style="display:flex;flex-direction:column;gap:12px">' + out + '</div>';
+    return '<div role="status" aria-label="Carregando" style="display:flex;flex-direction:column;gap:12px">' +
+      '<p class="mt-note mt-demora" hidden>O servidor está calculando o resumo do Portal Fiorilli × PNCP. Na primeira abertura isso pode levar até 30 segundos; nas próximas, os últimos dados aparecem na hora.</p>' +
+      out + '</div>';
+  }
+  // Depois de 4 s sem resposta, explica a espera em vez de deixar só o esqueleto.
+  function avisoDemora(seq) {
+    setTimeout(function () {
+      if (seq !== st.seq || st.resumo || !st.resumoLoading) { return; }
+      Array.prototype.forEach.call(document.querySelectorAll('#mt-app .mt-demora'), function (el) { el.hidden = false; });
+    }, 4000);
   }
   function estado(icone, titulo, texto, botao) {
     return '<div class="mt-card mt-state">' + ic(icone) + '<strong>' + esc(titulo) + '</strong>' +
