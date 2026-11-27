@@ -100,15 +100,22 @@ class TestSegurancaWeb(unittest.TestCase):
             "/static/../src/config.py",
             "/static//etc/passwd",
             "/static/../../../../etc/passwd",
-            "/?__route=/static/../README.md",
-            "/?__route=/static/%2e%2e/README.md",
-            "/?__route=/static/%2e%2e%2fREADME.md",
-            "/api/index?__route=/static/..%2f..%2fREADME.md",
+            "/static/%2e%2e/README.md",
+            "/static/%2e%2e%2fREADME.md",
+            "/static/..%2f..%2fREADME.md",
+            "/api/index?__route=/static/../README.md",
         ]
         for caminho in tentativas:
             with self.subTest(caminho=caminho):
                 status, _, _ = self.call("GET", caminho)
                 self.assertEqual(status, 404)
+
+    def test_parametro_route_antigo_e_ignorado(self) -> None:
+        # O rewrite `?__route=` era só da Vercel; agora a query não muda a rota.
+        status, _, body = self.call("GET", "/?__route=/static/../README.md")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"Radar de Pautas de Imperatriz (MA)\n", body[:200])
+        self.assertIn(b"<html", body[:2000].lower())
 
     def test_resolve_static_file_recusa_caminhos_externos(self) -> None:
         self.assertIsNone(resolve_static_file("../README.md"))

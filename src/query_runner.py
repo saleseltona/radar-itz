@@ -3,7 +3,7 @@ Execução real das consultas de busca do Radar (32 obrigatórias + derivadas + 
 
 Cada consulta vira uma requisição ao Google News RSS (fonte aberta, sem chave), com:
 - pausa entre requisições, para não sobrecarregar o serviço;
-- orçamento de tempo total, para caber no limite de execução (ex.: Vercel 60 s);
+- orçamento de tempo total, para a varredura não segurar a requisição por tempo demais;
 - parada imediata ao receber limite de requisições (HTTP 429/503), sem insistir;
 - registro honesto do resultado de cada consulta: executada com itens, executada
   sem itens, com erro, interrompida por limite ou não executada por falta de tempo.
@@ -18,7 +18,7 @@ import urllib.error
 import urllib.parse
 from typing import Any, Callable, Dict, List, Optional
 
-from src.config import IS_VERCEL, mask_secrets
+from src.config import mask_secrets
 
 GOOGLE_NEWS_RSS_TEMPLATE = (
     "https://news.google.com/rss/search?q={query}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
@@ -32,8 +32,7 @@ STATUS_SEM_TEMPO = "nao_executada_tempo_esgotado"
 
 STATUS_EXECUTADA = (STATUS_COM_ITENS, STATUS_SEM_ITENS)
 
-# Na Vercel a função inteira tem 60 s (vercel.json maxDuration); fora dela sobra mais tempo
-ORCAMENTO_PADRAO_SEGUNDOS = 20.0 if IS_VERCEL else 45.0
+ORCAMENTO_PADRAO_SEGUNDOS = 45.0
 
 # HTTP que indicam limite de taxa / bloqueio temporário do serviço de busca
 HTTP_LIMITE = (429, 503)

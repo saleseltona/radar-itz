@@ -1600,7 +1600,7 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertEqual(disp_com_rem["items"][0]["fornecedor_nome"], "INST ANTIGO 2021")
 
     def test_24_endpoints_http_transparencia_e_csv(self) -> None:
-        """Testa rotas REST /api/transparencia/*, exportação CSV no-store e rewrites vercel.json."""
+        """Testa rotas REST /api/transparencia/*, e exportação CSV no-store."""
         from src.config import BASE_DIR
         from src.web_server import RadarAPIHandler
 
@@ -1668,16 +1668,6 @@ class TestRadarPautasImperatriz(unittest.TestCase):
         self.assertIn("no-store", h_csv1.get("cache-control", ""))
         self.assertIn("FORNECEDOR HTTP TESTE", b_csv1.decode("utf-8-sig"))
 
-        vercel_cfg = json.loads((BASE_DIR / "vercel.json").read_text(encoding="utf-8"))
-        sources = {r["source"] for r in vercel_cfg.get("rewrites", [])}
-        for route in (
-            "/api/transparencia/resumo",
-            "/api/transparencia/cruzamento",
-            "/api/transparencia/dispensas",
-            "/api/transparencia/export/csv",
-            "/api/transparencia/sync",
-        ):
-            self.assertIn(route, sources)
 
     def test_25_transparencia_nao_localizados_e_pontos_apuracao(self) -> None:
         """Valida situações de correspondência, ausência no recorte e cobertura insuficiente."""

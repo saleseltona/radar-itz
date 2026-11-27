@@ -29,7 +29,7 @@ from src.config import (
     DB_PATH,
     FIORILLI_DEFAULT_YEARS,
     FONTES_CSV_PATH,
-    IS_VERCEL,
+    IS_RENDER,
     OUTPUT_DIR,
     ensure_runtime_files,
     is_supabase_configured,
@@ -476,7 +476,7 @@ def pncp_cobertura_registrada(db: Any) -> Optional[Dict[str, Any]]:
 
 
 class RadarAPIHandler(BaseHTTPRequestHandler):
-    """Manipulador HTTP REST e servidor estático embutido (compatível com local e Vercel)."""
+    """Manipulador HTTP REST e servidor estático embutido (local, Render e Docker)."""
 
     _db: Optional[RadarDatabase] = None
 
@@ -654,17 +654,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             )
 
     def _resolve_route(self) -> Tuple[str, Dict[str, List[str]]]:
-        """Resolve a rota original considerando rewrites da Vercel (`?__route=...`)."""
+        """Separa o caminho da requisição e os parâmetros da query string."""
         parsed = urllib.parse.urlparse(self.path)
         query = urllib.parse.parse_qs(parsed.query)
-        route_param = query.get("__route", [None])[0]
-        if route_param:
-            path = route_param if route_param.startswith("/") else f"/{route_param}"
-        else:
-            path = parsed.path or "/"
-        if path in ("/api/index", "/api/index.py", "/api"):
-            path = "/"
-        return path, query
+        return parsed.path or "/", query
 
     def do_OPTIONS(self) -> None:
         # Sem Access-Control-Allow-Origin: o navegador bloqueia POST JSON vindo de outros sites.
@@ -1612,9 +1605,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             res["storage_backend"] = getattr(db, "backend_name", "sqlite")
             res["lock_escopo"] = getattr(db, "sync_lock_escopo", "banco")
             res["estado_persistente"] = bool(getattr(db, "sync_estado_persistente", True))
-            if res["storage_backend"] == "sqlite" and IS_VERCEL:
+            if res["storage_backend"] == "sqlite" and IS_RENDER:
                 res["aviso_armazenamento"] = (
-                    "Banco SQLite temporário da Vercel (/tmp): os dados podem se perder quando a função reiniciar."
+                    "Banco SQLite no disco temporário do Render: os dados se perdem quando o serviço reinicia. "
+                    "Configure o Supabase para guardar de vez."
                 )
             if res["erros"] and res["inseridos"] == 0 and res["atualizados"] == 0 and res["janelas_concluidas"] == 0:
                 res["erro"] = "O PNCP não respondeu corretamente. Nada foi perdido; tente continuar mais tarde."

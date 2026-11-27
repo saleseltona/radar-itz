@@ -35,7 +35,7 @@ ENDPOINT_ATUALIZACAO = f"{PNCP_CONSULTA_BASE}/contratos/atualizacao"
 
 ANOS_CARGA_COMPLETA: Tuple[int, ...] = (2025, 2026)
 MARGEM_DIAS = 5
-TEMPO_LIMITE_SEGUNDOS = 40.0  # Vercel maxDuration = 60s; sobra margem para gravar e responder
+TEMPO_LIMITE_SEGUNDOS = 40.0  # cada lote cabe numa requisição HTTP curta, com margem para gravar e responder
 HTTP_TIMEOUT_SEGUNDOS = 15
 MAX_JANELAS_POR_LOTE = 12
 TAMANHO_PAGINA = 50

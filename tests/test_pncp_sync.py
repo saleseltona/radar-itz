@@ -238,7 +238,7 @@ class TestPncpSyncEndpoint(unittest.TestCase):
 
         raw = json.dumps(body).encode("utf-8")
         h = web_server.RadarAPIHandler.__new__(web_server.RadarAPIHandler)
-        h.path = "/api/index?__route=/api/pncp/sync"
+        h.path = "/api/pncp/sync"
         h.command = "POST"
         h.request_version = "HTTP/1.1"
         h.requestline = "POST /api/pncp/sync HTTP/1.1"
@@ -325,7 +325,7 @@ class TestFrontendRespostaNaoJson(unittest.TestCase):
         out = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=20, check=True)
         return json.loads(out.stdout)
 
-    def test_504_da_vercel_vira_mensagem_clara(self) -> None:
+    def test_504_em_html_vira_mensagem_clara(self) -> None:
         r = self._run(504, False, "An error occurred with your deployment\n\nFUNCTION_INVOCATION_TIMEOUT")
         self.assertFalse(r["ok"])
         self.assertIn("Tempo esgotado", r["message"])

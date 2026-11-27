@@ -1,6 +1,6 @@
 """
 Conector REST (PostgREST HTTPS) e Repositório Supabase 100% biblioteca padrão Python 3.
-Substitui o SQLite local na Vercel por persistência real em PostgreSQL sem dependências C externas.
+Substitui o SQLite local no servidor (Render) por persistência real em PostgreSQL sem dependências C externas.
 """
 from __future__ import annotations
 

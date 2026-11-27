@@ -6,57 +6,29 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-IS_VERCEL = bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"))
+IS_RENDER = bool(os.environ.get("RENDER"))
 
 BUNDLED_DATA_DIR = BASE_DIR / "data"
 BUNDLED_OUTPUT_DIR = BASE_DIR / "output"
 BUNDLED_FONTES_CSV_PATH = BASE_DIR / "fontes.csv"
 VERIFIED_CORPUS_PATH = BUNDLED_DATA_DIR / "coleta_verificada_real.json"
 
-if IS_VERCEL:
-    RUNTIME_DIR = Path(tempfile.gettempdir()) / "radar-pautas-imperatriz"
-    DATA_DIR = RUNTIME_DIR / "data"
-    OUTPUT_DIR = RUNTIME_DIR / "output"
-    FONTES_CSV_PATH = RUNTIME_DIR / "fontes.csv"
-else:
-    DATA_DIR = BUNDLED_DATA_DIR
-    OUTPUT_DIR = BUNDLED_OUTPUT_DIR
-    FONTES_CSV_PATH = BUNDLED_FONTES_CSV_PATH
+DATA_DIR = BUNDLED_DATA_DIR
+OUTPUT_DIR = BUNDLED_OUTPUT_DIR
+FONTES_CSV_PATH = BUNDLED_FONTES_CSV_PATH
 
 DB_PATH = DATA_DIR / "radar_imperatriz.db"
 LOCK_FILE_PATH = DATA_DIR / "scheduler.lock"
 
 
 def ensure_runtime_files() -> None:
-    """Garante diretórios graváveis e copia dados iniciais em ambientes serverless (ex.: Vercel /tmp)."""
+    """Garante que os diretórios graváveis de dados e saída existam."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    if not IS_VERCEL:
-        return
-
-    bundled_db = BUNDLED_DATA_DIR / "radar_imperatriz.db"
-    if bundled_db.exists() and not DB_PATH.exists():
-        shutil.copy2(bundled_db, DB_PATH)
-
-    if BUNDLED_FONTES_CSV_PATH.exists() and not FONTES_CSV_PATH.exists():
-        shutil.copy2(BUNDLED_FONTES_CSV_PATH, FONTES_CSV_PATH)
-
-    if BUNDLED_OUTPUT_DIR.exists():
-        for item in BUNDLED_OUTPUT_DIR.iterdir():
-            target = OUTPUT_DIR / item.name
-            if item.is_file() and not target.exists():
-                shutil.copy2(item, target)
-
-
-if IS_VERCEL:
-    ensure_runtime_files()
 
 
 def load_dotenv_file(dotenv_path: Path | None = None) -> None:
