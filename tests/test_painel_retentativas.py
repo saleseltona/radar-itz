@@ -131,6 +131,47 @@ async function pncpFetch(url, opts) {
 
 
 @unittest.skipUnless(shutil.which("node"), "node não instalado")
+class TestVarreduraSegundoPlano(unittest.TestCase):
+    html = (STATIC / "stitch_dashboard.html").read_text(encoding="utf-8")
+
+    def _esperar(self, respostas: List[Any]) -> Any:
+        base = "\n".join([
+            _const(self.html, "VARREDURA_POLL_MS"),
+            _const(self.html, "VARREDURA_MAX_MS"),
+            "function varreduraSleep() { return Promise.resolve(); }",
+            _extrair(self.html, "waitVarreduraBackground"),
+        ])
+        script = base + f"\nconst fila = {json.dumps(respostas)};\n" + """
+async function statusFetch() {
+  const r = fila.shift();
+  if (r === undefined || r === 'rede') throw new TypeError('Failed to fetch');
+  return { ok: r[0] === 200, json: async () => r[1] };
+}
+waitVarreduraBackground(statusFetch).then((fim) => process.stdout.write(JSON.stringify({ fim, restantes: fila.length })));
+"""
+        return _node(script)
+
+    def test_acompanha_ate_terminar_mesmo_com_queda(self) -> None:
+        rodando = [200, {"tarefas": {"varredura": {"situacao": "rodando"}}}]
+        ok = [200, {"tarefas": {"varredura": {"situacao": "ok", "ok": True, "resultado": {"pautas_novas": 4}}}}]
+        r = self._esperar([rodando, "rede", [504, {}], rodando, ok])
+        self.assertEqual(r["restantes"], 0)
+        self.assertTrue(r["fim"]["ok"])
+        self.assertEqual(r["fim"]["resultado"], {"pautas_novas": 4})
+
+    def test_erro_e_reinicio_do_servidor(self) -> None:
+        erro = [200, {"tarefas": {"varredura": {"situacao": "erro", "ok": False, "erro": "fonte caiu"}}}]
+        self.assertEqual(self._esperar([erro])["fim"], {"ok": False, "erro": "fonte caiu", "resultado": {}})
+        reinicio = [200, {"tarefas": {"varredura": {"situacao": "nunca_rodou", "ok": None}}}]
+        fim = self._esperar([reinicio])["fim"]
+        self.assertFalse(fim["ok"])
+        self.assertIn("reiniciou", fim["erro"])
+
+    def test_botao_pede_segundo_plano(self) -> None:
+        self.assertIn("segundo_plano: true", _extrair(self.html, "triggerManualSync"))
+
+
+@unittest.skipUnless(shutil.which("node"), "node não instalado")
 class TestRadarAutoRetentativas(unittest.TestCase):
     js = (STATIC / "radar_auto.js").read_text(encoding="utf-8")
 

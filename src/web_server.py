@@ -670,7 +670,20 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         # Sem Access-Control-Allow-Origin: o navegador bloqueia POST JSON vindo de outros sites.
         self.send_response(204)
-        self.send_header("Allow", "GET, POST, OPTIONS")
+        self.send_header("Allow", "GET, HEAD, POST, OPTIONS")
+        self.end_headers()
+
+    def do_HEAD(self) -> None:
+        """Checagem de vida (o Render manda HEAD / ao subir o serviço): responde sem corpo e sem tocar no banco."""
+        path, _ = self._resolve_route()
+        if path in ("/", "/index.html", "/health", "/healthz"):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+        else:
+            self.send_response(405)
+            self.send_header("Allow", "GET, POST, OPTIONS")
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
     def do_GET(self) -> None:
@@ -1374,9 +1387,16 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 consultas = body.get("consultas_adicionais")
                 if not isinstance(consultas, list):
                     consultas = None
-                res = self.auto_atualizador().executar_manual(
-                    "varredura", lambda: run_radar_cycle(modo="web", consultas_adicionais=consultas)
-                )
+                executor = lambda: run_radar_cycle(modo="web", consultas_adicionais=consultas)  # noqa: E731
+                if body.get("segundo_plano"):
+                    # A varredura leva minutos: roda em segundo plano e o painel acompanha por
+                    # GET /api/auto-atualizar, sem segurar a conexão (evita timeout/Broken pipe).
+                    self.auto_atualizador().iniciar_manual("varredura", executor)
+                    self.send_json_response(
+                        {"iniciada": True, "em_andamento": True, "acompanhar": "/api/auto-atualizar"}, status=202
+                    )
+                    return
+                res = self.auto_atualizador().executar_manual("varredura", executor)
                 self.send_json_response(res)
             except TarefaOcupada as e:
                 self.send_json_response({"erro": str(e), "em_andamento": True}, status=409)

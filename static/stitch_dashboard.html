@@ -3296,6 +3296,32 @@
     // ---------------------------
     // Varredura Manual ao Vivo (POST /api/executar)
     // ---------------------------
+    const VARREDURA_POLL_MS = 4000;
+    const VARREDURA_MAX_MS = 15 * 60 * 1000;
+
+    function varreduraSleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+
+    // Consulta GET /api/auto-atualizar até a varredura sair de "rodando". Quedas de conexão
+    // no meio (ex.: proxy) só adiam a próxima consulta; a varredura continua no servidor.
+    async function waitVarreduraBackground(statusFetch = fetch) {
+      const inicio = Date.now();
+      while (Date.now() - inicio < VARREDURA_MAX_MS) {
+        await varreduraSleep(VARREDURA_POLL_MS);
+        try {
+          const res = await statusFetch('/api/auto-atualizar', { cache: 'no-store' });
+          if (!res.ok) continue;
+          const st = await res.json();
+          const t = (st.tarefas || {}).varredura || {};
+          if (t.situacao === 'rodando' || t.situacao === 'na_fila') continue;
+          if (t.situacao === 'nunca_rodou') {
+            return { ok: false, erro: 'O servidor reiniciou durante a varredura. Tente de novo.' };
+          }
+          return { ok: t.ok !== false, erro: t.erro || '', resultado: t.resultado || {} };
+        } catch (_) { /* tenta de novo na próxima volta */ }
+      }
+      return { ok: false, erro: 'A varredura ainda está rodando no servidor; os dados aparecem quando ela terminar.' };
+    }
+
     async function triggerManualSync() {
       const btn = document.getElementById('btn-sync-manual');
       const icon = document.getElementById('sync-icon-spin');
@@ -3307,9 +3333,18 @@
         const res = await fetch('/api/executar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ consultas_adicionais: activeKeywords }),
+          body: JSON.stringify({ consultas_adicionais: activeKeywords, segundo_plano: true }),
         });
-        const data = await res.json();
+        let data = await res.json();
+        if (res.status === 202) {
+          // A varredura roda em segundo plano no servidor; acompanha pelo status sem segurar a conexão.
+          const fim = await waitVarreduraBackground();
+          if (!fim.ok) {
+            alert(`Aviso na varredura: ${fim.erro || 'Não foi possível completar.'}`);
+            return;
+          }
+          data = fim.resultado || {};
+        }
         if (res.ok) {
           alert(`Varredura concluída!\n• Execução: ${data.id_execucao || data.execucao_id || 'N/A'}\n• Pautas novas: ${data.pautas_novas ?? 0}\n• Páginas lidas: ${data.paginas_lidas ?? 0}\n• Fontes verificadas: ${data.fontes_consultadas ?? 0}`);
           await loadAllData();
