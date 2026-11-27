@@ -73,6 +73,7 @@ class TestPncpSyncLotes(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = RadarDatabase(Path(self.tmp.name) / "pncp_test.db")
         self.fake = FakePncp()
+        self.esperas: List[float] = []
         pmi = ORGAOS[0]["cnpj"]
         fms = ORGAOS[1]["cnpj"]
         self.fake.add(pmi, "20250101", [[raw_contrato(pmi, 1), raw_contrato(pmi, 2)], [raw_contrato(pmi, 3)]])
@@ -86,6 +87,7 @@ class TestPncpSyncLotes(unittest.TestCase):
         kw.setdefault("fetch", self.fake)
         kw.setdefault("hoje", HOJE)
         kw.setdefault("orgaos", ORGAOS)
+        kw.setdefault("dormir", self.esperas.append)  # sem esperar de verdade nos testes
         return executar_lote(self.db, PncpClient.normalize_contrato, **kw)
 
     def _count(self) -> int:
@@ -211,6 +213,62 @@ class TestPncpSyncLotes(unittest.TestCase):
         self.assertFalse(self._ate_concluir()[-1]["parcial"])
         self.assertEqual(self._count(), 5)
 
+    def _falhar_n_vezes(self, cnpj: str, data_ini: str, pagina: int, excs: List[Exception]) -> None:
+        """Faz a página falhar com cada exceção de `excs`, uma vez cada, e depois responder normal."""
+        original = self.fake.__call__
+        fila = list(excs)
+
+        def fetch(endpoint, c, di, df, pg, tam, to):
+            if (c, di, pg) == (cnpj, data_ini, pagina) and fila:
+                self.fake.calls.append((endpoint, c, di, pg))
+                raise fila.pop(0)
+            return original(endpoint, c, di, df, pg, tam, to)
+
+        self.fetch_instavel = fetch
+
+    def test_504_passageiro_do_pncp_e_repetido_e_lote_segue(self) -> None:
+        pmi = ORGAOS[0]["cnpj"]
+        http504 = urllib.error.HTTPError("u", 504, "Gateway Time-out", email.message.Message(), None)
+        self._falhar_n_vezes(pmi, "20250101", 1, [http504, TimeoutError("timed out")])
+        r = self._lote(fetch=self.fetch_instavel)
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["erros"], [])
+        self.assertFalse(r["parcial"])
+        self.assertEqual(r["retentativas_pncp"], 2)
+        self.assertEqual(self.esperas, [2.0, 5.0])
+        self.assertEqual(self._count(), 5)
+
+    def test_falha_persistente_para_depois_das_retentativas(self) -> None:
+        pmi = ORGAOS[0]["cnpj"]
+        http503 = urllib.error.HTTPError("u", 503, "Unavailable", email.message.Message(), None)
+        self.fake.fail_on[(pmi, "20250101", 1)] = http503
+        r = self._lote()
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["motivo_pausa"], "erro_pncp")
+        self.assertIn("HTTP 503", r["erros"][0])
+        self.assertEqual(r["retentativas_pncp"], 2)
+        self.assertEqual(len([c for c in self.fake.calls if c[1:] == (pmi, "20250101", 1)]), 3)
+        self.assertEqual((r["proxima_janela"]["janela"], r["proxima_janela"]["pagina"]), (0, 1))
+
+    def test_erro_nao_transitorio_nao_e_repetido(self) -> None:
+        pmi = ORGAOS[0]["cnpj"]
+        self.fake.fail_on[(pmi, "20250101", 1)] = urllib.error.HTTPError("u", 400, "Bad Request", email.message.Message(), None)
+        r = self._lote()
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["retentativas_pncp"], 0)
+        self.assertEqual(self.esperas, [])
+        self.assertEqual(len(self.fake.calls), 1)
+
+    def test_retentativa_respeita_orcamento_de_tempo(self) -> None:
+        pmi = ORGAOS[0]["cnpj"]
+        self.fake.fail_on[(pmi, "20250101", 1)] = TimeoutError("timed out")
+        # orçamento 20 s, timeout HTTP 15 s: não cabe esperar 2 s + nova requisição de 15 s após 4 s
+        tempos = iter([0.0, 0.0, 4.0] + [4.0] * 50)
+        r = self._lote(relogio=lambda: next(tempos), tempo_limite=20.0, http_timeout=15)
+        self.assertFalse(r["ok"])
+        self.assertEqual(r["retentativas_pncp"], 0)
+        self.assertEqual(self.esperas, [])
+
     def test_lock_bloqueia_execucao_simultanea(self) -> None:
         self.assertTrue(self.db.acquire_pncp_sync_lock("outro", 90.0, 1000.0))
         with self.assertRaises(SyncEmAndamento):
@@ -252,7 +310,7 @@ class TestPncpSyncEndpoint(unittest.TestCase):
         real = web_server.executar_lote
 
         def lote(db, norm, **kw):
-            return real(db, norm, fetch=fetch, hoje=HOJE, orgaos=ORGAOS, **kw)
+            return real(db, norm, fetch=fetch, hoje=HOJE, orgaos=ORGAOS, dormir=lambda _s: None, **kw)
 
         with mock.patch.object(web_server.RadarAPIHandler, "get_db", get_db or (lambda cls=None: self.db)), \
                 mock.patch.object(web_server, "executar_lote", lote), \
