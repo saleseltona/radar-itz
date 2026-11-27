@@ -51,6 +51,12 @@ class TestCorrecoesColeta(unittest.TestCase):
 
         url = "https://imperatriz.ma.gov.br/noticia"
         self.assertEqual(referencia_evidencia("Documento primário", "Contrato nº 12/2026", url), "Contrato nº 12/2026")
+        self.assertEqual(
+            referencia_evidencia("Documento primário verificado", "Contrato nº 12/2026", url), "Contrato nº 12/2026"
+        )
+        self.assertTrue(
+            referencia_evidencia("Documento citado, não consultado", "Contrato nº 12/2026", url).startswith(url + "#ev-")
+        )
         self.assertNotEqual(
             referencia_evidencia("Fato objetivo", "Obra iniciada.", url),
             referencia_evidencia("Fato objetivo", "Prazo de 90 dias.", url),

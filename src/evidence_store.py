@@ -29,13 +29,18 @@ def parse_evidencias(texto: str) -> List[Tuple[str, str]]:
     return resultado
 
 
+# "Documento primário" é o rótulo antigo (pautas já gravadas); "Documento primário verificado"
+# é o rótulo atual do EvidenceVerifier para documentos efetivamente consultados.
+TIPOS_DOCUMENTO_PRIMARIO = ("Documento primário", "Documento primário verificado")
+
+
 def referencia_evidencia(tipo: str, descricao: str, url_pauta: str) -> str:
     """
     Referência única por evidência (a chave no Supabase é id_pauta + tipo + referência).
     Documentos primários usam o próprio identificador; os demais, a URL da pauta com
     um sufixo estável derivado da descrição.
     """
-    if tipo == "Documento primário":
+    if tipo in TIPOS_DOCUMENTO_PRIMARIO:
         return descricao
     sufixo = hashlib.sha1(descricao.encode("utf-8")).hexdigest()[:10]
     return f"{url_pauta}#ev-{sufixo}"
