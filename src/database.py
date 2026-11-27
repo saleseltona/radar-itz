@@ -838,6 +838,16 @@ class RadarDatabase:
     ) -> None:
         now_iso = datetime.now().isoformat(timespec="seconds")
         with self.connect() as conn:
+            # Mesma chave de unicidade do Supabase (id_pauta, tipo_evidencia, referencia_url_ou_doc)
+            existe = conn.execute(
+                """
+                SELECT 1 FROM evidencias
+                WHERE id_pauta = ? AND tipo_evidencia = ? AND referencia_url_ou_doc = ?
+                """,
+                (id_pauta, tipo_evidencia, referencia),
+            ).fetchone()
+            if existe:
+                return
             conn.execute(
                 """
                 INSERT INTO evidencias (id_pauta, tipo_evidencia, descricao, referencia_url_ou_doc, data_registro)
