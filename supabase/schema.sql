@@ -329,3 +329,18 @@ ALTER TABLE public.fiorilli_receitas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_despesas_orgaos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_despesas_fornecedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_contratos ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- Notificações push (Web Push): aparelhos inscritos (src/web_push.py)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.push_inscricoes (
+    endpoint TEXT PRIMARY KEY,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    user_agent TEXT DEFAULT '',
+    criado_em TEXT NOT NULL DEFAULT '',
+    ultimo_envio TEXT DEFAULT '',
+    ultimo_status INTEGER DEFAULT NULL
+);
+ALTER TABLE public.push_inscricoes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.push_inscricoes FROM anon, authenticated;

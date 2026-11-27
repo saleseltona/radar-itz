@@ -35,9 +35,9 @@ python scripts/backfill_evidencias.py [--dry-run]
 
 ## Rotas HTTP
 
-GET: `/`, `/dashboard`, `/api/auto-atualizar`, `/api/pautas`, `/api/pautas/arquivadas`, `/api/stats`, `/api/telemetria`, `/api/clipping`, `/api/export/csv`, `/export/pautas.csv`, `/api/fontes`, `/api/pendencias`, `/api/pncp/contratos`, `/api/pncp/resumo`, `/api/pncp/estatisticas`, `/api/pncp/export/csv`, `/api/pncp/retificacoes`, `/api/pncp/ignorados`, `/api/transparencia/resumo`, `/api/transparencia/cruzamento`, `/api/transparencia/dispensas`, `/api/transparencia/export/csv`.
+GET: `/`, `/dashboard`, `/manifest.webmanifest`, `/sw.js`, `/apple-touch-icon.png`, `/api/push/chave-publica`, `/api/auto-atualizar`, `/api/pautas`, `/api/pautas/arquivadas`, `/api/stats`, `/api/telemetria`, `/api/clipping`, `/api/export/csv`, `/export/pautas.csv`, `/api/fontes`, `/api/pendencias`, `/api/pncp/contratos`, `/api/pncp/resumo`, `/api/pncp/estatisticas`, `/api/pncp/export/csv`, `/api/pncp/retificacoes`, `/api/pncp/ignorados`, `/api/transparencia/resumo`, `/api/transparencia/cruzamento`, `/api/transparencia/dispensas`, `/api/transparencia/export/csv`.
 
-POST: `/api/auto-atualizar`, `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/fontes`.
+POST: `/api/push/inscrever`, `/api/push/cancelar`, `/api/push/testar`, `/api/auto-atualizar`, `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/fontes`.
 
 ## Deploy
 
@@ -45,13 +45,15 @@ POST: `/api/auto-atualizar`, `/api/executar`, `/api/pncp/sync`, `/api/transparen
 - Docker: imagem `python:3.11-slim`, `PORT=8000`, `HOST=0.0.0.0`, `CMD ["python", "app.py"]`; prover `PORT`/`HOST` via ambiente quando necessário.
 - Render é o único host em nuvem (serviço `radar-itz-web`, https://radar-itz-web.onrender.com). Não há mais Vercel.
 - Render: disco temporário no plano free; sem `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` o SQLite se perde a cada reinício (`IS_RENDER` gera aviso no sync PNCP).
-- Render: `startCommand: python app.py`, `PORT=10000`, `buildCommand: ""`, plano free.
+- Render: `startCommand: python app.py`, `PORT=10000`, `buildCommand: pip install -r requirements.txt` (só `cryptography`, usada nas notificações push), plano free.
 
 ## Configuração
 
 Variáveis de coleta: `RADAR_TIMEOUT_SECONDS=15`, `RADAR_USER_AGENT`, `RADAR_CSV_DELIMITER=","`, `RADAR_SCHEDULE_TIMES="07:00,12:00,18:00"`.
 
 Atualização automática: ao abrir o painel (ou F5), `static/radar_auto.js` chama `POST /api/auto-atualizar` se houver token salvo no navegador. O servidor (`src/auto_refresh.py`) roda em segundo plano, uma tarefa por vez, só o que venceu: varredura (regera o Clipping Diário), PNCP (até 15 lotes incrementais; pula se outra sessão conduz uma carga há menos de 3 min) e Portal Fiorilli. Intervalos: `RADAR_AUTO_INTERVALO_MINUTOS=30` (varredura e PNCP), `RADAR_AUTO_INTERVALO_FIORILLI_MINUTOS=180`; `RADAR_AUTO_ATUALIZAR=0` desliga. Os botões manuais usam a mesma trava (409 se a automática da mesma tarefa estiver rodando). Estado em memória do processo: reiniciar o serviço zera os intervalos.
+
+App no celular e notificações: o painel é um PWA (`static/manifest.webmanifest`, `static/sw.js`, ícones em `static/icons/`). No iPhone (iOS 16.4+): Safari > Compartilhar > Adicionar à Tela de Início, abrir pelo ícone e tocar no sino (`static/radar_push.js`). `src/web_push.py` faz Web Push (RFC 8291/8292) com `cryptography`; chave em `RADAR_VAPID_PRIVATE_KEY` (base64url, 32 bytes; gerar com `python -m src.web_push`), remetente em `RADAR_VAPID_SUBJECT`. Inscrições na tabela `push_inscricoes` (migration `supabase/migrations/20261127_push_inscricoes.sql`), máx. 50, só endpoints https de serviços de push conhecidos. Um aviso por rodada: varredura com `pautas_novas > 0` e PNCP com contratos inseridos no modo incremental (a carga histórica não avisa). No Render, um agendador no servidor (`RADAR_AGENDADOR_SERVIDOR`, ligado por padrão no Render) dispara as tarefas vencidas a cada 5 min, então a coleta e os avisos acontecem com o app fechado.
 
 Checagem de rede: antes da coleta, `main.py` testa DNS; sem rede a execução termina como `SEM_REDE` com um único erro (`RADAR_SKIP_NETWORK_CHECK=1` desliga).
 

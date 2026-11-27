@@ -91,8 +91,12 @@ class AutoAtualizador:
         intervalos: Optional[Dict[str, float]] = None,
         relogio: Callable[[], float] = time.time,
         iniciar: Optional[Callable[[Callable[[], None]], None]] = None,
+        ao_concluir: Optional[Callable[[str, Dict[str, Any]], None]] = None,
     ) -> None:
         self.executores = dict(executores)
+        # Chamado com (tarefa, resultado) a cada conclusão sem erro, automática ou manual
+        # (ex.: notificação push de pautas/contratos novos). Falhas aqui não afetam a tarefa.
+        self.ao_concluir = ao_concluir
         self.intervalos = dict(intervalos or intervalos_do_ambiente())
         self.relogio = relogio
         self._iniciar = iniciar or self._iniciar_thread
@@ -235,6 +239,8 @@ class AutoAtualizador:
                 self._tarefas[nome].update(
                     ultima_conclusao=self.relogio(), ok=ok, erro=erro, resultado=_resumir(resultado)
                 )
+            if ok:
+                self._avisar_conclusao(nome, resultado)
             return resultado
         finally:
             trava.release()
@@ -295,4 +301,58 @@ class AutoAtualizador:
                 erro=None if ok else mask_secrets(str(resultado.get("erro")))[:300],
                 resultado=_resumir(resultado),
             )
+        if ok:
+            self._avisar_conclusao(nome, resultado)
         return resultado
+
+    def _avisar_conclusao(self, nome: str, resultado: Dict[str, Any]) -> None:
+        if self.ao_concluir is None:
+            return
+        try:
+            self.ao_concluir(nome, resultado)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Aviso de conclusão de '%s' falhou: %s", nome, mask_secrets(str(exc)))
+
+
+# ---------------------------------------------------------------------------
+# Agendador no servidor: coleta sozinho, mesmo sem ninguém abrir o painel
+# ---------------------------------------------------------------------------
+CHECAGEM_AGENDADOR_PADRAO_SEG = 300.0
+
+
+def agendador_servidor_habilitado(padrao: bool) -> bool:
+    """`RADAR_AGENDADOR_SERVIDOR=1/0` força; sem a variável vale `padrao` (ligado no Render)."""
+    raw = os.environ.get("RADAR_AGENDADOR_SERVIDOR", "").strip().lower()
+    if not raw:
+        return padrao
+    return raw not in ("0", "false", "nao", "não", "off")
+
+
+def iniciar_agendador(
+    obter: Callable[[], "AutoAtualizador"],
+    checagem_segundos: float = CHECAGEM_AGENDADOR_PADRAO_SEG,
+    espera_inicial: float = 60.0,
+    dormir: Callable[[float], None] = time.sleep,
+    rodadas: Optional[int] = None,
+) -> threading.Thread:
+    """
+    A cada `checagem_segundos`, dispara as tarefas vencidas (mesmos intervalos e travas da
+    atualização ao abrir o painel). Assim as notificações chegam com o app fechado; o ping
+    de 10 min do GitHub Actions mantém o serviço do Render acordado.
+    """
+
+    def laco() -> None:
+        dormir(espera_inicial)
+        feitas = 0
+        while rodadas is None or feitas < rodadas:
+            feitas += 1
+            try:
+                if auto_atualizacao_habilitada():
+                    obter().disparar({})
+            except Exception as exc:  # noqa: BLE001 - o laço nunca morre
+                logger.warning("Agendador do servidor: %s", mask_secrets(str(exc)))
+            dormir(checagem_segundos)
+
+    t = threading.Thread(target=laco, name="radar-agendador", daemon=True)
+    t.start()
+    return t
