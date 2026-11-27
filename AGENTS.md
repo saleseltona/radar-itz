@@ -35,9 +35,9 @@ python scripts/backfill_evidencias.py [--dry-run]
 
 ## Rotas HTTP
 
-GET: `/`, `/dashboard`, `/api/pautas`, `/api/pautas/arquivadas`, `/api/stats`, `/api/telemetria`, `/api/clipping`, `/api/export/csv`, `/export/pautas.csv`, `/api/fontes`, `/api/pendencias`, `/api/pncp/contratos`, `/api/pncp/resumo`, `/api/pncp/estatisticas`, `/api/pncp/export/csv`, `/api/pncp/retificacoes`, `/api/pncp/ignorados`, `/api/transparencia/resumo`, `/api/transparencia/cruzamento`, `/api/transparencia/dispensas`, `/api/transparencia/export/csv`.
+GET: `/`, `/dashboard`, `/api/auto-atualizar`, `/api/pautas`, `/api/pautas/arquivadas`, `/api/stats`, `/api/telemetria`, `/api/clipping`, `/api/export/csv`, `/export/pautas.csv`, `/api/fontes`, `/api/pendencias`, `/api/pncp/contratos`, `/api/pncp/resumo`, `/api/pncp/estatisticas`, `/api/pncp/export/csv`, `/api/pncp/retificacoes`, `/api/pncp/ignorados`, `/api/transparencia/resumo`, `/api/transparencia/cruzamento`, `/api/transparencia/dispensas`, `/api/transparencia/export/csv`.
 
-POST: `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/fontes`.
+POST: `/api/auto-atualizar`, `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/fontes`.
 
 ## Deploy
 
@@ -50,6 +50,8 @@ POST: `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/r
 ## Configuração
 
 Variáveis de coleta: `RADAR_TIMEOUT_SECONDS=15`, `RADAR_USER_AGENT`, `RADAR_CSV_DELIMITER=","`, `RADAR_SCHEDULE_TIMES="07:00,12:00,18:00"`.
+
+Atualização automática: ao abrir o painel (ou F5), `static/radar_auto.js` chama `POST /api/auto-atualizar` se houver token salvo no navegador. O servidor (`src/auto_refresh.py`) roda em segundo plano, uma tarefa por vez, só o que venceu: varredura (regera o Clipping Diário), PNCP (até 15 lotes incrementais; pula se outra sessão conduz uma carga há menos de 3 min) e Portal Fiorilli. Intervalos: `RADAR_AUTO_INTERVALO_MINUTOS=30` (varredura e PNCP), `RADAR_AUTO_INTERVALO_FIORILLI_MINUTOS=180`; `RADAR_AUTO_ATUALIZAR=0` desliga. Os botões manuais usam a mesma trava (409 se a automática da mesma tarefa estiver rodando). Estado em memória do processo: reiniciar o serviço zera os intervalos.
 
 Checagem de rede: antes da coleta, `main.py` testa DNS; sem rede a execução termina como `SEM_REDE` com um único erro (`RADAR_SKIP_NETWORK_CHECK=1` desliga).
 
