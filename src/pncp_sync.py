@@ -39,7 +39,9 @@ MARGEM_DIAS = 5
 TEMPO_LIMITE_SEGUNDOS = 40.0  # cada lote cabe numa requisição HTTP curta, com margem para gravar e responder
 HTTP_TIMEOUT_SEGUNDOS = 15
 MAX_JANELAS_POR_LOTE = 12
-TAMANHO_PAGINA = 50
+# O manual da API de Consultas do PNCP permite até 500 registros por página em /v1/contratos.
+# 200 reduz as chamadas a 1/4 das páginas de 50 sem deixar cada resposta pesada demais.
+TAMANHO_PAGINA = 200
 LOCK_TTL_SEGUNDOS = 90.0  # maior que maxDuration: um lock órfão expira sozinho
 # Falhas passageiras do PNCP (504/502/503/429, tempo esgotado, conexão caída) são repetidas
 # algumas vezes com espera curta antes de pausar o lote; só dentro do orçamento de tempo.
@@ -251,7 +253,7 @@ def fetch_pagina_pncp(
     except ValueError:
         raise ValueError(f"PNCP respondeu conteúdo que não é JSON (HTTP {status}).")
     if isinstance(payload, list):
-        return status, {"data": payload, "totalPaginas": 1}
+        return status, {"data": payload}  # sem total: a paginação decide pelo tamanho da página
     return status, payload if isinstance(payload, dict) else {"data": [], "totalPaginas": 0}
 
 
@@ -310,6 +312,30 @@ def buscar_com_retentativa(
                 _descrever_erro(exc), rotulo or "consulta", tentativas, len(esperas), espera,
             )
             dormir(espera)
+
+
+def _int_ou_none(v: Any) -> Optional[int]:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def tem_proxima_pagina(payload: Dict[str, Any], qtd_registros: int, pagina: int, tamanho_pagina: int) -> bool:
+    """
+    Decide se a janela tem outra página. Usa `totalPaginas` quando o PNCP informa, depois
+    `paginasRestantes`; sem nenhum dos dois, uma página cheia indica que pode haver mais
+    (o PNCP nem sempre manda o total, e pular para a próxima janela perderia contratos).
+    """
+    if qtd_registros <= 0:
+        return False
+    total = _int_ou_none(payload.get("totalPaginas"))
+    if total is not None and total > 0:
+        return pagina < total
+    restantes = _int_ou_none(payload.get("paginasRestantes"))
+    if restantes is not None:
+        return restantes > 0
+    return qtd_registros >= tamanho_pagina
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +415,7 @@ def executar_lote(
     orgaos: Optional[List[Dict[str, str]]] = None,
     esperas_retentativa: Tuple[float, ...] = ESPERAS_RETENTATIVA_SEGUNDOS,
     dormir: Callable[[float], None] = time.sleep,
+    tamanho_pagina: int = TAMANHO_PAGINA,
 ) -> Dict[str, Any]:
     """Processa um lote limitado por tempo e nº de janelas. Lança SyncEmAndamento se houver lock."""
     if modo not in ("auto", MODO_CARGA, MODO_INCREMENTAL):
@@ -437,7 +464,7 @@ def executar_lote(
 
             def _consultar(ep: str) -> Tuple[int, Dict[str, Any]]:
                 return buscar_com_retentativa(
-                    lambda: fetch(ep, orgao["cnpj"], ini_s, fim_s, pagina, TAMANHO_PAGINA, http_timeout),
+                    lambda: fetch(ep, orgao["cnpj"], ini_s, fim_s, pagina, tamanho_pagina, http_timeout),
                     esperas_retentativa,
                     cabe,
                     dormir,
@@ -477,11 +504,7 @@ def executar_lote(
                     totais[k] += int(res.get(k, 0) or 0)
                 divergentes.extend(res.get("retificacoes_divergentes") or [])
                 reserva[0] = max(reserva[0], relogio() - t_gravacao)
-            try:
-                total_paginas = int(payload.get("totalPaginas") or 0)
-            except (TypeError, ValueError):
-                total_paginas = 0
-            if not rows or pagina >= total_paginas:
+            if not tem_proxima_pagina(payload, len(rows), pagina, tamanho_pagina):
                 idx, pagina = idx + 1, 1
                 janelas_neste_lote += 1
             else:
