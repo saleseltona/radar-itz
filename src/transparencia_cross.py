@@ -11,6 +11,7 @@ import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from src.config import PNCP_ANOS_MONITORADOS
 from src.fiorilli_client import normalize_doc, normalize_processo
 from src.pncp_analytics import PNCP_CATEGORIAS_ICONS, PNCP_CATEGORIAS_ORDEM
 
@@ -25,7 +26,12 @@ ALERTA_LABELS: Dict[str, str] = {
     "FOLHA_OU_REPASSE_PUBLICO": "Folha / Encargos / Repasse Público",
     "CONCILIADO": "Conciliado (PNCP compatível)",
     "SEM_ALERTA": "Pagamento sem PNCP abaixo do corte",
+    "PAGO_CONTRATO_ANTERIOR": "Pagamento possivelmente ligado a contrato de exercício anterior (verificar)",
 }
+
+# Anos de contratos PNCP carregados para o cruzamento: inclui exercícios anteriores aos
+# monitorados, porque pagamentos de 2025/2026 podem quitar contratos assinados antes.
+PNCP_ANOS_CRUZAMENTO: Tuple[int, ...] = tuple(sorted({*PNCP_ANOS_MONITORADOS, *ALLOWED_CROSS_YEARS}))
 
 CLASSIFICACAO_VINCULO_LABELS: Dict[str, str] = {
     "IDENTIFICADOR_EXATO": "Identificador exato",
@@ -1234,6 +1240,49 @@ def _classify_supplier_alert(item: Dict[str, Any], corte_sem_pncp: float) -> Tup
     return "SEM_ALERTA", ALERTA_LABELS["SEM_ALERTA"]
 
 
+def _pncp_contratos_anteriores_vigentes(
+    pncp_rows: List[Dict[str, Any]],
+    ano: Optional[int] = None,
+    allowed_years: Sequence[int] = ALLOWED_CROSS_YEARS,
+) -> List[Dict[str, Any]]:
+    """Contratos PNCP de exercícios anteriores ao recorte que ainda podem gerar pagamentos nele.
+
+    Considera vigente o contrato cuja vigência termina no recorte ou depois, ou que não
+    informa fim de vigência (na dúvida, entra como possível origem do pagamento).
+    """
+    inicio = int(ano) if ano else min(int(y) for y in allowed_years)
+    corte = f"{inicio}-01-01"
+    out: List[Dict[str, Any]] = []
+    for r in pncp_rows:
+        ano_c = int(r.get("ano_contrato") or 0)
+        if ano_c <= 0 or ano_c >= inicio:
+            continue
+        vig_fim = str(r.get("data_vigencia_fim") or "").strip()[:10]
+        if vig_fim and vig_fim < corte:
+            continue
+        out.append(r)
+    return out
+
+
+def _ajustar_alerta_contrato_anterior(code: str, label: str, row: Dict[str, Any]) -> Tuple[str, str]:
+    """Evita falso PAGO_SEM_PNCP / PAGO_ACIMA_PNCP quando o pagamento pode quitar contrato antigo.
+
+    Só troca o alerta quando os contratos de exercícios anteriores (PNCP ou remanescentes
+    no Fiorilli) cobrem o valor pago; se nem somando eles o pagamento fecha, o alerta fica.
+    """
+    if code not in ("PAGO_SEM_PNCP", "PAGO_ACIMA_PNCP"):
+        return code, label
+    ant_pncp = float(row.get("pncp_anteriores_valor") or 0.0)
+    rem_fior = float(row.get("fiorilli_remanescentes_valor") or 0.0)
+    if ant_pncp <= 0 and rem_fior <= 0:
+        return code, label
+    base = float(row.get("pncp_valor") or 0.0) + max(ant_pncp, rem_fior)
+    pago = float(row.get("pago") or 0.0)
+    if pago <= base * 1.05 or (pago - base) < 1000.0:
+        return "PAGO_CONTRATO_ANTERIOR", ALERTA_LABELS["PAGO_CONTRATO_ANTERIOR"]
+    return code, label
+
+
 def build_cruzamento_fornecedores(
     pncp_rows: List[Dict[str, Any]],
     desp_forn_rows: List[Dict[str, Any]],
@@ -1275,6 +1324,8 @@ def build_cruzamento_fornecedores(
                 "entidades_fiorilli": set(),
                 "pncp_contratos_qtd": 0,
                 "pncp_valor": 0.0,
+                "pncp_anteriores_qtd": 0,
+                "pncp_anteriores_valor": 0.0,
                 "fiorilli_contratos_qtd": 0,
                 "fiorilli_valor": 0.0,
                 "fiorilli_dispensas_qtd": 0,
@@ -1323,6 +1374,16 @@ def build_cruzamento_fornecedores(
         if fc.get("entidade"):
             item["entidades_fiorilli"].add(str(fc["entidade"]))
 
+    # Contratos PNCP de anos anteriores ainda vigentes: só somam a fornecedores já presentes
+    # no recorte (não criam linhas novas), para explicar pagamentos sem contrato do exercício.
+    for c in _pncp_contratos_anteriores_vigentes(pncp_rows, ano=ano):
+        doc_ant = normalize_doc(c.get("fornecedor_cnpj"))
+        item = sup_map.get(doc_ant) if doc_ant else None
+        if item is None:
+            continue
+        item["pncp_anteriores_qtd"] += 1
+        item["pncp_anteriores_valor"] += float(c.get("valor_global") or 0.0)
+
     all_rows: List[Dict[str, Any]] = []
     resumo_alertas: Dict[str, Dict[str, Any]] = {
         code: {"qtd": 0, "pago": 0.0, "pncp": 0.0} for code in ALERTA_LABELS
@@ -1359,8 +1420,11 @@ def build_cruzamento_fornecedores(
             "diferenca_pago_pncp": round(pag_v - pncp_v, 2),
             "diferenca_fiorilli_pncp": round(fior_v - pncp_v, 2),
             "pct_pago_sobre_pncp": _safe_pct(pag_v, pncp_v) if pncp_v > 0 else None,
+            "pncp_anteriores_qtd": entry["pncp_anteriores_qtd"],
+            "pncp_anteriores_valor": round(entry["pncp_anteriores_valor"], 2),
         }
         code, label = _classify_supplier_alert(row, corte_sem_pncp=corte_sem_pncp)
+        code, label = _ajustar_alerta_contrato_anterior(code, label, row)
         row["alerta_codigo"] = code
         row["alerta_label"] = label
         if code in _ALERTAS_AUSENCIA:

@@ -23,12 +23,58 @@ logger = logging.getLogger("radar_imperatriz.pncp")
 
 PNCP_CONTRATOS_API = "https://pncp.gov.br/api/consulta/v1/contratos"
 
-# Retificações documentais verificadas contra erro evidente de digitação no lançamento do PNCP
-PNCP_VALUE_CORRECTIONS: Dict[str, float] = {
+# Retificações documentais verificadas contra erro evidente de digitação no lançamento do PNCP.
+# Não alteram o valor na normalização: viram registros em `pncp_retificacoes` (com o valor
+# publicado guardado como original), do mesmo jeito que uma retificação feita no painel.
+# Só valem enquanto o PNCP continuar publicando exatamente `valor_publicado`; se o órgão
+# corrigir o lançamento, nada é aplicado. Retificações já existentes nunca são sobrescritas.
+PNCP_VALUE_CORRECTIONS: Dict[str, Dict[str, Any]] = {
     # Processo 02.18.00.033/2026-SEDES / Pregão Eletrônico 006/2025 (BATISTA E COELHO LTDA):
     # lançado no PNCP como R$ 1.682.632.750,00 (1000x), valor real em contrato: R$ 1.682.632,75
-    "06158455000116-2-000069/2026": 1682632.75,
+    "06158455000116-2-000069/2026": {
+        "valor_publicado": 1682632750.0,
+        "valor_corrigido": 1682632.75,
+        "justificativa": (
+            "Correção documental (código): valor lançado no PNCP 1.000x maior; conferido no contrato "
+            "oficial (Processo 02.18.00.033/2026-SEDES / Pregão 006/2025)."
+        ),
+    },
 }
+
+
+def registrar_correcoes_documentais(db: Any, contratos: List[Dict[str, Any]]) -> List[str]:
+    """Registra as correções de `PNCP_VALUE_CORRECTIONS` como retificações rastreáveis.
+
+    Só age sobre contratos recém-gravados (`contratos`) cujo valor bruto ainda é o valor
+    publicado com erro, para que o valor original guardado seja o do PNCP. Contratos que já
+    têm retificação (manual ou anterior) são preservados como estão.
+    """
+    alvos = {}
+    for c in contratos:
+        ctrl = str(c.get("numero_controle_pncp") or "").strip()
+        corr = PNCP_VALUE_CORRECTIONS.get(ctrl)
+        if corr and abs(float(c.get("valor_global") or 0.0) - float(corr["valor_publicado"])) < 0.01:
+            alvos[ctrl] = corr
+    if not alvos:
+        return []
+    try:
+        existentes = {
+            str(r.get("numero_controle_pncp") or "").strip() for r in (db.get_all_pncp_retificacoes() or [])
+        }
+    except Exception as exc:  # sem saber o que existe, não grava nada por cima
+        logger.warning("Não foi possível ler retificações PNCP; correções documentais adiadas: %s", exc)
+        return []
+    aplicadas: List[str] = []
+    for ctrl, corr in alvos.items():
+        if ctrl in existentes:
+            continue
+        try:
+            if db.retificar_pncp_contrato(ctrl, float(corr["valor_corrigido"]), str(corr["justificativa"])):
+                aplicadas.append(ctrl)
+                logger.info("Correção documental registrada como retificação: %s", ctrl)
+        except Exception as exc:
+            logger.warning("Falha ao registrar correção documental %s: %s", ctrl, exc)
+    return aplicadas
 
 
 class PncpClient:
@@ -123,11 +169,8 @@ class PncpClient:
         valor_glob = float(raw_item.get("valorGlobal") or valor_ini or 0.0)
         valor_acum = float(raw_item.get("valorAcumulado") or valor_glob or 0.0)
 
-        if num_controle in PNCP_VALUE_CORRECTIONS and valor_glob > 1_000_000_000.0:
-            corrected_val = PNCP_VALUE_CORRECTIONS[num_controle]
-            valor_ini = corrected_val
-            valor_glob = corrected_val
-            valor_acum = corrected_val
+        # Valores são mantidos como publicados no PNCP. Erros conhecidos viram retificação
+        # registrada (ver `registrar_correcoes_documentais`), nunca uma troca silenciosa aqui.
 
         if seq not in (None, ""):
             url_pncp = f"https://pncp.gov.br/app/contratos/{orgao_cnpj_digits}/{ano_contrato}/{seq}"
@@ -371,6 +414,8 @@ class PncpClient:
                 por_ano[yr_key] = por_ano.get(yr_key, 0) + 1
 
         gravados = self.db.upsert_pncp_contratos_batch(todos_contratos)
+        # Exposto como atributo (não no retorno) para quem quiser auditar o que foi registrado
+        self.ultimas_correcoes_documentais = registrar_correcoes_documentais(self.db, todos_contratos)
         logger.info(
             "Sincronização PNCP (%s) concluída: %d contratos gravados/atualizados (%s).",
             mode,
