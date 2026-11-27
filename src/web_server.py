@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import csv
+import hashlib
 import hmac
 import http.cookies
 import io
@@ -16,7 +17,11 @@ import mimetypes
 import os
 import re
 import sys
+import threading
+import time
 import urllib.parse
+from collections import deque
+from html import escape as html_escape
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -84,6 +89,69 @@ _PROXY_HEADERS = (
     "X-Vercel-Forwarded-For",
     "CF-Connecting-IP",
 )
+
+
+# Limite contra força bruta no token: 5 tentativas erradas por minuto por IP.
+# Durante o bloqueio, nem o token certo é aceito daquele IP (senão o robô continuaria tentando).
+MAX_TENTATIVAS_TOKEN = 5
+JANELA_TENTATIVAS_S = 60.0
+MAX_CORPO_POST = 262_144
+
+
+class LimiteTentativas:
+    """Conta tentativas de token erradas por IP numa janela deslizante (memória do processo).
+
+    O mesmo token errado repetido conta uma vez só: um navegador com token antigo salvo
+    não bloqueia o próprio dono, e um robô precisa de palpites diferentes, que são contados.
+    """
+
+    def __init__(self, maximo: int = MAX_TENTATIVAS_TOKEN, janela_s: float = JANELA_TENTATIVAS_S,
+                 relogio: Callable[[], float] = time.monotonic, max_ips: int = 10_000) -> None:
+        self.maximo = maximo
+        self.janela_s = janela_s
+        self.relogio = relogio
+        self.max_ips = max_ips
+        self._falhas: Dict[str, deque] = {}
+        self._lock = threading.Lock()
+
+    def _limpar(self, ip: str, agora: float) -> deque:
+        fila = self._falhas.get(ip)
+        if fila is None:
+            return deque()
+        while fila and agora - fila[0][0] >= self.janela_s:
+            fila.popleft()
+        if not fila:
+            self._falhas.pop(ip, None)
+        return fila
+
+    def segundos_bloqueado(self, ip: str) -> int:
+        """0 se o IP pode tentar; senão, quantos segundos faltam para liberar."""
+        with self._lock:
+            agora = self.relogio()
+            fila = self._limpar(ip, agora)
+            if len(fila) < self.maximo:
+                return 0
+            return max(1, int(fila[0][0] + self.janela_s - agora + 0.999))
+
+    def registrar_falha(self, ip: str, token: str = "") -> bool:
+        """Registra um palpite errado; devolve False se esse mesmo palpite já estava contado."""
+        with self._lock:
+            agora = self.relogio()
+            if ip not in self._falhas and len(self._falhas) >= self.max_ips:
+                for antigo in list(self._falhas):
+                    self._limpar(antigo, agora)
+                if len(self._falhas) >= self.max_ips:
+                    self._falhas.pop(next(iter(self._falhas)))
+            fila = self._limpar(ip, agora)
+            marca = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+            if any(m == marca for _, m in fila):
+                return False
+            fila.append((agora, marca))
+            self._falhas[ip] = fila
+            return True
+
+
+LIMITE_TENTATIVAS_TOKEN = LimiteTentativas()
 
 
 def resolve_static_file(rel_name: str) -> Optional[Path]:
@@ -648,15 +716,48 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 return False
         return True
 
+    def _client_ip(self) -> str:
+        """IP real do cliente. No Render há um proxy na frente: o último X-Forwarded-For é o que ele anotou."""
+        client = getattr(self, "client_address", None) or ("",)
+        ip = str(client[0])
+        if os.environ.get("RENDER"):
+            headers = getattr(self, "headers", None)
+            xff = str((headers.get("X-Forwarded-For") if headers is not None else "") or "")
+            partes = [p.strip() for p in xff.split(",") if p.strip()]
+            if partes:
+                ip = partes[-1]
+        return ip[:64]
+
     def _is_write_authorized(self) -> bool:
         """Decide se a requisição pode gravar dados (POST ou reidratação por headers/cookies)."""
+        self._token_bloqueado_s = 0
         expected = os.environ.get(ADMIN_TOKEN_ENV, "").strip()
         if expected:
             sent = self._sent_admin_token()
-            return bool(sent) and hmac.compare_digest(sent.encode("utf-8"), expected.encode("utf-8"))
+            if not sent:
+                return False
+            ip = self._client_ip()
+            bloqueio = LIMITE_TENTATIVAS_TOKEN.segundos_bloqueado(ip)
+            if bloqueio:
+                self._token_bloqueado_s = bloqueio
+                return False
+            # Comparação em tempo constante (não revela quantos caracteres acertou).
+            if hmac.compare_digest(sent.encode("utf-8"), expected.encode("utf-8")):
+                return True
+            if LIMITE_TENTATIVAS_TOKEN.registrar_falha(ip, sent):
+                logger.warning("Token de administração inválido vindo de %s", ip)
+            return False
         return self._is_direct_local_request()
 
     def _reject_unauthorized_write(self) -> None:
+        bloqueio = int(getattr(self, "_token_bloqueado_s", 0) or 0)
+        if bloqueio:
+            self.send_json_response(
+                {"erro": f"Muitas tentativas de token erradas. Tente de novo em {bloqueio} segundos."},
+                status=429,
+                extra_headers={"Retry-After": str(bloqueio)},
+            )
+            return
         if os.environ.get(ADMIN_TOKEN_ENV, "").strip():
             self.send_json_response(
                 {"erro": "Token de administração ausente ou inválido. Envie o header X-Radar-Token."},
@@ -672,6 +773,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 },
                 status=403,
             )
+
+    def end_headers(self) -> None:
+        # O navegador não "adivinha" o tipo do arquivo (evita servir algo como script por engano).
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "same-origin")
+        super().end_headers()
 
     def _resolve_route(self) -> Tuple[str, Dict[str, List[str]]]:
         """Separa o caminho da requisição e os parâmetros da query string."""
@@ -784,7 +891,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
     <a href="/" class="text-sm text-blue-600 hover:underline">← Voltar ao Radar</a>
     <a href="/api/clipping" class="text-xs bg-slate-200 px-3 py-1.5 rounded font-medium">Ver Markdown Bruto</a>
   </div>
-  <pre class="whitespace-pre-wrap font-sans bg-white p-8 rounded-xl shadow border border-slate-200 leading-relaxed text-sm">{text}</pre>
+  <pre class="whitespace-pre-wrap font-sans bg-white p-8 rounded-xl shadow border border-slate-200 leading-relaxed text-sm">{html_escape(text)}</pre>
 </body>
 </html>"""
                 self.send_response(200)
@@ -1390,6 +1497,13 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 status=415,
             )
             return
+        try:
+            tamanho = int(self.headers.get("Content-Length", "0") or "0")
+        except ValueError:
+            tamanho = -1
+        if tamanho < 0 or tamanho > MAX_CORPO_POST:
+            self.send_json_response({"erro": "Corpo da requisição inválido ou maior que 256 KB."}, status=413)
+            return
         if not self._is_write_authorized():
             self._reject_unauthorized_write()
             return
@@ -1430,10 +1544,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 res = self.auto_atualizador().executar_manual("varredura", executor)
                 self.send_json_response(res)
             except TarefaOcupada as e:
-                self.send_json_response({"erro": str(e), "em_andamento": True}, status=409)
+                self.send_json_response({"erro": mask_secrets(str(e)), "em_andamento": True}, status=409)
             except Exception as e:
                 logger.error("Erro ao executar ciclo via web: %s", e, exc_info=True)
-                self.send_json_response({"erro": str(e)}, status=500)
+                self.send_json_response({"erro": mask_secrets(str(e))}, status=500)
             return
 
         # 2.0b Sincronizar Portal Transparência Fiorilli (2025-2026) sob demanda
@@ -1451,10 +1565,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 )
                 self.send_json_response(res, status=502 if res.get("erro") else 200)
             except TarefaOcupada as e:
-                self.send_json_response({"erro": str(e), "em_andamento": True}, status=409)
+                self.send_json_response({"erro": mask_secrets(str(e)), "em_andamento": True}, status=409)
             except Exception as e:
                 logger.error("Erro ao sincronizar Fiorilli via web: %s", e, exc_info=True)
-                self.send_json_response({"erro": str(e)}, status=500)
+                self.send_json_response({"erro": mask_secrets(str(e))}, status=500)
             return
 
         # 2.1 Retificar ou restaurar valor de um contrato do PNCP
@@ -1697,9 +1811,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 return
             self.send_json_response(res)
         except SyncEmAndamento as exc:
-            self.send_json_response({"ok": False, "erro": str(exc), "em_andamento": True}, status=409)
+            self.send_json_response({"ok": False, "erro": mask_secrets(str(exc)), "em_andamento": True}, status=409)
         except CursorInvalido as exc:
-            self.send_json_response({"ok": False, "erro": f"Cursor de sincronização inválido: {exc}"}, status=400)
+            self.send_json_response({"ok": False, "erro": f"Cursor de sincronização inválido: {mask_secrets(str(exc))}"}, status=400)
         except Exception as exc:
             logger.error("Erro ao sincronizar PNCP via web: %s", mask_secrets(str(exc)))
             self.send_json_response(
@@ -1783,10 +1897,13 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 msg = "Falha interna nas notificações."
             self.send_json_response({"ok": False, "erro": msg}, status=500)
 
-    def send_json_response(self, data: Any, status: int = 200) -> None:
+    def send_json_response(self, data: Any, status: int = 200,
+                           extra_headers: Optional[Dict[str, str]] = None) -> None:
         json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        for nome, valor in (extra_headers or {}).items():
+            self.send_header(nome, valor)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Pragma", "no-cache")

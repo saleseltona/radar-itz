@@ -330,7 +330,6 @@ ALTER TABLE public.fiorilli_despesas_orgaos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_despesas_fornecedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_contratos ENABLE ROW LEVEL SECURITY;
 
--- ============================================================================
 -- Notificações push (Web Push): aparelhos inscritos (src/web_push.py)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.push_inscricoes (
@@ -344,3 +343,11 @@ CREATE TABLE IF NOT EXISTS public.push_inscricoes (
 );
 ALTER TABLE public.push_inscricoes ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.push_inscricoes FROM anon, authenticated;
+=======
+-- Sem privilégios de tabela para anon/authenticated (nem nas tabelas futuras).
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+
+-- =====================================================================
