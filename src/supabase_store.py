@@ -917,6 +917,149 @@ class SupabaseDatabase:
         }
         return len(novos) + len(alterados)
 
+    # --- Sincronização PNCP em lotes: upsert detalhado, estado persistente e lock ---
+
+    @staticmethod
+    def _in_filter(values: Sequence[str]) -> str:
+        quoted = ",".join('"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"' for v in values)
+        return f"in.({quoted})"
+
+    def upsert_pncp_contratos_detalhado(self, contratos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Upsert por numero_controle_pncp consultando só os contratos do lote (não a tabela inteira)."""
+        from src.pncp_sync import classificar_contratos
+
+        unicos: Dict[str, Dict[str, Any]] = {}
+        for c in contratos:
+            ctrl = str(c.get("numero_controle_pncp") or "").strip()
+            if ctrl:
+                unicos[ctrl] = c
+        if not unicos:
+            return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "retificacoes_divergentes": []}
+
+        ctrls = list(unicos.keys())
+        existentes: Dict[str, Dict[str, Any]] = {}
+        retificacoes: Dict[str, Dict[str, Any]] = {}
+        for i in range(0, len(ctrls), 50):
+            filtro = self._in_filter(ctrls[i : i + 50])
+            for r in self.client.select("pncp_contratos", params={"numero_controle_pncp": filtro}):
+                existentes[str(r.get("numero_controle_pncp"))] = r
+            for r in self.client.select("pncp_retificacoes", params={"numero_controle_pncp": filtro}):
+                retificacoes[str(r.get("numero_controle_pncp"))] = r
+
+        resultado = classificar_contratos(list(unicos.values()), existentes, retificacoes)
+        gravar = resultado.pop("_gravar")
+        if gravar:
+            now_iso = datetime.now().isoformat(timespec="seconds")
+            rows: List[Dict[str, Any]] = []
+            for c in gravar:
+                row = {k: c.get(k) for k in (
+                    "numero_controle_pncp", "orgao_cnpj", "orgao_sigla", "orgao_nome", "unidade_nome",
+                    "numero_contrato", "processo", "tipo_contrato", "fornecedor_cnpj", "fornecedor_nome",
+                    "objeto", "data_assinatura", "data_publicacao", "data_vigencia_inicio",
+                    "data_vigencia_fim", "url_pncp",
+                )}
+                row = {k: str(v or "") for k, v in row.items()}
+                row["ano_contrato"] = int(c.get("ano_contrato", 2026) or 2026)
+                for campo in ("valor_inicial", "valor_global", "valor_acumulado"):
+                    row[campo] = float(c.get(campo, 0.0) or 0.0)
+                ret = retificacoes.get(row["numero_controle_pncp"])
+                if ret is not None and ret.get("valor_corrigido") is not None:
+                    corrigido = float(ret["valor_corrigido"])
+                    row["valor_inicial"] = row["valor_global"] = row["valor_acumulado"] = corrigido
+                row["atualizado_em"] = str(c.get("atualizado_em") or now_iso)
+                row["categoria_tematica"] = classify_pncp_contrato(row)
+                rows.append(row)
+            self.client.upsert("pncp_contratos", rows, on_conflict="numero_controle_pncp")
+        self.last_sync_stats = {
+            "novos": resultado["inseridos"],
+            "atualizados": resultado["atualizados"],
+            "ignorados_existentes": resultado["ignorados"],
+        }
+        return resultado
+
+    # Estado/lock ficam na tabela `pncp_sync_estado` (supabase/migrations/20261127_pncp_sync_estado.sql).
+    # Enquanto a tabela não existir, cai para estado/lock em memória do processo (menos seguro).
+    _sync_estado_local: Dict[str, Any] = {}
+    _sync_lock_local: Dict[str, Any] = {}
+
+    @staticmethod
+    def _tabela_ausente(exc: Exception) -> bool:
+        txt = str(exc)
+        return getattr(exc, "status", None) == 404 or "PGRST205" in txt or "42P01" in txt or "does not exist" in txt
+
+    def get_pncp_sync_state(self) -> Dict[str, Any]:
+        try:
+            rows = self.client.select(
+                "pncp_sync_estado", params={"id": "eq.default", "select": "estado_json"}, fetch_all=False
+            )
+        except SupabaseError as exc:
+            if self._tabela_ausente(exc):
+                self.sync_estado_persistente = False
+                return dict(self._sync_estado_local)
+            raise
+        self.sync_estado_persistente = True
+        estado = (rows[0].get("estado_json") if rows else None) or {}
+        if isinstance(estado, str):
+            try:
+                estado = json.loads(estado)
+            except ValueError:
+                estado = {}
+        return estado if isinstance(estado, dict) else {}
+
+    def save_pncp_sync_state(self, estado: Dict[str, Any]) -> None:
+        try:
+            self.client.upsert(
+                "pncp_sync_estado",
+                [{"id": "default", "estado_json": estado, "atualizado_em": datetime.now().isoformat(timespec="seconds")}],
+                on_conflict="id",
+            )
+        except SupabaseError as exc:
+            if not self._tabela_ausente(exc):
+                raise
+            type(self)._sync_estado_local = dict(estado)
+
+    def acquire_pncp_sync_lock(self, owner: str, ttl_seconds: float, now_ts: float) -> bool:
+        try:
+            self.client.upsert(
+                "pncp_sync_estado",
+                [{"id": "default", "estado_json": {}, "atualizado_em": ""}],
+                on_conflict="id",
+                ignore_duplicates=True,
+            )
+            # PATCH condicional é atômico no Postgres: só uma requisição encontra a linha livre
+            _, _, data = self.client._request(
+                "PATCH",
+                "pncp_sync_estado",
+                params={"id": "eq.default", "or": f"(lock_ate.is.null,lock_ate.lt.{now_ts})"},
+                payload={"lock_owner": owner, "lock_ate": now_ts + ttl_seconds},
+                extra_headers={"Prefer": "return=representation"},
+            )
+        except SupabaseError as exc:
+            if not self._tabela_ausente(exc):
+                raise
+            self.sync_lock_escopo = "processo"
+            atual = type(self)._sync_lock_local
+            if atual and atual.get("ate", 0) >= now_ts:
+                return False
+            type(self)._sync_lock_local = {"owner": owner, "ate": now_ts + ttl_seconds}
+            return True
+        self.sync_lock_escopo = "banco"
+        try:
+            rows = json.loads(data.decode("utf-8")) if data else []
+        except ValueError:
+            rows = []
+        return isinstance(rows, list) and len(rows) == 1
+
+    def release_pncp_sync_lock(self, owner: str) -> None:
+        if type(self)._sync_lock_local.get("owner") == owner:
+            type(self)._sync_lock_local = {}
+            return
+        self.client.patch(
+            "pncp_sync_estado",
+            {"id": "eq.default", "lock_owner": f"eq.{owner}"},
+            {"lock_owner": None, "lock_ate": None},
+        )
+
     @staticmethod
     def _format_pncp_row(
         row: Dict[str, Any],

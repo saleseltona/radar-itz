@@ -113,11 +113,15 @@ class Deduplicator:
                 mudou = True
 
             # Verifica se há novos fatos ou evidências
-            novas_evidencias = item.get("fatos_confirmados", [])
+            novas_evidencias = [
+                (f"[Atualização/Segunda Fonte]: {ev}", ev) for ev in item.get("fatos_confirmados", []) or []
+            ] + [
+                (f"[Registro de publicação]: {ev}", ev) for ev in item.get("registros_publicacao", []) or []
+            ]
             evidencias_atuais = match.get("evidencias_verificadas", "")
-            for ev in novas_evidencias:
+            for rotulo, ev in novas_evidencias:
                 if ev not in evidencias_atuais:
-                    evidencias_atuais += f" | [Atualização/Segunda Fonte]: {ev}"
+                    evidencias_atuais += f" | {rotulo}"
                     mudou = True
 
             if mudou:

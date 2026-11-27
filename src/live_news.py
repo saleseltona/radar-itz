@@ -59,6 +59,27 @@ OFFICIAL_DOMAINS = (
     "gov.br",
 )
 
+MAJOR_PRESS_DOMAINS = ("g1.globo.com", "imirante.com")
+
+
+def _host_matches(url: str, domains: tuple) -> bool:
+    """Compara o host da URL por igualdade ou sufixo exato ('.dominio'), nunca por substring."""
+    try:
+        host = (urllib.parse.urlsplit(url or "").hostname or "").lower().rstrip(".")
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def is_official_url(url: str) -> bool:
+    return _host_matches(url, OFFICIAL_DOMAINS)
+
+
+def is_major_press_url(url: str) -> bool:
+    return _host_matches(url, MAJOR_PRESS_DOMAINS)
+
 
 class LiveNewsFetcher:
     """Busca notícias realmente recentes de Imperatriz (MA) via RSS aberto e portais locais."""
@@ -358,19 +379,25 @@ class LiveNewsFetcher:
             tema = "Serviços Públicos, Saúde, Educação e Infraestrutura"
             impacto, interesse, formato = 20, 14, "Serviço público"
 
-        is_official = any(dom in url.lower() for dom in OFFICIAL_DOMAINS)
-        is_major_press = any(dom in url.lower() for dom in ("g1.globo.com", "imirante.com"))
+        is_official = is_official_url(url)
+        is_major_press = is_major_press_url(url)
 
+        # A confiabilidade da fonte entra só na RELEVÂNCIA (pontuação de qualidade).
+        # O nível de verificação nunca é "Confirmado" na coleta automática: confirmar exige
+        # documento primário consultado e contraditório registrado (ver EvidenceVerifier).
         if categoria == "Pautas de denúncia e apuração":
-            # Seção 14: denúncias nunca recebem confirmação plena sem autos/decisão verificada diretamente
-            nivel_verificacao = "Parcialmente confirmado"
             qualidade = 16 if (is_official or is_major_press) else 14
         elif (is_official or is_major_press) and len(resumo) >= 100:
-            nivel_verificacao = "Confirmado"
             qualidade = 18
         else:
-            nivel_verificacao = "Parcialmente confirmado"
             qualidade = 14
+        nivel_verificacao = "Parcialmente confirmado"
+        if is_official:
+            tipo_fonte = "Fonte oficial"
+        elif is_major_press:
+            tipo_fonte = "Imprensa profissional"
+        else:
+            tipo_fonte = "Fonte secundária"
 
         return {
             "categoria_sugerida": categoria,
@@ -378,6 +405,7 @@ class LiveNewsFetcher:
             "emergencia_confirmada": emergencia_confirmada,
             "formato_sugerido": formato,
             "nivel_verificacao": nivel_verificacao,
+            "tipo_fonte": tipo_fonte,
             "pontuacao_base": {
                 "impacto_populacao": impacto,
                 "atualidade_novidade": atualidade,
@@ -429,8 +457,10 @@ class LiveNewsFetcher:
             "emergencia_confirmada": cls_meta["emergencia_confirmada"],
             "conteudo_integral": clean_desc,
             "resumo_3_linhas": resumo_3_linhas,
-            "fatos_confirmados": [
-                f"Registro publicado em {data_pub or 'data recente'} por {source_name}: {titulo}."
+            # Não é fato confirmado: apenas registra que o veículo publicou o conteúdo.
+            "fatos_confirmados": [],
+            "registros_publicacao": [
+                f"Publicado em {data_pub or 'data recente'} por {source_name} ({cls_meta['tipo_fonte'].lower()}): {titulo}."
             ],
             "declaracoes_oficiais": [],
             "documentos_citados": docs,
@@ -440,9 +470,8 @@ class LiveNewsFetcher:
             "formato_sugerido": cls_meta["formato_sugerido"],
             "nivel_verificacao": cls_meta["nivel_verificacao"],
             "informacoes_pendentes": (
-                "Ler reportagem integral na fonte original e checar eventuais documentos oficiais ou nota das autoridades envolvidas."
-                if cls_meta["nivel_verificacao"] != "Confirmado"
-                else ""
+                "Ler reportagem integral na fonte original, consultar o documento primário "
+                "e ouvir as partes envolvidas (contraditório)."
             ),
             "proxima_acao_recomendada": f"Acessar matéria original em {source_name} e confirmar desdobramentos em Imperatriz.",
             "pontuacao_base": cls_meta["pontuacao_base"],
@@ -651,8 +680,13 @@ class LiveNewsFetcher:
         self,
         consultas_adicionais: Optional[List[str]] = None,
         max_items: int = 35,
+        incluir_google_news: bool = True,
     ) -> Dict[str, Any]:
-        """Executa busca ao vivo no G1 MA RSS, Portal Oficial da Prefeitura e Google News RSS."""
+        """Executa busca ao vivo no G1 MA RSS, Portal Oficial da Prefeitura e Google News RSS.
+
+        Com `incluir_google_news=False`, pula as consultas fixas do Google News: o
+        `SearchEngine` executa a lista completa de consultas via `QueryRunner`.
+        """
         coletados_por_url: Dict[str, Dict[str, Any]] = {}
         erros: List[str] = []
 
@@ -681,8 +715,8 @@ class LiveNewsFetcher:
             erros.append(f"Prefeitura ITZ Notícias: {e}")
 
         # 3. Google News RSS (consultas recentes de Imperatriz)
-        queries = list(DEFAULT_RSS_QUERIES)
-        if consultas_adicionais:
+        queries = list(DEFAULT_RSS_QUERIES) if incluir_google_news else []
+        if consultas_adicionais and incluir_google_news:
             for extra in consultas_adicionais[:3]:
                 termo = str(extra).strip()
                 if termo:

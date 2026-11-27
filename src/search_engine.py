@@ -21,8 +21,16 @@ from src.config import (
 )
 from src.database import RadarDatabase
 from src.error_monitor import ErrorMonitor
+from src.instagram_client import GRAPH_API_VERSION, InstagramGraphError, fetch_recent_media, username_from_url
 from src.live_news import LiveNewsFetcher
 from src.page_collector import PageCollector
+from src.query_runner import (
+    STATUS_ERRO,
+    STATUS_LIMITE,
+    STATUS_SEM_TEMPO,
+    QueryRunner,
+    resumo_cobertura,
+)
 from src.source_manager import SourceManager
 
 logger = logging.getLogger("radar_imperatriz.search")
@@ -53,53 +61,148 @@ class SearchEngine:
         - Não declara sucesso se não conseguir acessar as publicações.
         """
         graph_token = os.environ.get("INSTAGRAM_GRAPH_TOKEN", "").strip()
+        business_id = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "").strip()
         resultados: List[Dict[str, Any]] = []
 
         for fonte in fontes_instagram:
             url = fonte.get("url", "")
             nome = fonte.get("nome", "Instagram Perfil")
 
-            if graph_token:
-                # Integração com API Oficial do Instagram Graph se configurada
-                status_msg = "Instagram Graph API configurada - consulta de métricas de perfil autorizada."
-                self.source_manager.update_source_status(
-                    url=url,
-                    status="Ativa (API Oficial)",
-                    sucesso=True,
-                    proxima_acao="Manter token atualizado periodicamente",
-                    metodo="Meta Graph API v19.0",
+            if not graph_token or not business_id:
+                # Falta de configuração não é falha de coleta: fica registrada só na situação da fonte,
+                # sem gerar um erro novo em erros_coleta a cada execução.
+                faltando = "INSTAGRAM_GRAPH_TOKEN e INSTAGRAM_BUSINESS_ACCOUNT_ID" if not graph_token else "INSTAGRAM_BUSINESS_ACCOUNT_ID"
+                motivo = (
+                    "Plataforma Meta exige autenticação e login wall para leitura de publicações; "
+                    f"coleta desativada até configurar {faltando}."
                 )
-            else:
-                # Sem token oficial, a plataforma Meta impõe login wall para leitura automatizada
-                motivo = "Plataforma Meta exige autenticação e login wall para leitura de publicações; acesso automatizado bloqueado sem credencial oficial."
                 self.source_manager.update_source_status(
                     url=url,
-                    status="Bloqueio por Autenticação (Meta Login Wall)",
+                    status="Aguardando credencial (Meta Graph API)",
                     sucesso=False,
                     erro=motivo,
-                    proxima_acao="Cadastrar INSTAGRAM_GRAPH_TOKEN no .env para acesso institucional autorizado",
-                    metodo="Web aberta (Bloqueado)",
+                    proxima_acao=f"Cadastrar {faltando} no .env para acesso institucional autorizado",
+                    metodo="Instagram Graph API (não configurada)",
                     observacoes="Impossível extrair legendas de forma automatizada sem API oficial ou credencial autorizada.",
+                )
+                continue
+
+            try:
+                midias = fetch_recent_media(username_from_url(url), business_id, graph_token)
+            except InstagramGraphError as e:
+                msg = mask_secrets(str(e))
+                self.source_manager.update_source_status(
+                    url=url,
+                    status="Falha na Graph API",
+                    sucesso=False,
+                    erro=msg,
+                    proxima_acao="Conferir validade do token e se o perfil é conta Empresa/Criador",
+                    metodo=f"Meta Graph API {GRAPH_API_VERSION}",
                 )
                 self.error_monitor.record_error(
                     id_execucao=id_execucao,
                     componente="MonitorInstagram",
                     alvo_url=url,
-                    mensagem=f"{nome}: {motivo}",
+                    mensagem=f"{nome}: {msg}",
                 )
+                continue
+
+            for m in midias:
+                permalink = m.get("permalink", "")
+                legenda = (m.get("caption") or "").strip()
+                if not permalink or not legenda:
+                    continue
+                titulo = legenda.splitlines()[0][:140]
+                resultados.append(
+                    LiveNewsFetcher._build_news_item(
+                        url=permalink,
+                        titulo=titulo,
+                        desc=legenda,
+                        data_pub=LiveNewsFetcher._parse_pub_date(m.get("timestamp", "")),
+                        source_name=nome,
+                        source_url=url,
+                        consulta_origem="Instagram Graph API",
+                        imagem_capa=m.get("thumbnail_url") or m.get("media_url") or "",
+                    )
+                )
+            self.source_manager.update_source_status(
+                url=url,
+                status="Ativa (API Oficial)",
+                sucesso=True,
+                proxima_acao="Manter token atualizado periodicamente",
+                metodo=f"Meta Graph API {GRAPH_API_VERSION}",
+            )
 
         return resultados
+
+    def run_search_queries(
+        self,
+        id_execucao: str,
+        consultas: List[str],
+        live_fetcher: LiveNewsFetcher,
+        runner: Optional[QueryRunner] = None,
+    ) -> Dict[str, Any]:
+        """Roda cada consulta no Google News RSS e registra falhas em erros_coleta."""
+        if runner is None:
+            runner = QueryRunner(
+                http_get=lambda url: live_fetcher._http_get_text(url, max_bytes=2_500_000),
+                parse_rss=lambda xml, consulta: LiveNewsFetcher.parse_rss_xml(
+                    xml,
+                    default_source_name="Imprensa Regional",
+                    consulta_origem=f"Consulta: {consulta}",
+                    require_imperatriz_filter=True,
+                ),
+            )
+        resultado = runner.run(consultas)
+
+        for r in resultado["relatorio"]:
+            if r["status"] == STATUS_ERRO or (r["status"] == STATUS_LIMITE and r.get("erro")):
+                self.error_monitor.record_error(
+                    id_execucao=id_execucao,
+                    componente="BuscaGoogleNewsRSS",
+                    alvo_url=r["url"],
+                    mensagem=f"Consulta '{r['consulta']}' não concluída: {r['erro']}",
+                )
+
+        pendentes = [
+            r["consulta"]
+            for r in resultado["relatorio"]
+            if r["status"] in (STATUS_LIMITE, STATUS_SEM_TEMPO) and not r.get("erro")
+        ]
+        if pendentes:
+            motivo = (
+                "limite de requisições do Google News"
+                if any(r["status"] == STATUS_LIMITE for r in resultado["relatorio"])
+                else f"orçamento de tempo de {runner.budget_seconds:.0f}s esgotado"
+            )
+            self.error_monitor.record_error(
+                id_execucao=id_execucao,
+                componente="BuscaGoogleNewsRSS",
+                alvo_url="https://news.google.com/rss/search",
+                mensagem=f"{len(pendentes)} consultas não executadas ({motivo}): " + "; ".join(pendentes),
+            )
+
+        logger.info(resumo_cobertura(resultado))
+        return resultado
 
     def execute_queries(
         self, id_execucao: str, consultas_adicionais: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Executa as 32 consultas obrigatórias da Seção 4 mais consultas derivadas.
-        Consulta fontes cadastradas e integrações configuradas.
+        Executa as 32 consultas obrigatórias da Seção 4 mais consultas derivadas e adicionais,
+        cada uma como busca real no Google News RSS (ver `src/query_runner.py`), além do
+        G1 MA RSS, do portal da Prefeitura e das fontes cadastradas.
         """
         todas_consultas = list(CONSULTAS_OBRIGATORIAS) + list(CONSULTAS_DERIVADAS)
         if consultas_adicionais:
-            todas_consultas.extend(consultas_adicionais)
+            for extra in consultas_adicionais:
+                termo = str(extra or "").strip()
+                if not termo:
+                    continue
+                # Termo livre do painel ganha o município para não buscar fora de Imperatriz
+                if "imperatriz" not in termo.lower():
+                    termo = f"{termo} Imperatriz"
+                todas_consultas.append(termo)
 
         logger.info(
             "Iniciando varredura de %d consultas de pesquisa em Imperatriz (MA)...",
@@ -113,15 +216,16 @@ class SearchEngine:
         fontes_instagram = [f for f in fontes_cadastradas if "instagram.com" in f.get("url", "").lower()]
         fontes_web = [f for f in fontes_cadastradas if "instagram.com" not in f.get("url", "").lower()]
 
-        # 1. Checagem das fontes Instagram
-        self.run_instagram_checks(id_execucao, fontes_instagram)
+        # 1. Checagem das fontes Instagram (publicações entram como candidatas quando a API responde)
+        candidatos_por_url: Dict[str, Dict[str, Any]] = {}
+        for item in self.run_instagram_checks(id_execucao, fontes_instagram):
+            candidatos_por_url[item["url"].lower()] = item
 
         # 2. Varredura de notícias recentes ao vivo (Google News RSS + G1 Maranhão RSS)
-        candidatos_por_url: Dict[str, Dict[str, Any]] = {}
         try:
             live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
             live_res = live_fetcher.fetch_recent_news(
-                consultas_adicionais=consultas_adicionais, max_items=30
+                max_items=30, incluir_google_news=False
             )
             for item in live_res.get("itens", []):
                 u = item.get("url")
@@ -131,6 +235,13 @@ class SearchEngine:
                 logger.info("Aviso na coleta RSS ao vivo (%s)", mask_secrets(err_msg))
         except Exception as e:
             logger.warning("Coleta RSS ao vivo indisponível neste ciclo: %s", mask_secrets(str(e)))
+
+        # 2b. Execução real de cada consulta (obrigatórias, derivadas e adicionais) no Google News RSS
+        busca = self.run_search_queries(id_execucao, todas_consultas, LiveNewsFetcher(timeout=8))
+        for item in busca["itens"]:
+            u = item.get("url")
+            if u and u.lower() not in candidatos_por_url:
+                candidatos_por_url[u.lower()] = item
 
         # 3. Carrega repositório de páginas públicas reais verificadas (base histórica complementar)
         if VERIFIED_CORPUS_PATH.exists():
@@ -178,8 +289,11 @@ class SearchEngine:
                 )
 
         return {
-            "total_consultas_executadas": len(todas_consultas),
+            "total_consultas_previstas": busca["total_previstas"],
+            "total_consultas_executadas": busca["total_executadas"],
             "consultas": todas_consultas,
+            "relatorio_consultas": busca["relatorio"],
+            "cobertura_consultas": resumo_cobertura(busca),
             "integracoes_ativas": integrations,
             "itens_coletados": list(candidatos_por_url.values()),
         }

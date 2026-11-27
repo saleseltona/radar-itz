@@ -313,7 +313,7 @@
               </button>
               <button id="btn-sync-pncp" onclick="triggerPncpSync()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md font-semibold transition-all" type="button">
                 <span id="pncp-sync-spin" class="material-symbols-outlined text-[17px]">sync</span>
-                Atualizar PNCP
+                <span id="pncp-sync-label">Atualizar PNCP</span>
               </button>
               <a href="/api/export/csv" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white font-label-md text-label-md transition-all" title="Baixar Pautas em CSV">
                 <span class="material-symbols-outlined text-[17px]">download</span>
@@ -921,7 +921,7 @@
           <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dispensas &amp; Inexigibilidades</span>
             <span id="tr-kpi-dispensas" class="font-headline-md text-headline-md text-error font-extrabold">-</span>
-            <span id="tr-kpi-dispensas-sub" class="text-[11px] text-on-surface-variant">Ausentes no PNCP: -</span>
+            <span id="tr-kpi-dispensas-sub" class="text-[11px] text-on-surface-variant">Não localizados no PNCP: -</span>
           </div>
         </section>
 
@@ -1058,7 +1058,7 @@
                 </select>
                 <select id="tr-disp-status" onchange="loadTranspDispensas(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold">
                   <option value="">Todos Status PNCP</option>
-                  <option value="AUSENTE_PNCP">Ausentes no PNCP</option>
+                  <option value="AUSENTE_PNCP">Não localizados no PNCP</option>
                   <option value="FORNECEDOR_NO_PNCP">Fornecedor no PNCP (outro proc.)</option>
                   <option value="CONCILIADO">Conciliadas no PNCP</option>
                 </select>
@@ -2873,37 +2873,132 @@
       }
     }
 
+    // Lê a resposta como texto e só então tenta JSON: um 504 da Vercel ("An error occurred...")
+    // não quebra mais a tela com "Unexpected token 'A'".
+    function describePncpHttpFailure(status) {
+      if (status === 504 || status === 408) return `Tempo esgotado no servidor (HTTP ${status}). O progresso salvo foi mantido; clique em "Continuar PNCP".`;
+      if (status === 502 || status === 503) return `Servidor ou PNCP indisponível no momento (HTTP ${status}). Tente continuar em alguns minutos.`;
+      if (status === 409) return 'Já existe uma sincronização do PNCP em andamento. Aguarde e tente de novo.';
+      if (status === 413) return `Requisição grande demais para o servidor (HTTP ${status}).`;
+      if (status >= 500) return `Erro interno do servidor (HTTP ${status}).`;
+      if (status >= 400) return `O servidor recusou a requisição (HTTP ${status}).`;
+      return `Resposta inesperada do servidor (HTTP ${status}).`;
+    }
+
+    function parsePncpSyncResponse(status, ok, text) {
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) { data = null; }
+      if (!data || typeof data !== 'object') {
+        return { ok: false, data: null, message: describePncpHttpFailure(status) };
+      }
+      if (!ok) {
+        return { ok: false, data, message: data.erro || describePncpHttpFailure(status) };
+      }
+      return { ok: true, data, message: '' };
+    }
+
+    const PNCP_SYNC_STORAGE_KEY = 'radar_pncp_sync_estado';
+    const PNCP_SYNC_MAX_REQUESTS = 60;
+
+    function loadPncpSyncLocalState() {
+      try { return JSON.parse(localStorage.getItem(PNCP_SYNC_STORAGE_KEY) || '{}') || {}; } catch (_) { return {}; }
+    }
+    function savePncpSyncLocalState(st) {
+      try { localStorage.setItem(PNCP_SYNC_STORAGE_KEY, JSON.stringify(st)); } catch (_) { /* sem storage */ }
+    }
+    function setPncpSyncLabel(text) {
+      const label = document.getElementById('pncp-sync-label');
+      if (label) label.textContent = text;
+    }
+    function refreshPncpSyncLabel() {
+      const st = loadPncpSyncLocalState();
+      setPncpSyncLabel(st.proxima_janela ? 'Continuar PNCP' : 'Atualizar PNCP');
+    }
+
+    let pncpSyncRunning = false;
     async function triggerPncpSync(refreshModal = false) {
+      if (pncpSyncRunning) return;
+      pncpSyncRunning = true;
       const btn = document.getElementById('btn-sync-pncp');
       const icon = document.getElementById('pncp-sync-spin');
       if (btn) btn.disabled = true;
       if (icon) icon.classList.add('animate-spin');
 
+      const local = loadPncpSyncLocalState();
+      let cursor = local.proxima_janela || null;
+      const tot = { inseridos: 0, atualizados: 0, ignorados: 0 };
+      let last = null;
+      let failure = '';
+      let errosPncp = [];
+
       try {
-        const res = await pncpFetch('/api/pncp/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ anos: [2024, 2025, 2026] }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          const det = data.sync_detalhes
-            ? `\n• Apenas novos/alterados: ${data.sync_detalhes.novos || 0} novos, ${data.sync_detalhes.ignorados_existentes || 0} já existentes ignorados`
-            : '';
-          alert(`Sincronização PNCP concluída!\n• Contratos processados: ${data.total_sincronizados || 0}${det}\n• Por ano: 2026 (${data.por_ano?.['2026'] || 0}), 2025 (${data.por_ano?.['2025'] || 0}), 2024 (${data.por_ano?.['2024'] || 0})`);
+        for (let i = 0; i < PNCP_SYNC_MAX_REQUESTS; i++) {
+          const res = await pncpFetch('/api/pncp/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              modo: 'auto',
+              proxima_janela: cursor,
+              estado_cliente: {
+                carga_completa_concluida: !!local.carga_completa_concluida,
+                ultima_data_sincronizada: local.ultima_data_sincronizada || null,
+              },
+            }),
+          });
+          const text = await res.text();
+          const parsed = parsePncpSyncResponse(res.status, res.ok, text);
+          if (parsed.data && parsed.data.erro && /cursor/i.test(parsed.data.erro)) {
+            cursor = null; // cursor salvo ficou inválido: recomeça pelo estado do servidor
+            local.proxima_janela = null;
+          }
+          if (!parsed.ok) { failure = parsed.message; break; }
+
+          const data = parsed.data;
+          last = data;
+          tot.inseridos += data.inseridos || 0;
+          tot.atualizados += data.atualizados || 0;
+          tot.ignorados += data.ignorados || 0;
+          errosPncp = data.erros || [];
+          cursor = data.parcial ? (data.proxima_janela || null) : null;
+          local.proxima_janela = cursor;
+          local.carga_completa_concluida = !!data.carga_completa_concluida;
+          if (data.ultima_data_sincronizada) local.ultima_data_sincronizada = data.ultima_data_sincronizada;
+          savePncpSyncLocalState(local);
+
+          if (!data.parcial || !cursor) break;
+          if (errosPncp.length) { failure = 'O PNCP falhou numa das consultas; o progresso foi salvo.'; break; }
+          setPncpSyncLabel(`PNCP ${Math.round(data.progresso_pct || 0)}%`);
+        }
+      } catch (err) {
+        failure = 'Não foi possível conectar ao servidor. Verifique a conexão e tente de novo.';
+      } finally {
+        savePncpSyncLocalState(local);
+        if (btn) btn.disabled = false;
+        if (icon) icon.classList.remove('animate-spin');
+        pncpSyncRunning = false;
+        refreshPncpSyncLabel();
+      }
+
+      const resumo = `• Novos: ${tot.inseridos}\n• Atualizados: ${tot.atualizados}\n• Sem mudança: ${tot.ignorados}`;
+      const ultima = last && last.ultima_data_sincronizada ? `\n• Sincronizado até: ${last.ultima_data_sincronizada}` : '';
+      const aviso = last && last.aviso_armazenamento ? `\n\nAtenção: ${last.aviso_armazenamento}` : '';
+      if (failure) {
+        const pend = cursor ? '\nClique em "Continuar PNCP" para retomar de onde parou.' : '';
+        alert(`Sincronização PNCP interrompida: ${failure}${pend}\n\nJá gravado nesta tentativa:\n${resumo}${aviso}`);
+      } else if (cursor) {
+        alert(`Sincronização PNCP pausada em ${Math.round(last?.progresso_pct || 0)}%.\nClique em "Continuar PNCP" para seguir.\n\n${resumo}${aviso}`);
+      } else {
+        alert(`Sincronização PNCP concluída!\n${resumo}${ultima}${aviso}`);
+      }
+      if (tot.inseridos || tot.atualizados) {
+        try {
           await loadPncpSummary();
           await loadPautasAndStats();
           if (refreshModal) await loadPncpModal(1);
-        } else {
-          alert(`Falha ao sincronizar PNCP: ${data.erro || 'Erro desconhecido'}`);
-        }
-      } catch (err) {
-        alert(`Erro ao conectar com o PNCP: ${err.message}`);
-      } finally {
-        if (btn) btn.disabled = false;
-        if (icon) icon.classList.remove('animate-spin');
+        } catch (_) { /* painel recarrega na próxima navegação */ }
       }
     }
+    document.addEventListener('DOMContentLoaded', refreshPncpSyncLabel);
 
     // ---------------------------
     // Fontes Monitoradas & Cadastro
@@ -3710,7 +3805,7 @@
         setTxt('tr-kpi-dispensas', formatBRLCompact(disp.diretas_valor || 0));
         setTxt(
           'tr-kpi-dispensas-sub',
-          `${disp.diretas_qtd || 0} diretas • ${aus.qtd || 0} ausentes no PNCP (${formatBRLCompact(aus.valor || 0)})`
+          `${disp.diretas_qtd || 0} diretas • ${aus.qtd || 0} não localizadas no PNCP (${formatBRLCompact(aus.valor || 0)})${disp.consulta_conclusiva === false ? ' • consulta inconclusiva' : ''}`
         );
         setTxt('tr-receita-realizacao-pill', `${rec.pct_realizado || 0}% da previsão`);
         setTxt('tr-orgaos-count-pill', `${(desp.por_orgao || []).length} órgãos`);
@@ -3865,10 +3960,11 @@
         { k: 'TODOS', lbl: `Todos (${sumQtd})` },
         { k: 'ALERTAS', lbl: `Somente Alertas (${alertsCount})` },
         { k: 'PAGO_ACIMA_PNCP', lbl: `Pago > PNCP (${(resumo.PAGO_ACIMA_PNCP && resumo.PAGO_ACIMA_PNCP.qtd) || 0})` },
-        { k: 'PAGO_SEM_PNCP', lbl: `Pago >= R$100k sem PNCP (${(resumo.PAGO_SEM_PNCP && resumo.PAGO_SEM_PNCP.qtd) || 0})` },
+        { k: 'PAGO_SEM_PNCP', lbl: `Pago >= R$100k sem contrato localizado no PNCP (${(resumo.PAGO_SEM_PNCP && resumo.PAGO_SEM_PNCP.qtd) || 0})` },
         { k: 'DIVERGENCIA_VALOR', lbl: `Divergência Valor (${(resumo.DIVERGENCIA_VALOR && resumo.DIVERGENCIA_VALOR.qtd) || 0})` },
         { k: 'CONCILIADO', lbl: `Conciliados (${(resumo.CONCILIADO && resumo.CONCILIADO.qtd) || 0})` },
         { k: 'FOLHA_OU_REPASSE_PUBLICO', lbl: `Folha / Repasses (${(resumo.FOLHA_OU_REPASSE_PUBLICO && resumo.FOLHA_OU_REPASSE_PUBLICO.qtd) || 0})` },
+        { k: 'PAGO_CONTRATO_ANTERIOR', lbl: `Contrato de ano anterior (${(resumo.PAGO_CONTRATO_ANTERIOR && resumo.PAGO_CONTRATO_ANTERIOR.qtd) || 0})` },
       ];
       box.innerHTML = defs.map(d => {
         const active = (currentTranspAlerta || 'TODOS') === d.k;
@@ -3894,6 +3990,7 @@
           FOLHA_OU_REPASSE_PUBLICO: 'bg-slate-200 text-slate-800',
           CONTRATO_SEM_PAGAMENTO: 'bg-secondary-container text-on-secondary-container',
           CONCILIADO: 'bg-emerald-100 text-emerald-900',
+          PAGO_CONTRATO_ANTERIOR: 'bg-slate-100 text-slate-800',
           SEM_ALERTA: 'bg-surface-container text-on-surface-variant',
         };
         tbody.innerHTML = items.map(r => {
@@ -3911,7 +4008,7 @@
                 <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(r.fornecedor_doc || 'Sem CPF/CNPJ')} • ${escapeHtml(r.tipo_pessoa)}${r.cidade ? ' • ' + escapeHtml(r.cidade) : ''}</div>
               </td>
               <td class="py-2.5 pr-3">
-                <span class="inline-block px-2 py-0.5 rounded-full ${bCls} text-[10px] font-bold">${escapeHtml(r.alerta_label)}</span>
+                <span class="inline-block px-2 py-0.5 rounded-full ${bCls} text-[10px] font-bold">${escapeHtml(r.alerta_label)}</span>${r.alerta_observacao ? `<div class="text-[10px] text-on-surface-variant mt-0.5 line-clamp-2">${escapeHtml(r.alerta_observacao)}</div>` : ''}
               </td>
               <td class="py-2.5 pr-3 text-right whitespace-nowrap">
                 <div class="font-bold text-on-surface">${formatBRL(r.pncp_valor)}</div>
@@ -3988,7 +4085,7 @@
       const stBox = document.getElementById('tr-disp-status-cards');
       if (stBox) {
         const specs = [
-          { k: 'AUSENTE_PNCP', lbl: 'Ausentes no PNCP', cls: 'bg-error-container/60 text-on-error-container' },
+          { k: 'AUSENTE_PNCP', lbl: 'Não localizados no PNCP', cls: 'bg-error-container/60 text-on-error-container' },
           { k: 'FORNECEDOR_NO_PNCP', lbl: 'Fornecedor no PNCP (outro processo)', cls: 'bg-amber-100 text-amber-950' },
           { k: 'CONCILIADO', lbl: 'Conciliadas no PNCP', cls: 'bg-emerald-100 text-emerald-900' },
         ];

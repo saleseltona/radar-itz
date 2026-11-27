@@ -11,6 +11,7 @@ import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from src.config import PNCP_ANOS_MONITORADOS
 from src.fiorilli_client import normalize_doc, normalize_processo
 from src.pncp_analytics import PNCP_CATEGORIAS_ICONS, PNCP_CATEGORIAS_ORDEM
 
@@ -18,14 +19,19 @@ ALLOWED_CROSS_YEARS: Tuple[int, ...] = (2025, 2026)
 
 ALERTA_LABELS: Dict[str, str] = {
     "PAGO_ACIMA_PNCP": "Pago acima do contratado no PNCP",
-    "PAGO_SEM_PNCP": "Pago sem contrato localizado no PNCP",
+    "PAGO_SEM_PNCP": "Pago sem contrato localizado no PNCP (verificar)",
     "DIVERGENCIA_VALOR": "Divergência relevante PNCP × Fiorilli",
     "CONTRATO_SEM_PAGAMENTO": "Contratado no PNCP sem pagamento no Fiorilli",
-    "FIORILLI_SEM_PNCP": "Contratado no Fiorilli sem PNCP",
+    "FIORILLI_SEM_PNCP": "Contrato Fiorilli não localizado no PNCP (verificar)",
     "FOLHA_OU_REPASSE_PUBLICO": "Folha / Encargos / Repasse Público",
     "CONCILIADO": "Conciliado (PNCP compatível)",
     "SEM_ALERTA": "Pagamento sem PNCP abaixo do corte",
+    "PAGO_CONTRATO_ANTERIOR": "Pagamento possivelmente ligado a contrato de exercício anterior (verificar)",
 }
+
+# Anos de contratos PNCP carregados para o cruzamento: inclui exercícios anteriores aos
+# monitorados, porque pagamentos de 2025/2026 podem quitar contratos assinados antes.
+PNCP_ANOS_CRUZAMENTO: Tuple[int, ...] = tuple(sorted({*PNCP_ANOS_MONITORADOS, *ALLOWED_CROSS_YEARS}))
 
 CLASSIFICACAO_VINCULO_LABELS: Dict[str, str] = {
     "IDENTIFICADOR_EXATO": "Identificador exato",
@@ -192,6 +198,81 @@ def _filter_year_rows(
     return [r for r in rows if int(r.get("ano") or 0) in targets]
 
 
+# Ausência de um contrato nos dados do PNCP nunca é, por si só, irregularidade: pode haver
+# publicação com outro identificador, fora do período sincronizado ou ainda dentro do prazo.
+AVISO_NAO_LOCALIZADO = (
+    "Não localizado não significa irregular: o contrato pode estar publicado com outro "
+    "identificador, fora do período sincronizado ou ainda dentro do prazo de publicação."
+)
+
+COBERTURA_PNCP_LABELS: Dict[str, str] = {
+    "COMPLETA": "Cobertura completa confirmada",
+    "PARCIAL": "Busca no PNCP incompleta",
+    "NAO_CONFIRMADA": "Cobertura da sincronização não confirmada",
+    "SEM_DADOS": "Nenhum contrato PNCP sincronizado",
+    "ERRO": "Falha na consulta ao PNCP",
+}
+
+
+def avaliar_cobertura_pncp(
+    total_contratos: int,
+    pncp_sync_error: Optional[str] = None,
+    pncp_cobertura: Optional[Dict[str, Any]] = None,
+    ano: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Decide se a base PNCP local permite afirmar que algo "não foi localizado".
+
+    Só é conclusiva quando a sincronização declarou explicitamente cobertura completa
+    (`pncp_cobertura["completa"] is True`), sem erro, sem páginas cortadas, com contratos
+    e incluindo o exercício filtrado. Ter "pelo menos um contrato" não basta: a busca
+    pode ter sido cortada no meio. Sem informação de cobertura, não se conclui ausência.
+    """
+    cob = pncp_cobertura if isinstance(pncp_cobertura, dict) else {}
+    erro = str(pncp_sync_error or "").strip()
+    anos_cob = [int(a) for a in (cob.get("anos") or []) if str(a).isdigit()]
+
+    if erro:
+        estado, motivo = "ERRO", f"Falha na consulta/sincronização ao PNCP: {erro}"
+    elif total_contratos <= 0:
+        estado, motivo = "SEM_DADOS", (
+            "Nenhum contrato PNCP disponível no recorte; não é possível concluir que algo não foi localizado."
+        )
+    elif cob.get("truncada") or cob.get("completa") is False:
+        detalhe = str(cob.get("motivo") or "").strip()
+        estado, motivo = "PARCIAL", (
+            "A busca no PNCP ficou incompleta"
+            + (f" ({detalhe})" if detalhe else "")
+            + "; contratos não localizados podem estar nas páginas não buscadas."
+        )
+    elif cob.get("completa") is True and (not ano or not anos_cob or ano in anos_cob):
+        estado, motivo = "COMPLETA", ""
+    elif cob.get("completa") is True:
+        estado, motivo = "PARCIAL", f"A carga completa do PNCP não inclui o exercício {ano}."
+    else:
+        estado, motivo = "NAO_CONFIRMADA", (
+            "Não há registro de que a sincronização do PNCP tenha percorrido todo o período; "
+            "contratos não localizados podem existir no PNCP."
+        )
+
+    return {
+        "conclusiva": estado == "COMPLETA",
+        "estado": estado,
+        "estado_label": COBERTURA_PNCP_LABELS[estado],
+        "motivo": motivo,
+        "truncada": bool(cob.get("truncada")),
+        "total_contratos": int(total_contratos),
+        "anos": anos_cob,
+        "erro": erro,
+    }
+
+
+def _motivo_ausente(cobertura: Optional[Dict[str, Any]]) -> str:
+    base = "Processo e CPF/CNPJ do fornecedor não localizados nos contratos PNCP sincronizados para este exercício."
+    if cobertura is not None and not cobertura.get("conclusiva"):
+        return f"{base} Consulta inconclusiva: {cobertura.get('motivo') or 'cobertura não confirmada'}"
+    return f"{base} {AVISO_NAO_LOCALIZADO}"
+
+
 def _build_pncp_indexes(
     pncp_rows: List[Dict[str, Any]],
 ) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, List[Dict[str, Any]]]]:
@@ -211,6 +292,7 @@ def _match_dispensa_with_pncp(
     disp: Dict[str, Any],
     by_proc: Dict[str, List[Dict[str, Any]]],
     by_doc: Dict[str, List[Dict[str, Any]]],
+    cobertura: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     disp_ano = int(disp.get("ano") or 0)
     disp_val = float(disp.get("valor_efetivo") or disp.get("valor_contrato") or 0.0)
@@ -285,9 +367,14 @@ def _match_dispensa_with_pncp(
             }
 
     return {
+        # Código mantido por compatibilidade com filtros/CSV; o texto diz apenas "não localizado".
         "status_pncp": "AUSENTE_PNCP",
-        "status_pncp_label": "Ausente no PNCP",
-        "motivo_pncp": "Nem o processo nem o CPF/CNPJ do fornecedor constam no PNCP para este exercício.",
+        "status_pncp_label": (
+            "Não localizado no PNCP"
+            if cobertura is None or cobertura.get("conclusiva")
+            else "Não localizado (consulta inconclusiva)"
+        ),
+        "motivo_pncp": _motivo_ausente(cobertura),
         "pncp_match_controle": "",
         "pncp_match_valor": 0.0,
         "pncp_match_url": "",
@@ -396,12 +483,12 @@ def _classificar_situacao_contrato_pncp(
         )
     if not consulta_conclusiva:
         return "CONSULTA_INCONCLUSIVA", (
-            "Ausência não pode ser afirmada: a consulta ao PNCP está indisponível ou com "
-            "cobertura insuficiente para este recorte."
+            "Não localizado nos contratos PNCP sincronizados, mas a consulta está incompleta, "
+            "indisponível ou sem cobertura confirmada: não é possível afirmar que falta no PNCP."
         )
     return "NAO_LOCALIZADO_PNCP", (
-        "Não localizado no recorte do PNCP consultado (processo e CPF/CNPJ do fornecedor ausentes). "
-        "A ausência não é afirmação sobre o portal PNCP inteiro."
+        "Não localizado no recorte do PNCP consultado (processo e CPF/CNPJ do fornecedor). "
+        + AVISO_NAO_LOCALIZADO
     )
 
 
@@ -414,6 +501,7 @@ def build_contratos_nao_localizados_pncp(
     pncp_sync_error: Optional[str] = None,
     pagina: int = 1,
     limite: int = 10,
+    pncp_cobertura: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Lista contratos Fiorilli do exercício confrontados com o recorte PNCP disponível.
 
@@ -431,15 +519,9 @@ def build_contratos_nao_localizados_pncp(
     by_proc, by_doc = _build_pncp_indexes(pncp_f)
 
     erro = str(pncp_sync_error or "").strip()
-    consulta_conclusiva = (not erro) and len(pncp_f) > 0
-    if erro:
-        motivo_consulta = f"Falha na consulta/sincronização ao PNCP: {erro}"
-    elif len(pncp_f) == 0:
-        motivo_consulta = (
-            "Nenhum contrato PNCP disponível no recorte; cobertura insuficiente para concluir ausências."
-        )
-    else:
-        motivo_consulta = ""
+    cobertura = avaliar_cobertura_pncp(len(pncp_f), erro, pncp_cobertura, ano=ano)
+    consulta_conclusiva = cobertura["conclusiva"]
+    motivo_consulta = cobertura["motivo"]
 
     revisoes = revisoes_map or {}
     items: List[Dict[str, Any]] = []
@@ -451,7 +533,7 @@ def build_contratos_nao_localizados_pncp(
     for c in con_ex:
         proc = normalize_processo(c.get("processo_adm"))
         doc = normalize_doc(c.get("fornecedor_doc"))
-        match = _match_dispensa_with_pncp(c, by_proc, by_doc)
+        match = _match_dispensa_with_pncp(c, by_proc, by_doc, cobertura)
         code, motivo = _classificar_situacao_contrato_pncp(
             match,
             consulta_conclusiva=consulta_conclusiva,
@@ -532,12 +614,13 @@ def build_contratos_nao_localizados_pncp(
         "ultima_consulta_pncp": str(ultima_consulta_pncp or ""),
         "pncp_sync_error": erro,
         "cobertura_pncp_contratos": len(pncp_f),
+        "cobertura_pncp": cobertura,
         "escopo": (
             "Comparação restrita ao recorte local de contratos Fiorilli e aos contratos PNCP "
             "sincronizados para os exercícios monitorados; não representa consulta ao portal PNCP inteiro."
         ),
         "aviso": (
-            "Ausência no recorte não equivale a inexistência de contrato no PNCP. "
+            "Não localizado no recorte não equivale a inexistência de contrato no PNCP nem a irregularidade. "
             "Itens inconclusivos exigem nova consulta/sincronização antes de qualquer afirmação."
         ),
     }
@@ -553,7 +636,8 @@ def build_contratos_nao_localizados_pncp(
     }
 
 
-_PONTO_SEVERIDADE_ORDEM: Dict[str, int] = {"ALTA": 0, "MEDIA": 1, "BAIXA": 2, "INFO": 3}
+# VERIFICAR: ponto que pede checagem, sem indício de irregularidade (ex.: "não localizado").
+_PONTO_SEVERIDADE_ORDEM: Dict[str, int] = {"ALTA": 0, "MEDIA": 1, "VERIFICAR": 2, "BAIXA": 3, "INFO": 4}
 
 
 def build_pontos_apuracao(
@@ -576,7 +660,13 @@ def build_pontos_apuracao(
 
     pncp_sincronizado = bool(pmeta.get("sincronizado"))
     pncp_erro = str(pmeta.get("erro") or "").strip()
-    pncp_conclusivo = pncp_sincronizado and not pncp_erro
+    cob_pncp = avaliar_cobertura_pncp(
+        int(pmeta.get("total_contratos") or 0) if pncp_sincronizado else 0,
+        pncp_erro,
+        pmeta.get("cobertura"),
+        ano=ano,
+    )
+    pncp_conclusivo = cob_pncp["conclusiva"]
     fiorilli_sincronizado = bool(fmeta.get("sincronizado"))
 
     limitacoes: List[str] = []
@@ -584,6 +674,8 @@ def build_pontos_apuracao(
         limitacoes.append(f"Consulta ao PNCP com erro: {pncp_erro}")
     elif not pncp_sincronizado:
         limitacoes.append("PNCP sem sincronização registrada para o recorte.")
+    elif not pncp_conclusivo:
+        limitacoes.append(cob_pncp["motivo"])
     if not fiorilli_sincronizado:
         limitacoes.append("Base Fiorilli sem sincronização registrada.")
 
@@ -594,6 +686,10 @@ def build_pontos_apuracao(
             "ultima_atualizacao": str(pmeta.get("ultima_atualizacao") or ""),
             "total_contratos_recorte": int(pmeta.get("total_contratos") or 0),
             "erro": pncp_erro,
+            "estado": cob_pncp["estado"],
+            "estado_label": cob_pncp["estado_label"],
+            "motivo": cob_pncp["motivo"],
+            "truncada": cob_pncp["truncada"],
         },
         "fiorilli": {
             "sincronizado": fiorilli_sincronizado,
@@ -633,8 +729,8 @@ def build_pontos_apuracao(
         (
             "PAGO_SEM_PNCP",
             "PAGAMENTO_SEM_CONTRATO_PNCP",
-            "ALTA",
-            "Pagamento no Fiorilli sem contrato correspondente localizado no PNCP.",
+            "VERIFICAR",
+            "Pagamento no Fiorilli sem contrato correspondente localizado no PNCP. " + AVISO_NAO_LOCALIZADO,
             "ausencia_no_recorte",
         ),
         (
@@ -654,8 +750,8 @@ def build_pontos_apuracao(
         (
             "FIORILLI_SEM_PNCP",
             "CONTRATO_FIORILLI_SEM_PNCP",
-            "MEDIA",
-            "Contrato no Fiorilli sem contrato correspondente localizado no PNCP.",
+            "VERIFICAR",
+            "Contrato no Fiorilli sem contrato correspondente localizado no PNCP. " + AVISO_NAO_LOCALIZADO,
             "ausencia_no_recorte",
         ),
         (
@@ -685,7 +781,7 @@ def build_pontos_apuracao(
                 "limitacao": (
                     ""
                     if conclusivo
-                    else "Cobertura PNCP insuficiente: a ausência refere-se apenas ao recorte consultado."
+                    else "Consulta inconclusiva: " + (cob_pncp["motivo"] or "cobertura PNCP insuficiente.")
                 ),
                 "fonte": "PNCP × Fiorilli",
                 "fornecedores": fornecedores_por_alerta(codigo),
@@ -703,7 +799,7 @@ def build_pontos_apuracao(
                 "pago": 0.0,
                 "pncp": 0.0,
                 "descricao": "Consulta/base PNCP indisponível ou com cobertura insuficiente para o recorte.",
-                "limitacao": pncp_erro or "Nenhum contrato PNCP sincronizado para o recorte.",
+                "limitacao": cob_pncp["motivo"] or "Nenhum contrato PNCP sincronizado para o recorte.",
                 "fonte": "PNCP",
                 "fornecedores": [],
             }
@@ -737,8 +833,8 @@ def build_pontos_apuracao(
         (
             "NAO_LOCALIZADO_PNCP",
             "CONTRATO_NAO_LOCALIZADO_PNCP",
-            "ALTA",
-            "Contrato Fiorilli sem correspondência localizada no recorte do PNCP.",
+            "VERIFICAR",
+            "Contrato Fiorilli sem correspondência localizada no recorte do PNCP. " + AVISO_NAO_LOCALIZADO,
             True,
         ),
         (
@@ -751,7 +847,7 @@ def build_pontos_apuracao(
         (
             "CONSULTA_INCONCLUSIVA",
             "CONTRATO_INCONCLUSIVO_PNCP",
-            "ALTA",
+            "MEDIA",
             "Não foi possível concluir sobre a existência do contrato no PNCP.",
             False,
         ),
@@ -838,6 +934,7 @@ def build_transparencia_resumo(
     pncp_meta: Optional[Dict[str, Any]] = None,
     revisoes_map: Optional[Dict[str, Dict[str, Any]]] = None,
     pncp_sync_error: Optional[str] = None,
+    pncp_cobertura: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Consolida painel fiscal PNCP × Receitas × Despesas × Dispensas para 2025 e 2026."""
     pncp_f = _filter_pncp_rows(pncp_rows, ano=ano)
@@ -912,6 +1009,9 @@ def build_transparencia_resumo(
     fiorilli_rem_qtd = len(con_rem)
 
     by_proc, by_doc = _build_pncp_indexes(pncp_f)
+    if pncp_cobertura is None and isinstance((pncp_meta or {}).get("cobertura"), dict):
+        pncp_cobertura = (pncp_meta or {}).get("cobertura")
+    cobertura = avaliar_cobertura_pncp(len(pncp_f), pncp_sync_error, pncp_cobertura, ano=ano)
     diretas = [c for c in con_ex if int(c.get("eh_contratacao_direta") or 0) == 1]
     dispensas_rows = [c for c in diretas if c.get("tipo_contratacao") == "Dispensa"]
     inexig_rows = [c for c in diretas if c.get("tipo_contratacao") == "Inexigibilidade"]
@@ -922,7 +1022,7 @@ def build_transparencia_resumo(
         "AUSENTE_PNCP": {"qtd": 0, "valor": 0.0},
     }
     for d in diretas:
-        m = _match_dispensa_with_pncp(d, by_proc, by_doc)
+        m = _match_dispensa_with_pncp(d, by_proc, by_doc, cobertura)
         st = m["status_pncp"]
         status_counts[st]["qtd"] += 1
         status_counts[st]["valor"] = round(
@@ -983,6 +1083,8 @@ def build_transparencia_resumo(
         "ultima_atualizacao": pncp_ultima,
         "total_contratos": len(pncp_f),
         "erro": pncp_sync_error or "",
+        "cobertura": pncp_cobertura if isinstance(pncp_cobertura, dict) else None,
+        "cobertura_avaliada": cobertura,
     }
 
     # Resumo de contratos não localizados no PNCP + pontos para apuração
@@ -995,6 +1097,7 @@ def build_transparencia_resumo(
         pncp_sync_error=pncp_sync_error,
         pagina=1,
         limite=10,
+        pncp_cobertura=pncp_cobertura,
     )
     cruz_sample = build_cruzamento_fornecedores(
         pncp_rows=pncp_rows,
@@ -1003,6 +1106,8 @@ def build_transparencia_resumo(
         ano=ano,
         alerta="ALERTAS",
         limite=50,
+        pncp_cobertura=pncp_cobertura,
+        pncp_sync_error=pncp_sync_error,
     )
     pontos_apuracao = build_pontos_apuracao(
         cruzamento_res=cruz_sample,
@@ -1096,12 +1201,17 @@ def build_transparencia_resumo(
             "inexigibilidades_qtd": len(inexig_rows),
             "inexigibilidades_valor": round(sum(float(d.get("valor_efetivo") or 0.0) for d in inexig_rows), 2),
             "por_status_pncp": status_counts,
+            "consulta_conclusiva": cobertura["conclusiva"],
+            "aviso_nao_localizado": cobertura["motivo"] or AVISO_NAO_LOCALIZADO,
         },
         "nao_localizados_pncp_resumo": nao_loc_res["resumo"],
         "pontos_apuracao": pontos_apuracao,
         "comparativo_anual": comparativo_anual,
         "entidades_disponiveis": entidades_disponiveis,
     }
+
+
+_ALERTAS_AUSENCIA: Tuple[str, ...] = ("PAGO_SEM_PNCP", "FIORILLI_SEM_PNCP")
 
 
 def _classify_supplier_alert(item: Dict[str, Any], corte_sem_pncp: float) -> Tuple[str, str]:
@@ -1130,6 +1240,49 @@ def _classify_supplier_alert(item: Dict[str, Any], corte_sem_pncp: float) -> Tup
     return "SEM_ALERTA", ALERTA_LABELS["SEM_ALERTA"]
 
 
+def _pncp_contratos_anteriores_vigentes(
+    pncp_rows: List[Dict[str, Any]],
+    ano: Optional[int] = None,
+    allowed_years: Sequence[int] = ALLOWED_CROSS_YEARS,
+) -> List[Dict[str, Any]]:
+    """Contratos PNCP de exercícios anteriores ao recorte que ainda podem gerar pagamentos nele.
+
+    Considera vigente o contrato cuja vigência termina no recorte ou depois, ou que não
+    informa fim de vigência (na dúvida, entra como possível origem do pagamento).
+    """
+    inicio = int(ano) if ano else min(int(y) for y in allowed_years)
+    corte = f"{inicio}-01-01"
+    out: List[Dict[str, Any]] = []
+    for r in pncp_rows:
+        ano_c = int(r.get("ano_contrato") or 0)
+        if ano_c <= 0 or ano_c >= inicio:
+            continue
+        vig_fim = str(r.get("data_vigencia_fim") or "").strip()[:10]
+        if vig_fim and vig_fim < corte:
+            continue
+        out.append(r)
+    return out
+
+
+def _ajustar_alerta_contrato_anterior(code: str, label: str, row: Dict[str, Any]) -> Tuple[str, str]:
+    """Evita falso PAGO_SEM_PNCP / PAGO_ACIMA_PNCP quando o pagamento pode quitar contrato antigo.
+
+    Só troca o alerta quando os contratos de exercícios anteriores (PNCP ou remanescentes
+    no Fiorilli) cobrem o valor pago; se nem somando eles o pagamento fecha, o alerta fica.
+    """
+    if code not in ("PAGO_SEM_PNCP", "PAGO_ACIMA_PNCP"):
+        return code, label
+    ant_pncp = float(row.get("pncp_anteriores_valor") or 0.0)
+    rem_fior = float(row.get("fiorilli_remanescentes_valor") or 0.0)
+    if ant_pncp <= 0 and rem_fior <= 0:
+        return code, label
+    base = float(row.get("pncp_valor") or 0.0) + max(ant_pncp, rem_fior)
+    pago = float(row.get("pago") or 0.0)
+    if pago <= base * 1.05 or (pago - base) < 1000.0:
+        return "PAGO_CONTRATO_ANTERIOR", ALERTA_LABELS["PAGO_CONTRATO_ANTERIOR"]
+    return code, label
+
+
 def build_cruzamento_fornecedores(
     pncp_rows: List[Dict[str, Any]],
     desp_forn_rows: List[Dict[str, Any]],
@@ -1141,9 +1294,16 @@ def build_cruzamento_fornecedores(
     pagina: int = 1,
     limite: int = 50,
     corte_sem_pncp: float = 100000.0,
+    pncp_cobertura: Optional[Dict[str, Any]] = None,
+    pncp_sync_error: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Cruza fornecedores (CNPJ/CPF) entre PNCP, Contratos Fiorilli e Pagamentos Reais."""
+    """Cruza fornecedores (CNPJ/CPF) entre PNCP, Contratos Fiorilli e Pagamentos Reais.
+
+    Alertas baseados em "não localizado no PNCP" (PAGO_SEM_PNCP, FIORILLI_SEM_PNCP) só são
+    marcados como conclusivos quando a cobertura PNCP está confirmada.
+    """
     pncp_f = _filter_pncp_rows(pncp_rows, ano=ano)
+    cobertura = avaliar_cobertura_pncp(len(pncp_f), pncp_sync_error, pncp_cobertura, ano=ano)
     forn_f = _filter_year_rows(desp_forn_rows, ano=ano)
     con_f = [c for c in _filter_year_rows(fiorilli_contratos_rows, ano=ano) if int(c.get("anulado") or 0) == 0]
     con_ex, con_rem = _split_fiorilli_contratos_by_exercicio(con_f)
@@ -1164,6 +1324,8 @@ def build_cruzamento_fornecedores(
                 "entidades_fiorilli": set(),
                 "pncp_contratos_qtd": 0,
                 "pncp_valor": 0.0,
+                "pncp_anteriores_qtd": 0,
+                "pncp_anteriores_valor": 0.0,
                 "fiorilli_contratos_qtd": 0,
                 "fiorilli_valor": 0.0,
                 "fiorilli_dispensas_qtd": 0,
@@ -1212,6 +1374,16 @@ def build_cruzamento_fornecedores(
         if fc.get("entidade"):
             item["entidades_fiorilli"].add(str(fc["entidade"]))
 
+    # Contratos PNCP de anos anteriores ainda vigentes: só somam a fornecedores já presentes
+    # no recorte (não criam linhas novas), para explicar pagamentos sem contrato do exercício.
+    for c in _pncp_contratos_anteriores_vigentes(pncp_rows, ano=ano):
+        doc_ant = normalize_doc(c.get("fornecedor_cnpj"))
+        item = sup_map.get(doc_ant) if doc_ant else None
+        if item is None:
+            continue
+        item["pncp_anteriores_qtd"] += 1
+        item["pncp_anteriores_valor"] += float(c.get("valor_global") or 0.0)
+
     all_rows: List[Dict[str, Any]] = []
     resumo_alertas: Dict[str, Dict[str, Any]] = {
         code: {"qtd": 0, "pago": 0.0, "pncp": 0.0} for code in ALERTA_LABELS
@@ -1248,10 +1420,23 @@ def build_cruzamento_fornecedores(
             "diferenca_pago_pncp": round(pag_v - pncp_v, 2),
             "diferenca_fiorilli_pncp": round(fior_v - pncp_v, 2),
             "pct_pago_sobre_pncp": _safe_pct(pag_v, pncp_v) if pncp_v > 0 else None,
+            "pncp_anteriores_qtd": entry["pncp_anteriores_qtd"],
+            "pncp_anteriores_valor": round(entry["pncp_anteriores_valor"], 2),
         }
         code, label = _classify_supplier_alert(row, corte_sem_pncp=corte_sem_pncp)
+        code, label = _ajustar_alerta_contrato_anterior(code, label, row)
         row["alerta_codigo"] = code
         row["alerta_label"] = label
+        if code in _ALERTAS_AUSENCIA:
+            row["alerta_conclusivo"] = cobertura["conclusiva"]
+            row["alerta_observacao"] = (
+                AVISO_NAO_LOCALIZADO
+                if cobertura["conclusiva"]
+                else f"Consulta inconclusiva: {cobertura['motivo']}"
+            )
+        else:
+            row["alerta_conclusivo"] = True
+            row["alerta_observacao"] = ""
 
         # Classificação explícita do vínculo + campos comparados (nunca afirma vínculo só por nome/valor)
         has_doc = bool(entry["fornecedor_doc"])
@@ -1330,6 +1515,7 @@ def build_cruzamento_fornecedores(
         "total_paginas": total_paginas,
         "resumo_alertas": resumo_alertas,
         "corte_sem_pncp": corte_sem_pncp,
+        "cobertura_pncp": cobertura,
     }
 
 
@@ -1345,9 +1531,12 @@ def build_auditoria_dispensas(
     pagina: int = 1,
     limite: int = 50,
     incluir_remanescentes: bool = False,
+    pncp_cobertura: Optional[Dict[str, Any]] = None,
+    pncp_sync_error: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Audita Dispensas e Inexigibilidades do Portal Fiorilli cruzando com o PNCP."""
     pncp_f = _filter_pncp_rows(pncp_rows, ano=ano)
+    cobertura = avaliar_cobertura_pncp(len(pncp_f), pncp_sync_error, pncp_cobertura, ano=ano)
     con_raw = [
         c
         for c in _filter_year_rows(fiorilli_contratos_rows, ano=ano)
@@ -1371,7 +1560,7 @@ def build_auditoria_dispensas(
     }
 
     for c in con_f:
-        match = _match_dispensa_with_pncp(c, by_proc, by_doc)
+        match = _match_dispensa_with_pncp(c, by_proc, by_doc, cobertura)
         val_eff = round(float(c.get("valor_efetivo") or 0.0), 2)
         cat_nome = str(c.get("categoria_tematica") or "Outros serviços e fornecimentos")
         if cat_nome not in cat_agg:
@@ -1468,4 +1657,6 @@ def build_auditoria_dispensas(
         "por_categoria": por_categoria,
         "incluir_remanescentes": bool(incluir_remanescentes),
         "remanescentes_omitidos_qtd": remanescentes_omitidos_qtd,
+        "cobertura_pncp": cobertura,
+        "aviso_nao_localizado": cobertura["motivo"] or AVISO_NAO_LOCALIZADO,
     }
