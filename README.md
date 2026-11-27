@@ -159,7 +159,7 @@ cp .env.example .env
 O sistema funciona de forma completa e autônoma sem dependências de chaves pagas. Caso deseje ampliar o escopo para buscas em APIs externas ou leitura de perfis oficiais da Meta via API institucional, preencha:
 - `GOOGLE_SEARCH_API_KEY` e `GOOGLE_SEARCH_CX`: Para Google Custom Search.
 - `SERPAPI_KEY` ou `BING_SEARCH_API_KEY`: Para motores de busca adicionais.
-- `INSTAGRAM_GRAPH_TOKEN`: Para leitura institucional via Meta Graph API v19.0.
+- `INSTAGRAM_GRAPH_TOKEN` e `INSTAGRAM_BUSINESS_ACCOUNT_ID`: Para leitura institucional de perfis Empresa/Criador via Meta Graph API (Business Discovery). Versão configurável em `INSTAGRAM_GRAPH_API_VERSION` (padrão `v27.0`). Veja o passo a passo em [`docs/instagram-graph-api.md`](docs/instagram-graph-api.md).
 
 **Segurança do painel:** defina `RADAR_ADMIN_TOKEN` com um valor longo e aleatório em qualquer servidor acessível pela internet (Vercel, Render). As ações que gravam dados (varredura, retificar, ignorar, arquivar e cadastrar fonte) passam a exigir esse token, que o painel pede uma vez e guarda no navegador. Sem o token, essas ações só funcionam no acesso local direto (`localhost`).
 
