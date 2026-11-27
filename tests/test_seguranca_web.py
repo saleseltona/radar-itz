@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.database import RadarDatabase
-from src.web_server import ADMIN_TOKEN_ENV, RadarAPIHandler, resolve_static_file
+import src.web_server as web_server
+from src.web_server import ADMIN_TOKEN_ENV, LimiteTentativas, RadarAPIHandler, resolve_static_file
 
 JSON_HEADERS = {"Content-Type": "application/json"}
 
@@ -25,6 +26,9 @@ class TestSegurancaWeb(unittest.TestCase):
         self.db = RadarDatabase(Path(self.temp_dir.name) / "seguranca.db")
         self._token_antes = os.environ.pop(ADMIN_TOKEN_ENV, None)
         self.reidratacoes: List[str] = []
+        self._limite_antes = web_server.LIMITE_TENTATIVAS_TOKEN
+        web_server.LIMITE_TENTATIVAS_TOKEN = LimiteTentativas()
+        self._render_antes = os.environ.pop("RENDER", None)
 
         test_case = self
 
@@ -47,6 +51,10 @@ class TestSegurancaWeb(unittest.TestCase):
         self.handler_cls = _Handler
 
     def tearDown(self) -> None:
+        web_server.LIMITE_TENTATIVAS_TOKEN = self._limite_antes
+        os.environ.pop("RENDER", None)
+        if self._render_antes is not None:
+            os.environ["RENDER"] = self._render_antes
         os.environ.pop(ADMIN_TOKEN_ENV, None)
         if self._token_antes is not None:
             os.environ[ADMIN_TOKEN_ENV] = self._token_antes
@@ -190,6 +198,117 @@ class TestSegurancaWeb(unittest.TestCase):
         status, headers, _ = self.call("OPTIONS", "/api/pautas/arquivar")
         self.assertEqual(status, 204)
         self.assertNotIn("access-control-allow-origin", headers)
+
+
+    # --- Força bruta no token -----------------------------------------------
+
+    def _post_token(self, token: str, ip: str = "198.51.100.9", extra: Optional[Dict[str, str]] = None) -> int:
+        headers = dict(JSON_HEADERS, **{"X-Radar-Token": token}, **(extra or {}))
+        status, _, _ = self.call("POST", "/api/pautas/arquivar", headers, {}, client_ip=ip)
+        return status
+
+    def test_bloqueia_ip_apos_5_tokens_errados_por_minuto(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste"
+        for i in range(5):
+            self.assertEqual(self._post_token(f"palpite-{i}"), 401)
+        headers = dict(JSON_HEADERS, **{"X-Radar-Token": "palpite-6"})
+        status, resp_headers, body = self.call("POST", "/api/pautas/arquivar", headers, {}, client_ip="198.51.100.9")
+        self.assertEqual(status, 429)
+        self.assertTrue(1 <= int(resp_headers["retry-after"]) <= 60)
+        self.assertIn("tentativas", body.decode("utf-8"))
+        # Durante o bloqueio nem o token certo passa daquele IP; outro IP segue normal.
+        self.assertEqual(self._post_token("segredo-de-teste"), 429)
+        self.assertEqual(self._post_token("segredo-de-teste", ip="198.51.100.10"), 400)
+        # GET com token também não reidrata estado durante o bloqueio.
+        self.call("GET", "/api/stats", {"X-Radar-Token": "segredo-de-teste"}, client_ip="198.51.100.9")
+        self.assertEqual(self.reidratacoes, [])
+
+    def test_bloqueio_expira_depois_da_janela(self) -> None:
+        agora = [1000.0]
+        web_server.LIMITE_TENTATIVAS_TOKEN = LimiteTentativas(relogio=lambda: agora[0])
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste"
+        for i in range(5):
+            self._post_token(f"palpite-{i}")
+        self.assertEqual(self._post_token("segredo-de-teste"), 429)
+        agora[0] += 61
+        self.assertEqual(self._post_token("segredo-de-teste"), 400)
+
+    def test_mesmo_token_errado_repetido_conta_uma_vez(self) -> None:
+        # Navegador com token antigo salvo não bloqueia o próprio dono.
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste"
+        for _ in range(20):
+            self.assertEqual(self._post_token("token-antigo"), 401)
+        self.assertEqual(self._post_token("segredo-de-teste"), 400)
+
+    def test_sem_token_nao_conta_como_tentativa(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste"
+        for _ in range(10):
+            status, _, _ = self.call("POST", "/api/pautas/arquivar", JSON_HEADERS, {}, client_ip="198.51.100.9")
+            self.assertEqual(status, 401)
+        self.assertEqual(self._post_token("segredo-de-teste"), 400)
+
+    def test_no_render_usa_ip_anotado_pelo_proxy(self) -> None:
+        # No Render todo mundo chega pelo mesmo proxy; o IP real é o último do X-Forwarded-For,
+        # e o cliente não escapa do limite inventando IPs à esquerda.
+        os.environ["RENDER"] = "true"
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste"
+        for i in range(5):
+            falso = {"X-Forwarded-For": f"10.9.9.{i}, 203.0.113.50"}
+            self.assertEqual(self._post_token(f"palpite-{i}", ip="10.0.0.1", extra=falso), 401)
+        self.assertEqual(
+            self._post_token("segredo-de-teste", ip="10.0.0.1", extra={"X-Forwarded-For": "203.0.113.50"}), 429
+        )
+        self.assertEqual(
+            self._post_token("segredo-de-teste", ip="10.0.0.1", extra={"X-Forwarded-For": "203.0.113.51"}), 400
+        )
+
+    def test_limite_nao_cresce_sem_fim(self) -> None:
+        limite = LimiteTentativas(max_ips=50)
+        for i in range(500):
+            limite.registrar_falha(f"ip-{i}", "x")
+        self.assertLessEqual(len(limite._falhas), 50)
+
+    def test_token_comparado_em_tempo_constante(self) -> None:
+        import inspect
+        fonte = inspect.getsource(RadarAPIHandler._is_write_authorized)
+        self.assertIn("hmac.compare_digest", fonte)
+        self.assertNotIn("sent == expected", fonte)
+
+    # --- Corpo, cabeçalhos e páginas ----------------------------------------
+
+    def test_post_recusa_corpo_grande(self) -> None:
+        headers = dict(JSON_HEADERS, **{"Content-Length": str(web_server.MAX_CORPO_POST + 1)})
+        status, _, _ = self.call("POST", "/api/pautas/arquivar", headers)
+        self.assertEqual(status, 413)
+        status, _, _ = self.call("POST", "/api/pautas/arquivar", dict(JSON_HEADERS, **{"Content-Length": "-5"}))
+        self.assertEqual(status, 413)
+
+    def test_respostas_tem_nosniff(self) -> None:
+        _, headers, _ = self.call("GET", "/static/radar_auth.js")
+        self.assertEqual(headers.get("x-content-type-options"), "nosniff")
+        _, headers, _ = self.call("GET", "/health")
+        self.assertEqual(headers.get("x-content-type-options"), "nosniff")
+
+    def test_clipping_escapa_html_das_fontes(self) -> None:
+        original = web_server.OUTPUT_DIR
+        web_server.OUTPUT_DIR = Path(self.temp_dir.name)
+        try:
+            (web_server.OUTPUT_DIR / "clipping_do_dia.md").write_text(
+                "# Pauta <script>alert(1)</script> & <img src=x onerror=alert(2)>", encoding="utf-8"
+            )
+            status, _, body = self.call("GET", "/clipping")
+        finally:
+            web_server.OUTPUT_DIR = original
+        self.assertEqual(status, 200)
+        texto = body.decode("utf-8")
+        self.assertNotIn("<script>alert(1)", texto)
+        self.assertNotIn("<img src=x", texto)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", texto)
+
+    def test_token_admin_e_mascarado_em_erros(self) -> None:
+        from src.config import mask_secrets
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-de-teste-123"
+        self.assertNotIn("segredo-de-teste-123", mask_secrets("falhou com segredo-de-teste-123"))
 
 
 if __name__ == "__main__":

@@ -329,3 +329,9 @@ ALTER TABLE public.fiorilli_receitas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_despesas_orgaos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_despesas_fornecedores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fiorilli_contratos ENABLE ROW LEVEL SECURITY;
+
+-- Sem privilégios de tabela para anon/authenticated (nem nas tabelas futuras).
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
