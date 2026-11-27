@@ -183,8 +183,8 @@ class SearchEngine:
 
         # 2. Varredura de notícias recentes ao vivo (Google News RSS + G1 Maranhão RSS)
         candidatos_por_url: Dict[str, Dict[str, Any]] = {}
-        live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
         try:
+            live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
             live_res = live_fetcher.fetch_recent_news(
                 max_items=30, incluir_google_news=False
             )
@@ -198,7 +198,7 @@ class SearchEngine:
             logger.warning("Coleta RSS ao vivo indisponível neste ciclo: %s", mask_secrets(str(e)))
 
         # 2b. Execução real de cada consulta (obrigatórias, derivadas e adicionais) no Google News RSS
-        busca = self.run_search_queries(id_execucao, todas_consultas, live_fetcher)
+        busca = self.run_search_queries(id_execucao, todas_consultas, LiveNewsFetcher(timeout=8))
         for item in busca["itens"]:
             u = item.get("url")
             if u and u.lower() not in candidatos_por_url:
