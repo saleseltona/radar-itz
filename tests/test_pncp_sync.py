@@ -20,7 +20,7 @@ from unittest import mock
 
 from src.database import RadarDatabase
 from src.pncp_client import PncpClient
-from src.pncp_sync import SyncEmAndamento, executar_lote
+from src.pncp_sync import TAMANHO_PAGINA, SyncEmAndamento, executar_lote, tem_proxima_pagina
 
 HOJE = date(2025, 3, 15)  # plano curto: jan–mar/2025 × 2 órgãos = 6 janelas
 ORGAOS = [
@@ -370,6 +370,52 @@ class TestPncpSyncLotes(unittest.TestCase):
             res = self._lote(cursor=cursor, max_janelas=1)
         self.assertEqual(self.fake.calls[0][1:3], (ORGAOS[0]["cnpj"], "20250301"))
         self.assertEqual(res["janelas_concluidas"], 5)
+
+    # --- Parte 5: tamanho de página e PNCP sem total de páginas ---
+
+    def test_tamanho_de_pagina_pedido_ao_pncp(self) -> None:
+        tamanhos = []
+
+        def fetch(endpoint, cnpj, di, df, pg, tam, to):
+            tamanhos.append(tam)
+            return self.fake(endpoint, cnpj, di, df, pg, tam, to)
+
+        self._lote(fetch=fetch, max_janelas=1)
+        self.assertEqual(set(tamanhos), {TAMANHO_PAGINA})
+        self.assertEqual(TAMANHO_PAGINA, 200)
+        self.assertLessEqual(TAMANHO_PAGINA, 500)  # limite do manual da API de Consultas
+
+    def test_sem_total_de_paginas_segue_enquanto_a_pagina_vem_cheia(self) -> None:
+        pmi = ORGAOS[0]["cnpj"]
+        paginas = [[raw_contrato(pmi, 1), raw_contrato(pmi, 2)], [raw_contrato(pmi, 3), raw_contrato(pmi, 4)], [raw_contrato(pmi, 5)]]
+
+        def fetch(endpoint, cnpj, di, df, pg, tam, to):
+            self.fake.calls.append((endpoint, cnpj, di, pg))
+            if (cnpj, di) == (pmi, "20250101") and pg <= len(paginas):
+                return 200, {"data": paginas[pg - 1]}  # sem totalPaginas
+            return 204, {"data": []}
+
+        res = self._lote(fetch=fetch, tamanho_pagina=2)
+        self.assertFalse(res["parcial"])
+        pmi_jan = [c[3] for c in self.fake.calls if c[1:3] == (pmi, "20250101")]
+        self.assertEqual(pmi_jan, [1, 2, 3])  # parou na página incompleta, sem perder a 3ª
+        self.assertEqual(self._count(), 5)
+
+    def test_regra_de_proxima_pagina(self) -> None:
+        casos = [
+            ({"totalPaginas": 3}, 200, 2, True),
+            ({"totalPaginas": 3}, 200, 3, False),
+            ({"totalPaginas": 0}, 200, 1, True),            # total zerado com dados: cai na regra da página cheia
+            ({"paginasRestantes": 2}, 10, 1, True),
+            ({"paginasRestantes": 0}, 200, 1, False),
+            ({}, 200, 1, True),
+            ({}, 199, 1, False),
+            ({"totalPaginas": 5}, 0, 1, False),             # página vazia encerra a janela
+            ({"totalPaginas": "x"}, 50, 1, False),
+        ]
+        for payload, qtd, pagina, esperado in casos:
+            with self.subTest(payload=payload, qtd=qtd, pagina=pagina):
+                self.assertEqual(tem_proxima_pagina(payload, qtd, pagina, 200), esperado)
 
     def test_lock_bloqueia_execucao_simultanea(self) -> None:
         self.assertTrue(self.db.acquire_pncp_sync_lock("outro", 90.0, 1000.0))
