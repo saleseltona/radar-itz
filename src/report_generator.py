@@ -130,7 +130,7 @@ class ReportGenerator:
                 linhas.append(f"9. **Nível de verificação:** **{p.get('nivel_verificacao', 'Parcialmente confirmado')}**")
                 linhas.append(f"10. **Evidências disponíveis:** {p.get('evidencias_verificadas', '')}")
                 linhas.append(f"11. **Pendências de apuração:** {p.get('informacoes_pendentes', 'Nenhuma pendência crítica.')}")
-                linhas.append(f"12. **Motivo da seleção:** {p.get('motivo_selecao', 'Relevância para a população de Imperatriz e interesse público comprovado.')}")
+                linhas.append(f"12. **Motivo da seleção:** {p.get('motivo_selecao', 'Relevância editorial para a população de Imperatriz.')}")
 
                 # Se for categoria de denúncia, anexa os campos de auditoria da Seção 10.C
                 if cat_key == "Pautas de denúncia e apuração":
@@ -151,7 +151,7 @@ class ReportGenerator:
         top3_prioritarias = pautas_top10[:3]
         linhas.append("## Recomendação Editorial: Três Pautas que Merecem Apuração Primeiro")
         linhas.append("")
-        linhas.append("Com base na gravidade do impacto comunitário, atualidade, confiabilidade documental e direito ao contraditório, o editor-chefe recomenda iniciar a apuração imediata pelas seguintes três pautas:")
+        linhas.append("Ordenadas pela pontuação de relevância editorial (impacto, atualidade e interesse público). Relevância não é confirmação: só são \"Confirmado\" as pautas com documento primário consultado e contraditório registrado. Recomenda-se iniciar a apuração pelas seguintes três pautas:")
         linhas.append("")
 
         for idx, rec in enumerate(top3_prioritarias, 1):
@@ -159,7 +159,7 @@ class ReportGenerator:
             linhas.append(f"- **Categoria:** {rec.get('categoria', '')}")
             linhas.append(f"- **Prioridade:** {rec.get('prioridade', '')} ({rec.get('pontuacao_editorial', 0)} pts)")
             linhas.append(f"- **Link original:** [{rec.get('fonte_principal', '')}]({rec.get('url_original', '')})")
-            linhas.append(f"- **Motivo objetivo da prioridade:** {rec.get('motivo_selecao', '')} Trata-se de tema com impacto direto na segurança/saúde coletiva e documentação pública verificável que exige posicionamento das autoridades municipais antes do fechamento da edição.")
+            linhas.append(f"- **Motivo objetivo da prioridade:** {rec.get('motivo_selecao', '')} Nível de verificação: {rec.get('nivel_verificacao', 'Parcialmente confirmado')}.")
             linhas.append(f"- **Próxima ação recomendada pela redação:** {rec.get('proxima_acao_recomendada', '')}")
             linhas.append("")
 
