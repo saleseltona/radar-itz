@@ -626,6 +626,49 @@ class RadarDatabase:
             conn.execute("DELETE FROM pautas_arquivadas WHERE id_pauta = ?", (pid,))
             return self._select_pauta_single_row(conn, pid)
 
+    def arquivar_pautas_lote(
+        self, ids: List[str], motivo: str = "Arquivada pela redação"
+    ) -> List[str]:
+        """Arquiva várias pautas numa única transação. Devolve os ids que existiam."""
+        pids = _ids_lote(ids)
+        if not pids:
+            return []
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Arquivada pela redação").strip()[:240] or "Arquivada pela redação"
+        placeholders = ",".join("?" for _ in pids)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT id_pauta FROM pautas WHERE id_pauta IN ({placeholders})", pids
+            ).fetchall()
+            existentes = {r["id_pauta"] for r in rows}
+            ok = [pid for pid in pids if pid in existentes]
+            conn.executemany(
+                """
+                INSERT INTO pautas_arquivadas (id_pauta, motivo, atualizado_em)
+                VALUES (?, ?, ?)
+                ON CONFLICT(id_pauta) DO UPDATE SET
+                    motivo = excluded.motivo,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                [(pid, motivo_clean, now_iso) for pid in ok],
+            )
+            return ok
+
+    def restaurar_pautas_lote(self, ids: List[str]) -> List[str]:
+        """Devolve várias pautas ao feed numa única transação. Devolve os ids que existiam."""
+        pids = _ids_lote(ids)
+        if not pids:
+            return []
+        placeholders = ",".join("?" for _ in pids)
+        with self.connect() as conn:
+            rows = conn.execute(
+                f"SELECT id_pauta FROM pautas WHERE id_pauta IN ({placeholders})", pids
+            ).fetchall()
+            existentes = {r["id_pauta"] for r in rows}
+            ok = [pid for pid in pids if pid in existentes]
+            conn.execute(f"DELETE FROM pautas_arquivadas WHERE id_pauta IN ({placeholders})", pids)
+            return ok
+
     def get_all_pautas_arquivadas(self) -> List[Dict[str, Any]]:
         """Lista todos os registros de arquivamento de pautas."""
         with self.connect() as conn:
@@ -2417,3 +2460,20 @@ def get_database(db_path: Path | None = None) -> Any:
 
         return SupabaseDatabase.from_env()
     return RadarDatabase(db_path)
+
+
+LIMITE_LOTE_PAUTAS = 200
+
+
+def _ids_lote(ids: Any) -> List[str]:
+    """Normaliza a lista de ids de um lote: texto, sem vazios, sem repetidos, no máximo 200."""
+    if not isinstance(ids, (list, tuple)):
+        return []
+    vistos: List[str] = []
+    for raw in ids:
+        pid = str(raw or "").strip()[:120]
+        if pid and pid not in vistos:
+            vistos.append(pid)
+        if len(vistos) >= LIMITE_LOTE_PAUTAS:
+            break
+    return vistos

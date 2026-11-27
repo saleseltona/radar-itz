@@ -76,3 +76,29 @@ body.feed-only #sec-feed-col { grid-column: 1 / -1; }
   .rf-skel::after { display: none; }
   .rf-ptr, .rf-ptr * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Arquivar rápido (todas as abas) ---------- */
+#pautas-cards-container article.rf-saindo {
+  opacity: 0; transform: translateX(-24px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+/* Deslizar para arquivar (celular): fundo âmbar que aparece atrás do cartão */
+.rf-swipe-wrap { position: relative; border-radius: 14px; overflow: hidden; }
+.rf-swipe-fundo {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  padding: 0 22px; border-radius: 14px; background: #fde68a; color: #713f12;
+  font: 700 13px/1 "Plus Jakarta Sans", system-ui, sans-serif;
+}
+.rf-swipe-fundo.pronto { background: #f59e0b; color: #1c1917; }
+#pautas-cards-container article.rf-arrastando { transition: none !important; touch-action: pan-y; }
+#pautas-cards-container article.rf-voltando { transition: transform 180ms ease; }
+
+@media (max-width: 768px) {
+  /* Aviso com "Desfazer" acima da navegação inferior e com largura do celular */
+  #pncp-toast-notice { left: 16px !important; right: 16px !important; bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important; justify-content: space-between; font-size: 14px; }
+  #pncp-toast-notice button { min-height: 36px; padding-left: 14px; padding-right: 14px; }
+  body.feed-only #pncp-toast-notice { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #pautas-cards-container article.rf-saindo, #pautas-cards-container article.rf-voltando { transition: none; }
+}

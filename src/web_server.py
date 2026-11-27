@@ -1845,6 +1845,25 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"ok": True, "arquivada": True, "pauta": updated})
             return
 
+        # 2.5 Arquivar ou restaurar várias pautas de uma vez ("Arquivar tudo" do feed)
+        if path == "/api/pautas/arquivar-lote":
+            ids = body.get("ids")
+            if not isinstance(ids, list) or not any(str(i or "").strip() for i in ids):
+                self.send_json_response({"erro": "Informe ids (lista de id_pauta)."}, status=400)
+                return
+            if len(ids) > 200:
+                self.send_json_response({"erro": "No máximo 200 pautas por vez."}, status=400)
+                return
+            if bool(body.get("restaurar")):
+                self._apply_request_pautas_arquivadas(db)
+                feitas = db.restaurar_pautas_lote(ids)
+                self.send_json_response({"ok": True, "restauradas": feitas, "total": len(feitas)})
+                return
+            motivo = str(body.get("motivo") or "Arquivada pela redação").strip()
+            feitas = db.arquivar_pautas_lote(ids, motivo)
+            self.send_json_response({"ok": True, "arquivadas": feitas, "total": len(feitas)})
+            return
+
         # 3. Cadastrar nova fonte pela UI sem modificar código
         if path == "/api/fontes":
             nome = str(body.get("nome") or "").strip()

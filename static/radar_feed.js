@@ -5,6 +5,7 @@
  * classe body.feed-only ligada por switchMainView('feed')).
  * No celular (até 768px) ganha navegação inferior e "puxar para atualizar", que chama
  * radarAutoAtualizar (radar_auto.js, rota pública sem token) e recarrega as pautas.
+ * Em qualquer aba do feed no celular, deslizar um cartão para a esquerda arquiva a pauta.
  * Atalho do app instalado: /?aba=feed.
  */
 (function () {
@@ -74,16 +75,18 @@
 
   function ligarPullToRefresh() {
     var ind = $('rf-ptr');
-    var y0 = null, dy = 0, puxando = false, ocupado = false;
+    var y0 = null, x0 = 0, dy = 0, puxando = false, ocupado = false;
     var LIM = 72;
     document.addEventListener('touchstart', function (e) {
       if (!noCelular() || ocupado || modalAberto() || window.scrollY > 0) { y0 = null; return; }
       if (e.target.closest('#rf-nav, #app-sidebar, #filter-buttons-bar, header')) { y0 = null; return; }
-      y0 = e.touches[0].clientY; dy = 0; puxando = false;
+      y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; dy = 0; puxando = false;
     }, { passive: true });
     document.addEventListener('touchmove', function (e) {
       if (y0 === null) { return; }
       dy = e.touches[0].clientY - y0;
+      // Gesto de lado (deslizar para arquivar) não vira puxar para atualizar.
+      if (!puxando && Math.abs(e.touches[0].clientX - x0) > Math.abs(dy)) { y0 = null; return; }
       if (dy <= 0 || window.scrollY > 0) { if (puxando) { ind.style.opacity = '0'; } puxando = false; return; }
       puxando = true;
       if (e.cancelable) { e.preventDefault(); }
@@ -111,6 +114,82 @@
     });
   }
 
+  // ---- Deslizar o cartão para a esquerda arquiva (celular, feed principal e aba Feed)
+  function ligarDeslizarParaArquivar() {
+    var box = $('pautas-cards-container');
+    if (!box) { return; }
+    var card = null, x0 = 0, y0 = 0, dx = 0, modo = '', fundo = null, arrastou = 0;
+    var LIM = 0.35;
+
+    function limpar(voltar) {
+      if (!card) { return; }
+      var c = card, f = fundo;
+      card = null; fundo = null; modo = '';
+      c.classList.remove('rf-arrastando');
+      if (voltar) {
+        c.classList.add('rf-voltando');
+        c.style.transform = '';
+        setTimeout(function () {
+          c.classList.remove('rf-voltando');
+          if (f && f.parentNode) { var w = f.parentNode; w.parentNode.insertBefore(c, w); w.remove(); }
+        }, 190);
+      }
+    }
+
+    box.addEventListener('touchstart', function (e) {
+      if (!MQ.matches || e.touches.length !== 1) { return; }
+      var a = e.target.closest('article[data-pauta-id]');
+      if (!a || a.dataset.arquivada || e.target.closest('button, a')) { return; }
+      card = a; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; modo = '';
+    }, { passive: true });
+
+    box.addEventListener('touchmove', function (e) {
+      if (!card) { return; }
+      var mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+      if (!modo) {
+        if (Math.abs(mx) < 10 && Math.abs(my) < 10) { return; }
+        modo = (Math.abs(mx) > Math.abs(my) * 1.3 && mx < 0) ? 'h' : 'v';
+        if (modo === 'v') { card = null; return; }
+        var wrap = document.createElement('div');
+        wrap.className = 'rf-swipe-wrap';
+        fundo = document.createElement('div');
+        fundo.className = 'rf-swipe-fundo';
+        fundo.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">archive</span><span>Arquivar</span>';
+        card.parentNode.insertBefore(wrap, card);
+        wrap.appendChild(fundo);
+        wrap.appendChild(card);
+        card.classList.add('rf-arrastando');
+      }
+      if (e.cancelable) { e.preventDefault(); }
+      dx = Math.min(0, mx);
+      card.style.transform = 'translateX(' + dx + 'px)';
+      fundo.classList.toggle('pronto', -dx > card.offsetWidth * LIM);
+    }, { passive: false });
+
+    function soltar() {
+      if (!card) { return; }
+      if (modo !== 'h') { card = null; return; }
+      arrastou = Date.now();
+      var c = card;
+      if (-dx > c.offsetWidth * LIM && typeof window.arquivarPauta === 'function') {
+        c.classList.remove('rf-arrastando');
+        c.classList.add('rf-voltando');
+        c.style.transform = 'translateX(-110%)';
+        card = null; fundo = null; modo = '';
+        var id = c.dataset.pautaId;
+        setTimeout(function () { window.arquivarPauta(id); }, 150);
+      } else {
+        limpar(true);
+      }
+    }
+    box.addEventListener('touchend', soltar);
+    box.addEventListener('touchcancel', function () { limpar(true); });
+    // Depois de arrastar, o toque não abre o dossiê.
+    box.addEventListener('click', function (e) {
+      if (Date.now() - arrastou < 400) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
+  }
+
   // ---- Atalho do app instalado: /?aba=feed abre direto nesta aba.
   function abrirPorLink() {
     var q = new URLSearchParams(window.location.search);
@@ -122,6 +201,7 @@
   function iniciar() {
     montarNav();
     ligarPullToRefresh();
+    ligarDeslizarParaArquivar();
     abrirPorLink();
   }
 
