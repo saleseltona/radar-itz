@@ -16,6 +16,7 @@ from __future__ import annotations
 import calendar
 import json
 import logging
+import socket
 import time
 import urllib.error
 import urllib.parse
@@ -40,6 +41,10 @@ HTTP_TIMEOUT_SEGUNDOS = 15
 MAX_JANELAS_POR_LOTE = 12
 TAMANHO_PAGINA = 50
 LOCK_TTL_SEGUNDOS = 90.0  # maior que maxDuration: um lock órfão expira sozinho
+# Falhas passageiras do PNCP (504/502/503/429, tempo esgotado, conexão caída) são repetidas
+# algumas vezes com espera curta antes de pausar o lote; só dentro do orçamento de tempo.
+ESPERAS_RETENTATIVA_SEGUNDOS: Tuple[float, ...] = (2.0, 5.0)
+HTTP_STATUS_TRANSITORIOS = frozenset({429, 500, 502, 503, 504})
 
 MODO_CARGA = "carga_completa"
 MODO_INCREMENTAL = "incremental"
@@ -253,6 +258,54 @@ def _descrever_erro(exc: Exception) -> str:
     return mask_secrets(texto)[:200]
 
 
+def erro_transitorio(exc: Exception) -> bool:
+    """Falha que costuma passar sozinha (vale tentar de novo): gateway/sobrecarga, timeout, conexão."""
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code in HTTP_STATUS_TRANSITORIOS
+    if isinstance(exc, (TimeoutError, socket.timeout, ConnectionError)):
+        return True
+    if isinstance(exc, urllib.error.URLError):
+        motivo = exc.reason
+        if isinstance(motivo, (TimeoutError, socket.timeout, ConnectionError)):
+            return True
+        return "timed out" in str(motivo).lower()
+    return "timed out" in str(exc).lower()
+
+
+def buscar_com_retentativa(
+    chamar: Callable[[], Tuple[int, Dict[str, Any]]],
+    esperas: Tuple[float, ...],
+    cabe_no_orcamento: Callable[[float], bool],
+    dormir: Callable[[float], None],
+    rotulo: str = "",
+    ao_repetir: Optional[Callable[[], None]] = None,
+) -> Tuple[int, Dict[str, Any]]:
+    """
+    Executa `chamar` e repete após cada espera de `esperas` quando o erro é transitório.
+    Antes de cada nova tentativa, `cabe_no_orcamento(espera)` precisa confirmar que ainda há
+    tempo para esperar e fazer mais uma requisição; senão o último erro é relançado.
+    `ao_repetir` é chamado a cada nova tentativa (para contar retentativas).
+    """
+    tentativas = 0
+    while True:
+        try:
+            return chamar()
+        except Exception as exc:
+            if tentativas >= len(esperas) or not erro_transitorio(exc):
+                raise
+            espera = esperas[tentativas]
+            if not cabe_no_orcamento(espera):
+                raise
+            tentativas += 1
+            if ao_repetir is not None:
+                ao_repetir()
+            logger.warning(
+                "PNCP falhou (%s) em %s; nova tentativa %d de %d em %.0f s.",
+                _descrever_erro(exc), rotulo or "consulta", tentativas, len(esperas), espera,
+            )
+            dormir(espera)
+
+
 # ---------------------------------------------------------------------------
 # Execução de um lote
 # ---------------------------------------------------------------------------
@@ -304,6 +357,8 @@ def executar_lote(
     http_timeout: int = HTTP_TIMEOUT_SEGUNDOS,
     max_janelas: int = MAX_JANELAS_POR_LOTE,
     orgaos: Optional[List[Dict[str, str]]] = None,
+    esperas_retentativa: Tuple[float, ...] = ESPERAS_RETENTATIVA_SEGUNDOS,
+    dormir: Callable[[float], None] = time.sleep,
 ) -> Dict[str, Any]:
     """Processa um lote limitado por tempo e nº de janelas. Lança SyncEmAndamento se houver lock."""
     if modo not in ("auto", MODO_CARGA, MODO_INCREMENTAL):
@@ -328,6 +383,7 @@ def executar_lote(
         janelas_neste_lote = 0
         inicio = relogio()
         motivo_pausa = ""
+        retentativas = [0]
 
         while idx < len(janelas):
             if janelas_neste_lote >= max_janelas:
@@ -339,19 +395,31 @@ def executar_lote(
             jan = janelas[idx]
             orgao = orgaos[jan["orgao_idx"]]
             ini_s, fim_s = jan["ini"].strftime("%Y%m%d"), jan["fim"].strftime("%Y%m%d")
+            rotulo = f"{orgao['sigla']} {ini_s}-{fim_s} pág. {pagina}"
+
+            def _consultar(ep: str) -> Tuple[int, Dict[str, Any]]:
+                return buscar_com_retentativa(
+                    lambda: fetch(ep, orgao["cnpj"], ini_s, fim_s, pagina, TAMANHO_PAGINA, http_timeout),
+                    esperas_retentativa,
+                    lambda espera: relogio() - inicio + espera + http_timeout <= tempo_limite,
+                    dormir,
+                    rotulo,
+                    ao_repetir=lambda: retentativas.__setitem__(0, retentativas[0] + 1),
+                )
+
             try:
                 try:
-                    status, payload = fetch(endpoint_usado, orgao["cnpj"], ini_s, fim_s, pagina, TAMANHO_PAGINA, http_timeout)
+                    status, payload = _consultar(endpoint_usado)
                 except urllib.error.HTTPError as he:
                     if he.code == 404 and endpoint_usado == ENDPOINT_ATUALIZACAO:
                         endpoint_usado = ENDPOINT_PUBLICACAO
-                        status, payload = fetch(endpoint_usado, orgao["cnpj"], ini_s, fim_s, pagina, TAMANHO_PAGINA, http_timeout)
+                        status, payload = _consultar(endpoint_usado)
                     elif he.code == 204:
                         status, payload = 204, {"data": [], "totalPaginas": 0}
                     else:
                         raise
             except Exception as exc:  # erro do PNCP: para aqui e mantém o cursor nesta página
-                erros.append(f"{orgao['sigla']} {ini_s}-{fim_s} pág. {pagina}: {_descrever_erro(exc)}")
+                erros.append(f"{rotulo}: {_descrever_erro(exc)}")
                 motivo_pausa = "erro_pncp"
                 break
 
@@ -416,6 +484,7 @@ def executar_lote(
             "retificacoes_preservadas": totais["retificacoes_preservadas"],
             "retificacoes_divergentes": divergentes[:50],
             "erros": erros,
+            "retentativas_pncp": retentativas[0],
         }
     finally:
         try:
