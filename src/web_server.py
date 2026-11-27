@@ -399,6 +399,41 @@ def _get_fallback_dashboard_html() -> str:
 """
 
 
+def pncp_cobertura_registrada(db: Any) -> Optional[Dict[str, Any]]:
+    """Lê do banco se a sincronização PNCP percorreu todo o período (carga completa).
+
+    Usa o estado persistido pela sincronização em lotes (`get_pncp_sync_state`), quando o
+    backend o oferece. Sem esse registro devolve None, e o cruzamento trata ausências como
+    inconclusivas em vez de afirmar que o contrato não está no PNCP.
+    """
+    getter = getattr(db, "get_pncp_sync_state", None)
+    if not callable(getter):
+        return None
+    try:
+        estado = getter() or {}
+    except Exception as exc:  # estado indisponível não pode virar "cobertura completa"
+        logger.warning("Estado da sincronização PNCP indisponível: %s", exc)
+        return None
+    if not isinstance(estado, dict) or not estado:
+        return None
+    carga_ok = bool(estado.get("carga_completa_concluida"))
+    pendente = estado.get("cursor_pendente")
+    carga_pendente = isinstance(pendente, dict) and pendente.get("modo") == "carga_completa"
+    completa = carga_ok and not carga_pendente
+    motivo = ""
+    if not carga_ok:
+        motivo = "carga completa do PNCP ainda não concluída"
+    elif carga_pendente:
+        motivo = "nova carga completa do PNCP em andamento"
+    return {
+        "completa": completa,
+        "truncada": False,
+        "anos": list(estado.get("carga_completa_anos") or []),
+        "motivo": motivo,
+        "ultima_data_sincronizada": str(estado.get("ultima_data_sincronizada") or ""),
+    }
+
+
 class RadarAPIHandler(BaseHTTPRequestHandler):
     """Manipulador HTTP REST e servidor estático embutido (compatível com local e Vercel)."""
 
@@ -859,6 +894,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 fiorilli_contratos_rows=con_rows,
                 ano=ano_val,
                 meta=meta,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(resumo)
             return
@@ -902,6 +938,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 pagina=pagina_val,
                 limite=limite_val,
                 corte_sem_pncp=corte_val,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(res)
             return
@@ -942,6 +979,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 pagina=pagina_val,
                 limite=limite_val,
                 incluir_remanescentes=inc_rem,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(res)
             return
@@ -952,6 +990,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
             q_val = query.get("q", [""])[0].strip() or None
             pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+            cobertura_csv = pncp_cobertura_registrada(db)
 
             buf = io.StringIO()
             writer = csv.writer(buf, delimiter=";")
@@ -982,6 +1021,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         pagina=pg,
                         limite=200,
                         incluir_remanescentes=inc_rem,
+                        pncp_cobertura=cobertura_csv,
                     )
                     all_disp.extend(page_res["items"])
                     if pg >= page_res["total_paginas"]:
@@ -1038,6 +1078,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         ordem=ordem_val,
                         pagina=pg,
                         limite=200,
+                        pncp_cobertura=cobertura_csv,
                     )
                     all_cross.extend(page_res["items"])
                     if pg >= page_res["total_paginas"]:
@@ -1050,6 +1091,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     "cidade",
                     "alerta_codigo",
                     "alerta_label",
+                    "alerta_conclusivo",
+                    "alerta_observacao",
                     "pncp_contratos_qtd",
                     "pncp_valor",
                     "fiorilli_contratos_qtd",

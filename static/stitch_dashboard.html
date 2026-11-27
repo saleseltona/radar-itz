@@ -921,7 +921,7 @@
           <div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-surface-container flex flex-col justify-between gap-1">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dispensas &amp; Inexigibilidades</span>
             <span id="tr-kpi-dispensas" class="font-headline-md text-headline-md text-error font-extrabold">-</span>
-            <span id="tr-kpi-dispensas-sub" class="text-[11px] text-on-surface-variant">Ausentes no PNCP: -</span>
+            <span id="tr-kpi-dispensas-sub" class="text-[11px] text-on-surface-variant">Não localizados no PNCP: -</span>
           </div>
         </section>
 
@@ -1058,7 +1058,7 @@
                 </select>
                 <select id="tr-disp-status" onchange="loadTranspDispensas(1)" class="h-9 px-3 rounded-full bg-surface-container-low text-xs font-semibold">
                   <option value="">Todos Status PNCP</option>
-                  <option value="AUSENTE_PNCP">Ausentes no PNCP</option>
+                  <option value="AUSENTE_PNCP">Não localizados no PNCP</option>
                   <option value="FORNECEDOR_NO_PNCP">Fornecedor no PNCP (outro proc.)</option>
                   <option value="CONCILIADO">Conciliadas no PNCP</option>
                 </select>
@@ -3804,7 +3804,7 @@
         setTxt('tr-kpi-dispensas', formatBRLCompact(disp.diretas_valor || 0));
         setTxt(
           'tr-kpi-dispensas-sub',
-          `${disp.diretas_qtd || 0} diretas • ${aus.qtd || 0} ausentes no PNCP (${formatBRLCompact(aus.valor || 0)})`
+          `${disp.diretas_qtd || 0} diretas • ${aus.qtd || 0} não localizadas no PNCP (${formatBRLCompact(aus.valor || 0)})${disp.consulta_conclusiva === false ? ' • consulta inconclusiva' : ''}`
         );
         setTxt('tr-receita-realizacao-pill', `${rec.pct_realizado || 0}% da previsão`);
         setTxt('tr-orgaos-count-pill', `${(desp.por_orgao || []).length} órgãos`);
@@ -3959,7 +3959,7 @@
         { k: 'TODOS', lbl: `Todos (${sumQtd})` },
         { k: 'ALERTAS', lbl: `Somente Alertas (${alertsCount})` },
         { k: 'PAGO_ACIMA_PNCP', lbl: `Pago > PNCP (${(resumo.PAGO_ACIMA_PNCP && resumo.PAGO_ACIMA_PNCP.qtd) || 0})` },
-        { k: 'PAGO_SEM_PNCP', lbl: `Pago >= R$100k sem PNCP (${(resumo.PAGO_SEM_PNCP && resumo.PAGO_SEM_PNCP.qtd) || 0})` },
+        { k: 'PAGO_SEM_PNCP', lbl: `Pago >= R$100k sem contrato localizado no PNCP (${(resumo.PAGO_SEM_PNCP && resumo.PAGO_SEM_PNCP.qtd) || 0})` },
         { k: 'DIVERGENCIA_VALOR', lbl: `Divergência Valor (${(resumo.DIVERGENCIA_VALOR && resumo.DIVERGENCIA_VALOR.qtd) || 0})` },
         { k: 'CONCILIADO', lbl: `Conciliados (${(resumo.CONCILIADO && resumo.CONCILIADO.qtd) || 0})` },
         { k: 'FOLHA_OU_REPASSE_PUBLICO', lbl: `Folha / Repasses (${(resumo.FOLHA_OU_REPASSE_PUBLICO && resumo.FOLHA_OU_REPASSE_PUBLICO.qtd) || 0})` },
@@ -4005,7 +4005,7 @@
                 <div class="text-[11px] text-on-surface-variant font-mono">${escapeHtml(r.fornecedor_doc || 'Sem CPF/CNPJ')} • ${escapeHtml(r.tipo_pessoa)}${r.cidade ? ' • ' + escapeHtml(r.cidade) : ''}</div>
               </td>
               <td class="py-2.5 pr-3">
-                <span class="inline-block px-2 py-0.5 rounded-full ${bCls} text-[10px] font-bold">${escapeHtml(r.alerta_label)}</span>
+                <span class="inline-block px-2 py-0.5 rounded-full ${bCls} text-[10px] font-bold">${escapeHtml(r.alerta_label)}</span>${r.alerta_observacao ? `<div class="text-[10px] text-on-surface-variant mt-0.5 line-clamp-2">${escapeHtml(r.alerta_observacao)}</div>` : ''}
               </td>
               <td class="py-2.5 pr-3 text-right whitespace-nowrap">
                 <div class="font-bold text-on-surface">${formatBRL(r.pncp_valor)}</div>
@@ -4082,7 +4082,7 @@
       const stBox = document.getElementById('tr-disp-status-cards');
       if (stBox) {
         const specs = [
-          { k: 'AUSENTE_PNCP', lbl: 'Ausentes no PNCP', cls: 'bg-error-container/60 text-on-error-container' },
+          { k: 'AUSENTE_PNCP', lbl: 'Não localizados no PNCP', cls: 'bg-error-container/60 text-on-error-container' },
           { k: 'FORNECEDOR_NO_PNCP', lbl: 'Fornecedor no PNCP (outro processo)', cls: 'bg-amber-100 text-amber-950' },
           { k: 'CONCILIADO', lbl: 'Conciliadas no PNCP', cls: 'bg-emerald-100 text-emerald-900' },
         ];
