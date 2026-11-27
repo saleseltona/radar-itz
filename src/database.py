@@ -182,6 +182,15 @@ class RadarDatabase:
                     atualizado_em TEXT NOT NULL
                 );
 
+                -- Estado da sincronização PNCP em lotes (cursor, última data) e lock de execução única
+                CREATE TABLE IF NOT EXISTS pncp_sync_estado (
+                    id TEXT PRIMARY KEY,
+                    estado_json TEXT NOT NULL DEFAULT '{}',
+                    lock_owner TEXT DEFAULT NULL,
+                    lock_ate REAL DEFAULT NULL,
+                    atualizado_em TEXT NOT NULL DEFAULT ''
+                );
+
                 CREATE TABLE IF NOT EXISTS evidencias (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     id_pauta TEXT NOT NULL,
@@ -1051,6 +1060,100 @@ class RadarDatabase:
                 """
             )
         return len(params)
+
+    # --- Sincronização PNCP em lotes: upsert detalhado, estado persistente e lock ---
+
+    def upsert_pncp_contratos_detalhado(self, contratos: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Upsert idempotente por numero_controle_pncp que informa inseridos/atualizados/ignorados.
+        Contratos sem mudança não são regravados. Retificações manuais (pncp_retificacoes)
+        nunca são alteradas: o valor corrigido continua valendo e divergências do PNCP são relatadas.
+        """
+        from src.pncp_sync import classificar_contratos
+
+        unicos: Dict[str, Dict[str, Any]] = {}
+        for c in contratos:
+            ctrl = str(c.get("numero_controle_pncp") or "").strip()
+            if ctrl:
+                unicos[ctrl] = c
+        if not unicos:
+            return {"inseridos": 0, "atualizados": 0, "ignorados": 0, "retificacoes_divergentes": []}
+
+        ctrls = list(unicos.keys())
+        existentes: Dict[str, Dict[str, Any]] = {}
+        retificacoes: Dict[str, Dict[str, Any]] = {}
+        with self.connect() as conn:
+            for i in range(0, len(ctrls), 500):
+                chunk = ctrls[i : i + 500]
+                marks = ",".join("?" for _ in chunk)
+                for r in conn.execute(
+                    f"SELECT * FROM pncp_contratos WHERE numero_controle_pncp IN ({marks})", chunk
+                ).fetchall():
+                    existentes[str(r["numero_controle_pncp"])] = dict(r)
+                for r in conn.execute(
+                    f"SELECT * FROM pncp_retificacoes WHERE numero_controle_pncp IN ({marks})", chunk
+                ).fetchall():
+                    retificacoes[str(r["numero_controle_pncp"])] = dict(r)
+
+        resultado = classificar_contratos(list(unicos.values()), existentes, retificacoes)
+        gravar = resultado.pop("_gravar")
+        if gravar:
+            # upsert_pncp_contratos_batch reaplica as retificações manuais após gravar
+            self.upsert_pncp_contratos_batch(gravar)
+        return resultado
+
+    def get_pncp_sync_state(self) -> Dict[str, Any]:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT estado_json FROM pncp_sync_estado WHERE id = 'default'"
+            ).fetchone()
+        if not row:
+            return {}
+        try:
+            parsed = json.loads(row["estado_json"] or "{}")
+        except (TypeError, ValueError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    def save_pncp_sync_state(self, estado: Dict[str, Any]) -> None:
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO pncp_sync_estado (id, estado_json, atualizado_em)
+                VALUES ('default', ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    estado_json = excluded.estado_json,
+                    atualizado_em = excluded.atualizado_em
+                """,
+                (json.dumps(estado, ensure_ascii=False), now_iso),
+            )
+
+    def acquire_pncp_sync_lock(self, owner: str, ttl_seconds: float, now_ts: float) -> bool:
+        """Lock atômico (UPDATE condicional): só adquire se não houver lock válido de outro dono."""
+        with self.connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO pncp_sync_estado (id, estado_json, atualizado_em) VALUES ('default', '{}', '')"
+            )
+            cur = conn.execute(
+                """
+                UPDATE pncp_sync_estado
+                SET lock_owner = ?, lock_ate = ?
+                WHERE id = 'default' AND (lock_ate IS NULL OR lock_ate < ? OR lock_owner = ?)
+                """,
+                (owner, now_ts + ttl_seconds, now_ts, owner),
+            )
+            return cur.rowcount == 1
+
+    def release_pncp_sync_lock(self, owner: str) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE pncp_sync_estado SET lock_owner = NULL, lock_ate = NULL
+                WHERE id = 'default' AND lock_owner = ?
+                """,
+                (owner,),
+            )
 
     @staticmethod
     def _format_pncp_row(row: sqlite3.Row) -> Dict[str, Any]:
