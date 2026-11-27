@@ -1,0 +1,33 @@
+name: Manter o Radar acordado
+
+# O plano Free do Render dorme após ~15 min sem acesso. Este ping leve a cada
+# 10 min mantém o radar-itz-web acordado. /health não abre o banco nem dispara
+# coleta. O cron do GitHub pode atrasar alguns minutos em horários de pico.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: manter-acordado
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping /health
+        env:
+          URL: https://radar-itz-web.onrender.com/health
+        run: |
+          # Até 3 tentativas: a primeira pode pegar o serviço acordando (cold start ~1 min).
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$URL" || echo 000)
+            echo "Tentativa $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::warning::Radar não respondeu 200 em $URL (último código: $code)"

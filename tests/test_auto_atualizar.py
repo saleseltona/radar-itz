@@ -382,6 +382,24 @@ class TestRotaAutoAtualizar(unittest.TestCase):
         h2.do_HEAD()
         self.assertEqual(h2.wfile.getvalue().split(b" ", 2)[1], b"405")
 
+    def test_get_health_responde_200_sem_abrir_banco(self) -> None:
+        h = self.handler_cls.__new__(self.handler_cls)
+        h.command, h.path, h.request_version = "GET", "/health", "HTTP/1.1"
+        h.requestline = "GET /health HTTP/1.1"
+        h.client_address = ("203.0.113.7", 0)
+        h.close_connection = True
+        h._headers_buffer = []
+        h.headers, h.rfile, h.wfile = email.message.Message(), io.BytesIO(b""), io.BytesIO()
+
+        def sem_banco():
+            raise AssertionError("/health não deve abrir o banco")
+
+        h.get_db = sem_banco
+        h.do_GET()
+        head, _, corpo = h.wfile.getvalue().partition(b"\r\n\r\n")
+        self.assertEqual(head.split(b" ", 2)[1], b"200")
+        self.assertEqual(corpo, b'{"ok": true}')
+
 
 class TestFrontend(unittest.TestCase):
     def test_painel_carrega_script_e_nao_abre_prompt_automatico(self) -> None:
