@@ -269,6 +269,73 @@ class TestPncpSyncLotes(unittest.TestCase):
         self.assertEqual(r["retentativas_pncp"], 0)
         self.assertEqual(self.esperas, [])
 
+    # --- Parte 3: orçamento de tempo com gravação/fallback e renovação do lock ---
+
+    def test_fallback_404_sem_tempo_pausa_sem_erro(self) -> None:
+        self._ate_concluir()
+        relogio = {"t": 0.0}
+
+        def fetch(endpoint, *a):
+            if endpoint.endswith("/atualizacao"):
+                relogio["t"] = 25.0  # a 1ª consulta demorou: não cabe mais 15 s + gravação em 40 s
+                raise urllib.error.HTTPError(endpoint, 404, "Not Found", None, None)
+            return self.fake(endpoint, *a)
+
+        n_antes = len(self.fake.calls)
+        res = self._lote(hoje=date(2025, 3, 20), fetch=fetch, relogio=lambda: relogio["t"], tempo_limite=40.0, http_timeout=15)
+        self.assertTrue(res["parcial"])
+        self.assertEqual(res["motivo_pausa"], "limite_tempo")
+        self.assertEqual(res["erros"], [])
+        self.assertEqual((res["proxima_janela"]["janela"], res["proxima_janela"]["pagina"]), (0, 1))
+        self.assertEqual(len(self.fake.calls), n_antes)  # o fallback não chegou a ser chamado
+
+    def test_gravacao_lenta_entra_no_orcamento(self) -> None:
+        relogio = {"t": 0.0}
+        upsert_real = self.db.upsert_pncp_contratos_detalhado
+
+        def upsert_lento(rows):
+            relogio["t"] += 14.0  # gravar a página levou 14 s
+            return upsert_real(rows)
+
+        with mock.patch.object(self.db, "upsert_pncp_contratos_detalhado", upsert_lento):
+            r = self._lote(relogio=lambda: relogio["t"], tempo_limite=40.0, http_timeout=15)
+        # 14 s gastos; sem contar a gravação caberia outra página (14 + 15 < 40), contando não (14 + 15 + 14 > 40)
+        self.assertTrue(r["parcial"])
+        self.assertEqual(r["motivo_pausa"], "limite_tempo")
+        self.assertEqual(len(self.fake.calls), 1)
+        self.assertEqual((r["proxima_janela"]["janela"], r["proxima_janela"]["pagina"]), (0, 2))
+
+    def test_lock_e_renovado_durante_o_lote(self) -> None:
+        agora = {"t": 1000.0}
+        intruso = []
+
+        def fetch(endpoint, cnpj, di, df, pg, tam, to):
+            if len(self.fake.calls) == 1:
+                # 100 s depois do início o TTL original (90 s) já teria vencido; renovado, segue ocupado
+                agora["t"] = 1100.0
+                intruso.append(self.db.acquire_pncp_sync_lock("intruso", 90.0, agora["t"]))
+            res = self.fake(endpoint, cnpj, di, df, pg, tam, to)
+            agora["t"] = max(agora["t"], 1080.0)
+            return res
+
+        r = self._lote(fetch=fetch, agora_ts=lambda: agora["t"])
+        self.assertEqual(intruso, [False])
+        self.assertFalse(r["parcial"])
+
+    def test_lock_perdido_encerra_sem_gravar_estado(self) -> None:
+        def fetch(*a):
+            with self.db.connect() as conn:  # outra execução assumiu a trava (ex.: TTL venceu)
+                conn.execute("UPDATE pncp_sync_estado SET lock_owner='outra', lock_ate=9e12 WHERE id='default'")
+            return self.fake(*a)
+
+        r = self._lote(fetch=fetch)
+        self.assertEqual(r["motivo_pausa"], "lock_perdido")
+        self.assertTrue(r["parcial"])
+        self.assertEqual(len(self.fake.calls), 1)
+        self.assertFalse((self.db.get_pncp_sync_state() or {}).get("cursor_pendente"))
+        with self.db.connect() as conn:  # a trava da outra execução continua intacta
+            self.assertEqual(conn.execute("SELECT lock_owner FROM pncp_sync_estado").fetchone()[0], "outra")
+
     def test_lock_bloqueia_execucao_simultanea(self) -> None:
         self.assertTrue(self.db.acquire_pncp_sync_lock("outro", 90.0, 1000.0))
         with self.assertRaises(SyncEmAndamento):
@@ -279,6 +346,40 @@ class TestPncpSyncLotes(unittest.TestCase):
         self.assertIn("inseridos", res)
         # e é liberado ao final da execução
         self.assertTrue(self.db.acquire_pncp_sync_lock("terceiro", 90.0, 2001.0))
+
+
+class TestSupabaseRenovaLock(unittest.TestCase):
+    """renew_pncp_sync_lock no Supabase: PATCH condicional ao dono, sem rede."""
+
+    def _store(self, dono_atual: str):
+        import urllib.parse as up
+        from src.supabase_store import SupabaseDatabase, SupabaseRestClient
+
+        linha = {"id": "default", "lock_owner": dono_atual, "lock_ate": 1090.0}
+        pedidos: List[Tuple[str, Dict[str, List[str]], Any]] = []
+
+        def transport(method, url, headers, body, timeout):
+            qs = up.parse_qs(up.urlparse(url).query)
+            payload = json.loads(body.decode("utf-8")) if body else None
+            pedidos.append((method, qs, payload))
+            if method == "PATCH" and qs.get("lock_owner") == [f"eq.{linha['lock_owner']}"]:
+                linha.update(payload)
+                return 200, {}, json.dumps([linha]).encode("utf-8")
+            return 200, {}, b"[]"
+
+        SupabaseDatabase._sync_lock_local = {}
+        return SupabaseDatabase(SupabaseRestClient("https://x.supabase.co", "chave", transport=transport)), linha, pedidos
+
+    def test_renova_quando_ainda_e_dono(self) -> None:
+        db, linha, pedidos = self._store("eu")
+        self.assertTrue(db.renew_pncp_sync_lock("eu", 90.0, 1080.0))
+        self.assertEqual(linha["lock_ate"], 1170.0)
+        self.assertEqual(pedidos[-1][1]["lock_owner"], ["eq.eu"])
+
+    def test_nao_renova_lock_de_outro(self) -> None:
+        db, linha, _ = self._store("outro")
+        self.assertFalse(db.renew_pncp_sync_lock("eu", 90.0, 1080.0))
+        self.assertEqual(linha["lock_ate"], 1090.0)
 
 
 class TestPncpSyncEndpoint(unittest.TestCase):

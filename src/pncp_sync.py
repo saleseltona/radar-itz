@@ -45,6 +45,8 @@ LOCK_TTL_SEGUNDOS = 90.0  # maior que maxDuration: um lock órfão expira sozinh
 # algumas vezes com espera curta antes de pausar o lote; só dentro do orçamento de tempo.
 ESPERAS_RETENTATIVA_SEGUNDOS: Tuple[float, ...] = (2.0, 5.0)
 HTTP_STATUS_TRANSITORIOS = frozenset({429, 500, 502, 503, 504})
+# Reserva mínima de tempo para gravar uma página no banco; o lote usa a maior gravação já medida.
+RESERVA_GRAVACAO_SEGUNDOS = 2.0
 
 MODO_CARGA = "carga_completa"
 MODO_INCREMENTAL = "incremental"
@@ -67,6 +69,10 @@ class SyncEmAndamento(RuntimeError):
 
 class CursorInvalido(ValueError):
     """Cursor `proxima_janela` recebido do cliente é inválido."""
+
+
+class _SemTempo(Exception):
+    """Não cabe mais uma requisição (ex.: fallback de endpoint) no orçamento do lote."""
 
 
 # ---------------------------------------------------------------------------
@@ -384,12 +390,20 @@ def executar_lote(
         inicio = relogio()
         motivo_pausa = ""
         retentativas = [0]
+        # Tempo previsto para gravar uma página: começa na reserva mínima e sobe com a maior medida
+        reserva = [RESERVA_GRAVACAO_SEGUNDOS]
+        perdeu_lock = False
+        renovar = getattr(db, "renew_pncp_sync_lock", None)
+
+        def cabe(extra: float = 0.0) -> bool:
+            """Ainda cabe esperar `extra`, fazer mais uma requisição e gravar a página?"""
+            return relogio() - inicio + extra + http_timeout + reserva[0] <= tempo_limite
 
         while idx < len(janelas):
             if janelas_neste_lote >= max_janelas:
                 motivo_pausa = "limite_janelas"
                 break
-            if relogio() - inicio + http_timeout > tempo_limite:
+            if not cabe():
                 motivo_pausa = "limite_tempo"
                 break
             jan = janelas[idx]
@@ -401,7 +415,7 @@ def executar_lote(
                 return buscar_com_retentativa(
                     lambda: fetch(ep, orgao["cnpj"], ini_s, fim_s, pagina, TAMANHO_PAGINA, http_timeout),
                     esperas_retentativa,
-                    lambda espera: relogio() - inicio + espera + http_timeout <= tempo_limite,
+                    cabe,
                     dormir,
                     rotulo,
                     ao_repetir=lambda: retentativas.__setitem__(0, retentativas[0] + 1),
@@ -413,11 +427,16 @@ def executar_lote(
                 except urllib.error.HTTPError as he:
                     if he.code == 404 and endpoint_usado == ENDPOINT_ATUALIZACAO:
                         endpoint_usado = ENDPOINT_PUBLICACAO
+                        if not cabe():
+                            raise _SemTempo()
                         status, payload = _consultar(endpoint_usado)
                     elif he.code == 204:
                         status, payload = 204, {"data": [], "totalPaginas": 0}
                     else:
                         raise
+            except _SemTempo:  # o fallback não cabe mais: pausa sem erro, mesma página no próximo lote
+                motivo_pausa = "limite_tempo"
+                break
             except Exception as exc:  # erro do PNCP: para aqui e mantém o cursor nesta página
                 erros.append(f"{rotulo}: {_descrever_erro(exc)}")
                 motivo_pausa = "erro_pncp"
@@ -425,6 +444,7 @@ def executar_lote(
 
             rows = [] if status == 204 else (payload.get("data") or [])
             normalizados = [normalizar(r, orgao, jan["ini"].year) for r in rows if isinstance(r, dict)]
+            t_gravacao = relogio()
             if normalizados:
                 res = db.upsert_pncp_contratos_detalhado(normalizados)
                 # Erros de valor documentados viram retificação rastreável (preserva as existentes)
@@ -432,6 +452,7 @@ def executar_lote(
                 for k in totais:
                     totais[k] += int(res.get(k, 0) or 0)
                 divergentes.extend(res.get("retificacoes_divergentes") or [])
+                reserva[0] = max(reserva[0], relogio() - t_gravacao)
             try:
                 total_paginas = int(payload.get("totalPaginas") or 0)
             except (TypeError, ValueError):
@@ -441,6 +462,18 @@ def executar_lote(
                 janelas_neste_lote += 1
             else:
                 pagina += 1
+
+            # Renova o lock a cada página: um lote lento nunca deixa a trava vencer no meio
+            if renovar is not None:
+                try:
+                    if not renovar(owner, LOCK_TTL_SEGUNDOS, agora_ts()):
+                        perdeu_lock = True
+                except Exception as exc:  # sem renovar, o TTL ainda protege por LOCK_TTL_SEGUNDOS
+                    logger.warning("Falha ao renovar lock PNCP: %s", mask_secrets(str(exc)))
+                if perdeu_lock:
+                    logger.warning("Lock PNCP assumido por outra execução; lote encerrado sem gravar estado.")
+                    motivo_pausa = "lock_perdido"
+                    break
 
         concluido = idx >= len(janelas)
         proximo = None if concluido else dict(cur, janela=idx, pagina=pagina)
@@ -455,7 +488,8 @@ def executar_lote(
                 novo_estado["carga_completa_anos"] = list(ANOS_CARGA_COMPLETA)
         else:
             novo_estado["cursor_pendente"] = proximo
-        db.save_pncp_sync_state(novo_estado)
+        if not perdeu_lock:  # quem tem a trava agora é dono do estado; não sobrescrever
+            db.save_pncp_sync_state(novo_estado)
 
         progresso = 100.0 if not janelas else round(100.0 * idx / len(janelas), 1)
         janela_atual = None

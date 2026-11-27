@@ -1050,6 +1050,25 @@ class SupabaseDatabase:
             rows = []
         return isinstance(rows, list) and len(rows) == 1
 
+    def renew_pncp_sync_lock(self, owner: str, ttl_seconds: float, now_ts: float) -> bool:
+        """Estende o lock só se ele ainda for de `owner`; False = outra execução assumiu."""
+        local = type(self)._sync_lock_local
+        if local.get("owner") == owner:
+            type(self)._sync_lock_local = {"owner": owner, "ate": now_ts + ttl_seconds}
+            return True
+        _, _, data = self.client._request(
+            "PATCH",
+            "pncp_sync_estado",
+            params={"id": "eq.default", "lock_owner": f"eq.{owner}"},
+            payload={"lock_ate": now_ts + ttl_seconds},
+            extra_headers={"Prefer": "return=representation"},
+        )
+        try:
+            rows = json.loads(data.decode("utf-8")) if data else []
+        except ValueError:
+            rows = []
+        return isinstance(rows, list) and len(rows) == 1
+
     def release_pncp_sync_lock(self, owner: str) -> None:
         if type(self)._sync_lock_local.get("owner") == owner:
             type(self)._sync_lock_local = {}
