@@ -200,6 +200,43 @@ class TestAutoPncp(unittest.TestCase):
         self.assertIn("erro", res)
 
 
+class TestIniciarManualSegundoPlano(unittest.TestCase):
+    def setUp(self) -> None:
+        self.pendentes: List[Callable[[], None]] = []
+        self.auto = AutoAtualizador(_executores([]), INTERVALOS, Relogio(), self.pendentes.append)
+
+    def test_roda_em_segundo_plano_e_registra_resultado(self) -> None:
+        self.auto.iniciar_manual("varredura", lambda: {"pautas_novas": 3, "id_execucao": "EXE-1"})
+        self.assertEqual(self.auto.status()["tarefas"]["varredura"]["situacao"], "rodando")
+        with self.assertRaises(TarefaOcupada):  # segundo clique enquanto roda
+            self.auto.iniciar_manual("varredura", lambda: {})
+        self.pendentes.pop()()
+        t = self.auto.status()["tarefas"]["varredura"]
+        self.assertEqual(t["situacao"], "ok")
+        self.assertEqual(t["resultado"], {"pautas_novas": 3, "id_execucao": "EXE-1"})
+        self.assertFalse(self.auto.tarefa_rodando("varredura"))
+
+    def test_falha_vira_erro_no_status_e_libera_trava(self) -> None:
+        def falha() -> Dict[str, Any]:
+            raise RuntimeError("fonte caiu")
+
+        self.auto.iniciar_manual("varredura", falha)
+        self.pendentes.pop()()
+        t = self.auto.status()["tarefas"]["varredura"]
+        self.assertEqual(t["situacao"], "erro")
+        self.assertIn("fonte caiu", t["erro"])
+        self.assertFalse(self.auto.tarefa_rodando("varredura"))
+
+    def test_falha_ao_iniciar_thread_libera_trava(self) -> None:
+        def quebra(alvo: Callable[[], None]) -> None:
+            raise RuntimeError("sem threads")
+
+        auto = AutoAtualizador(_executores([]), INTERVALOS, Relogio(), quebra)
+        with self.assertRaises(RuntimeError):
+            auto.iniciar_manual("varredura", lambda: {})
+        self.assertFalse(auto.tarefa_rodando("varredura"))
+
+
 class TestRotaAutoAtualizar(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -297,6 +334,53 @@ class TestRotaAutoAtualizar(unittest.TestCase):
         finally:
             trava.release()
         self.assertEqual(status, 409)
+
+
+    def test_varredura_em_segundo_plano_responde_202(self) -> None:
+        from unittest import mock
+        from src import web_server
+
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        with mock.patch.object(web_server, "run_radar_cycle", lambda **kw: {"pautas_novas": 2}):
+            status, data = self.post("/api/executar", "segredo-teste", {"segundo_plano": True})
+        self.assertEqual(status, 202)
+        self.assertTrue(data["iniciada"])
+        t = self.auto.status()["tarefas"]["varredura"]  # iniciar imediato no teste
+        self.assertEqual(t["resultado"], {"pautas_novas": 2})
+        self.assertFalse(self.auto.tarefa_rodando("varredura"))
+
+    def test_varredura_em_segundo_plano_ocupada_responde_409(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        trava = self.auto._travas["varredura"]
+        trava.acquire()
+        try:
+            status, data = self.post("/api/executar", "segredo-teste", {"segundo_plano": True})
+        finally:
+            trava.release()
+        self.assertEqual(status, 409)
+        self.assertTrue(data["em_andamento"])
+
+    def test_head_raiz_responde_200_sem_corpo(self) -> None:
+        h = self.handler_cls.__new__(self.handler_cls)
+        h.command, h.path, h.request_version = "HEAD", "/", "HTTP/1.1"
+        h.requestline = "HEAD / HTTP/1.1"
+        h.client_address = ("203.0.113.7", 0)
+        h.close_connection = True
+        h._headers_buffer = []
+        h.headers, h.rfile, h.wfile = email.message.Message(), io.BytesIO(b""), io.BytesIO()
+        h.do_HEAD()
+        head, _, corpo = h.wfile.getvalue().partition(b"\r\n\r\n")
+        self.assertEqual(head.split(b" ", 2)[1], b"200")
+        self.assertEqual(corpo, b"")
+        h2 = self.handler_cls.__new__(self.handler_cls)
+        h2.command, h2.path, h2.request_version = "HEAD", "/api/pautas", "HTTP/1.1"
+        h2.requestline = "HEAD /api/pautas HTTP/1.1"
+        h2.client_address = ("203.0.113.7", 0)
+        h2.close_connection = True
+        h2._headers_buffer = []
+        h2.headers, h2.rfile, h2.wfile = email.message.Message(), io.BytesIO(b""), io.BytesIO()
+        h2.do_HEAD()
+        self.assertEqual(h2.wfile.getvalue().split(b" ", 2)[1], b"405")
 
 
 class TestFrontend(unittest.TestCase):

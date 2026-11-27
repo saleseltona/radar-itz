@@ -245,24 +245,54 @@ class AutoAtualizador:
         if not trava.acquire(blocking=False):
             raise TarefaOcupada(f"{ROTULOS[nome]} já está em andamento (atualização automática). Aguarde terminar.")
         try:
-            with self._estado_lock:
-                self._tarefas[nome]["ultimo_disparo"] = self.relogio()
-            try:
-                resultado = executor() or {}
-            except Exception as exc:
-                with self._estado_lock:
-                    self._tarefas[nome].update(
-                        ultima_conclusao=self.relogio(), ok=False, erro=mask_secrets(str(exc))[:300], resultado={}
-                    )
-                raise
-            with self._estado_lock:
-                ok = not resultado.get("erro")
-                self._tarefas[nome].update(
-                    ultima_conclusao=self.relogio(),
-                    ok=ok,
-                    erro=None if ok else mask_secrets(str(resultado.get("erro")))[:300],
-                    resultado=_resumir(resultado),
-                )
-            return resultado
+            return self._executar_travado(nome, executor)
         finally:
             trava.release()
+
+    def iniciar_manual(self, nome: str, executor: Callable[[], Dict[str, Any]]) -> None:
+        """
+        Igual a `executar_manual`, mas em segundo plano: devolve na hora e o resultado aparece
+        em `status()["tarefas"][nome]`. Evita requisições longas (o navegador ou o proxy desistem
+        e o servidor fica com "Broken pipe"). Lança TarefaOcupada se a tarefa já estiver rodando.
+        """
+        trava = self._travas[nome]
+        if not trava.acquire(blocking=False):
+            raise TarefaOcupada(f"{ROTULOS[nome]} já está em andamento. Aguarde terminar.")
+        with self._estado_lock:
+            self._tarefas[nome]["ultimo_disparo"] = self.relogio()
+
+        def alvo() -> None:
+            try:
+                self._executar_travado(nome, executor)
+            except Exception as exc:  # noqa: BLE001 - erro já registrado no status
+                logger.error("Tarefa '%s' em segundo plano falhou: %s", nome, mask_secrets(str(exc)))
+            finally:
+                trava.release()
+
+        try:
+            self._iniciar(alvo)
+        except Exception:
+            trava.release()
+            raise
+
+    def _executar_travado(self, nome: str, executor: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+        """Executa com a trava de `nome` já adquirida e registra o resultado no status."""
+        with self._estado_lock:
+            self._tarefas[nome]["ultimo_disparo"] = self.relogio()
+        try:
+            resultado = executor() or {}
+        except Exception as exc:
+            with self._estado_lock:
+                self._tarefas[nome].update(
+                    ultima_conclusao=self.relogio(), ok=False, erro=mask_secrets(str(exc))[:300], resultado={}
+                )
+            raise
+        with self._estado_lock:
+            ok = not resultado.get("erro")
+            self._tarefas[nome].update(
+                ultima_conclusao=self.relogio(),
+                ok=ok,
+                erro=None if ok else mask_secrets(str(resultado.get("erro")))[:300],
+                resultado=_resumir(resultado),
+            )
+        return resultado
