@@ -5,7 +5,9 @@
  * a Varredura (que regera o Clipping Diário), o PNCP e o Portal Fiorilli. O servidor
  * só roda o que estiver vencido (intervalo mínimo) e nunca empilha execuções, então
  * a página abre na hora com os dados atuais e se atualiza sozinha quando cada tarefa termina.
- * Sem token de administração salvo neste navegador, nada roda: aparece só um aviso.
+ * Não precisa de token: sem token (ex.: app instalado no iPhone) usa a rota pública
+ * /api/auto-atualizar/abrir, que só dispara as tarefas vencidas, igual ao agendador do servidor.
+ * Com token salvo, usa a rota protegida e inclui as palavras-chave salvas na varredura.
  */
 (function () {
   'use strict';
@@ -174,29 +176,33 @@
     }
   }
 
-  function pedirToken() {
-    var typed = window.prompt('Para atualizar tudo automaticamente ao abrir o painel, digite o token de administração do Radar (RADAR_ADMIN_TOKEN):');
-    if (!typed || !typed.trim()) { return; }
-    if (typeof window.radarSetAdminToken === 'function') { window.radarSetAdminToken(typed.trim()); }
-    disparar();
+  function temToken() {
+    return typeof window.radarHasAdminToken === 'function' && window.radarHasAdminToken();
   }
 
   async function disparar() {
-    if (typeof window.radarHasAdminToken === 'function' && !window.radarHasAdminToken()) {
-      mostrar('Atualização automática desligada: informe o token', 'key', false, 'Clique para informar o token de administração', pedirToken);
-      return;
-    }
     mostrar('Verificando atualizações…', 'sync', true, '');
     try {
-      var res = await fetch('/api/auto-atualizar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultas_adicionais: palavrasChave() }),
-        radarSemPrompt: true,
-      });
-      if (res.status === 401 || res.status === 403) {
-        mostrar('Token recusado: atualização automática parada', 'key_off', false, 'Clique para informar o token de novo', pedirToken);
-        return;
+      var res = null;
+      if (temToken()) {
+        res = await fetch('/api/auto-atualizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ consultas_adicionais: palavrasChave() }),
+          radarSemPrompt: true,
+        });
+        // Token recusado ou IP bloqueado por tentativas erradas: segue pela rota pública.
+        if (res.status === 401 || res.status === 403 || res.status === 429) { res = null; }
+      }
+      if (!res) {
+        res = await fetch('/api/auto-atualizar/abrir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          radarSemPrompt: true,
+        });
+        // Muitas aberturas seguidas: só acompanha o que já está rodando.
+        if (res.status === 429) { acompanhar(); return; }
       }
       if (!res.ok && tentarDeNovo(res.status, disparar)) { return; }
       var st = await res.json();

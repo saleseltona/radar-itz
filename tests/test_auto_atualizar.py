@@ -17,7 +17,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from src.auto_refresh import AutoAtualizador, TarefaOcupada
 from src.database import RadarDatabase
 from src.pncp_sync import SyncEmAndamento
-from src.web_server import ADMIN_TOKEN_ENV, RadarAPIHandler, auto_pncp, pncp_carga_ativa_em_outra_sessao
+from src import web_server
+from src.web_server import ADMIN_TOKEN_ENV, LimiteChamadas, RadarAPIHandler, auto_pncp, pncp_carga_ativa_em_outra_sessao
 
 
 class Relogio:
@@ -306,6 +307,62 @@ class TestRotaAutoAtualizar(unittest.TestCase):
         self.assertTrue(st["habilitada"])
         self.assertEqual(st["tarefas"]["pncp"]["situacao"], "ok")
 
+    def test_abrir_sem_token_dispara_so_vencidas(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        web_server.LIMITE_ABRIR = LimiteChamadas()
+        status, data = self.post("/api/auto-atualizar/abrir")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["iniciadas"], ["varredura", "pncp", "fiorilli"])
+        # Logo em seguida nada está vencido: não roda de novo, nem com "forcar".
+        status, data = self.post("/api/auto-atualizar/abrir", payload={"forcar": True})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["iniciadas"], [])
+        self.assertEqual(self.chamadas, ["varredura", "pncp", "fiorilli"])
+
+    def test_abrir_ignora_parametros_do_cliente(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        web_server.LIMITE_ABRIR = LimiteChamadas()
+        contextos: List[Dict[str, Any]] = []
+        original = self.auto.disparar
+
+        def espiar(contexto: Optional[Dict[str, Any]] = None, forcar: bool = False) -> Dict[str, Any]:
+            contextos.append({"contexto": contexto, "forcar": forcar})
+            return original(contexto, forcar=forcar)
+
+        self.auto.disparar = espiar  # type: ignore[method-assign]
+        self.post("/api/auto-atualizar/abrir", payload={"consultas_adicionais": ["x"], "forcar": True, "anos": [1990]})
+        self.assertEqual(contextos, [{"contexto": {}, "forcar": False}])
+
+    def test_abrir_token_errado_nao_conta_nem_bloqueia(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        web_server.LIMITE_ABRIR = LimiteChamadas()
+        antes = dict(web_server.LIMITE_TENTATIVAS_TOKEN._falhas)
+        status, _ = self.post("/api/auto-atualizar/abrir", "palpite-errado")
+        self.assertEqual(status, 200)
+        self.assertEqual(dict(web_server.LIMITE_TENTATIVAS_TOKEN._falhas), antes)
+
+    def test_abrir_tem_limite_por_ip(self) -> None:
+        os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
+        web_server.LIMITE_ABRIR = LimiteChamadas(maximo=2, janela_s=60)
+        self.assertEqual(self.post("/api/auto-atualizar/abrir")[0], 200)
+        self.assertEqual(self.post("/api/auto-atualizar/abrir")[0], 200)
+        status, data = self.post("/api/auto-atualizar/abrir")
+        self.assertEqual(status, 429)
+        self.assertIn("segundos", data["erro"])
+
+    def test_abrir_exige_json(self) -> None:
+        status, _ = self.call("POST", "/api/auto-atualizar/abrir", {"Content-Type": "text/plain"}, {})
+        self.assertEqual(status, 415)
+        self.assertEqual(self.chamadas, [])
+
+    def test_abrir_desligada_por_ambiente(self) -> None:
+        web_server.LIMITE_ABRIR = LimiteChamadas()
+        os.environ["RADAR_AUTO_ATUALIZAR"] = "0"
+        status, data = self.post("/api/auto-atualizar/abrir")
+        self.assertEqual(status, 200)
+        self.assertTrue(data["desabilitada"])
+        self.assertEqual(self.chamadas, [])
+
     def test_desligada_por_ambiente(self) -> None:
         os.environ[ADMIN_TOKEN_ENV] = "segredo-teste"
         os.environ["RADAR_AUTO_ATUALIZAR"] = "0"
@@ -415,3 +472,21 @@ class TestFrontend(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLimiteChamadas(unittest.TestCase):
+    def test_janela_desliza_e_separa_ips(self) -> None:
+        agora = [0.0]
+        lim = LimiteChamadas(maximo=2, janela_s=60, relogio=lambda: agora[0])
+        self.assertEqual(lim.tentar("a"), 0)
+        self.assertEqual(lim.tentar("a"), 0)
+        self.assertEqual(lim.tentar("a"), 60)
+        self.assertEqual(lim.tentar("b"), 0)
+        agora[0] = 61
+        self.assertEqual(lim.tentar("a"), 0)
+
+    def test_memoria_limitada(self) -> None:
+        lim = LimiteChamadas(maximo=1, janela_s=60, relogio=lambda: 0.0, max_ips=3)
+        for i in range(10):
+            lim.tentar(f"ip{i}")
+        self.assertLessEqual(len(lim._chamadas), 3)
