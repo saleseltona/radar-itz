@@ -45,7 +45,10 @@
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     if (!isSameOriginApi(url)) { return nativeFetch(input, options); }
     return nativeFetch(input, withToken(options, readToken())).then(function (res) {
+      // 429: muitas tentativas erradas deste IP; não insiste nem abre a janela.
       if (res.status !== 401) { return res; }
+      // Token salvo foi recusado: apaga para não reenviar um token errado a cada chamada.
+      saveToken('');
       // Chamadas automáticas (ex.: atualização ao abrir o painel) nunca abrem a janela do token.
       if (options && options.radarSemPrompt) { return res; }
       var typed = window.prompt('Esta ação exige o token de administração do Radar (RADAR_ADMIN_TOKEN). Digite o token:');

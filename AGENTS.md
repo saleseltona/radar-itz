@@ -59,7 +59,7 @@ Instagram: só coleta com `INSTAGRAM_GRAPH_TOKEN` + `INSTAGRAM_BUSINESS_ACCOUNT_
 
 Evidências: cada item de `pautas.evidencias_verificadas` é gravado também na tabela `evidencias` (`src/evidence_store.py`).
 
-Segurança: `RADAR_ADMIN_TOKEN` protege todas as rotas POST e a reidratação por headers/cookies (header `X-Radar-Token` ou `Authorization: Bearer`). Sem ele, só o acesso local direto pode gravar. `/static/` só serve arquivos dentro de `static/`.
+Segurança: `RADAR_ADMIN_TOKEN` protege todas as rotas POST e a reidratação por headers/cookies (header `X-Radar-Token` ou `Authorization: Bearer`). Sem ele, só o acesso local direto pode gravar. `/static/` só serve arquivos dentro de `static/`. Token comparado em tempo constante; 5 palpites errados diferentes por minuto bloqueiam o IP com 429 (no Render o IP é o último `X-Forwarded-For`). POST acima de 256 KB recebe 413. Supabase: RLS ligado sem policies e sem privilégios para `anon`/`authenticated` (inclusive tabelas futuras); só a chave secreta do servidor acessa.
 
 Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `INSTAGRAM_GRAPH_API_VERSION`, `ANA_TELEMETRIA_TOKEN`.
 
