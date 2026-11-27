@@ -51,6 +51,8 @@ POST: `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/r
 
 Variáveis de coleta: `RADAR_TIMEOUT_SECONDS=15`, `RADAR_USER_AGENT`, `RADAR_CSV_DELIMITER=","`, `RADAR_SCHEDULE_TIMES="07:00,12:00,18:00"`.
 
+Segurança: `RADAR_ADMIN_TOKEN` protege todas as rotas POST e a reidratação por headers/cookies (header `X-Radar-Token` ou `Authorization: Bearer`). Sem ele, só o acesso local direto pode gravar. `/static/` só serve arquivos dentro de `static/`.
+
 Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `ANA_TELEMETRIA_TOKEN`.
 
 Supabase: defina `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`; `RADAR_STORAGE_BACKEND=auto|supabase|sqlite` (`sqlite` força SQLite; `auto` exige URL+chave). O código também reconhece aliases `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` e `SUPABASE_KEY`. `SUPABASE_ANON_KEY` é tratado como segredo.

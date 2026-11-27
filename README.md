@@ -159,6 +159,8 @@ O sistema funciona de forma completa e autônoma sem dependências de chaves pag
 - `SERPAPI_KEY` ou `BING_SEARCH_API_KEY`: Para motores de busca adicionais.
 - `INSTAGRAM_GRAPH_TOKEN`: Para leitura institucional via Meta Graph API v19.0.
 
+**Segurança do painel:** defina `RADAR_ADMIN_TOKEN` com um valor longo e aleatório em qualquer servidor acessível pela internet (Vercel, Render). As ações que gravam dados (varredura, retificar, ignorar, arquivar e cadastrar fonte) passam a exigir esse token, que o painel pede uma vez e guarda no navegador. Sem o token, essas ações só funcionam no acesso local direto (`localhost`).
+
 > **Proteção de Segredos:** O módulo `config.py` e `error_monitor.py` aplicam máscaras ativas (`***REDACTED***`) em quaisquer tokens para impedir vazamento de credenciais em relatórios, arquivos CSV ou mensagens de log.
 
 ---

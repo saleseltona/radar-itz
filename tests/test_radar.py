@@ -1180,7 +1180,7 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             head, _, resp_body = raw.partition(b"\r\n\r\n")
             return int(head.decode("latin-1").split("\r\n")[0].split(" ", 2)[1]), resp_body
 
-        st_post, _ = call_http("POST", "/api/pncp/ignorar", {}, {"numero_controle_pncp": "DUP-02", "motivo": "Duplicado HTTP"})
+        st_post, _ = call_http("POST", "/api/pncp/ignorar", {"Content-Type": "application/json"}, {"numero_controle_pncp": "DUP-02", "motivo": "Duplicado HTTP"})
         self.assertEqual(st_post, 200)
         _, raw_only = call_http("GET", "/api/pncp/contratos?ignorados=only", {})
         only_json = json.loads(raw_only.decode("utf-8"))
@@ -1314,7 +1314,7 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             head, _, resp_body = raw.partition(b"\r\n\r\n")
             return int(head.decode("latin-1").split("\r\n")[0].split(" ", 2)[1]), resp_body
 
-        st_post, _ = call_http("POST", "/api/pautas/arquivar", {}, {"id_pauta": "PAUTA-ARQ-1", "motivo": "Antiga"})
+        st_post, _ = call_http("POST", "/api/pautas/arquivar", {"Content-Type": "application/json"}, {"id_pauta": "PAUTA-ARQ-1", "motivo": "Antiga"})
         self.assertEqual(st_post, 200)
 
         _, raw_feed = call_http("GET", "/api/pautas", {})

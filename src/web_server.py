@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import csv
+import hmac
 import http.cookies
 import io
 import json
@@ -45,6 +46,38 @@ from src.transparencia_cross import (
 logger = logging.getLogger("radar_imperatriz.web")
 
 STATIC_DIR = BASE_DIR / "static"
+
+# Autorização das rotas que gravam dados.
+# Com RADAR_ADMIN_TOKEN definido, exige o header X-Radar-Token (ou Authorization: Bearer).
+# Sem o token, só aceita acesso local direto (127.0.0.1 / ::1, sem proxy na frente).
+ADMIN_TOKEN_ENV = "RADAR_ADMIN_TOKEN"
+_LOOPBACK_ADDRESSES = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
+_LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
+_PROXY_HEADERS = (
+    "X-Forwarded-For",
+    "X-Forwarded-Host",
+    "X-Real-IP",
+    "Forwarded",
+    "X-Vercel-Forwarded-For",
+    "CF-Connecting-IP",
+)
+
+
+def resolve_static_file(rel_name: str) -> Optional[Path]:
+    """Resolve um arquivo dentro de STATIC_DIR, recusando qualquer caminho que saia da pasta."""
+    static_root = STATIC_DIR.resolve()
+    try:
+        candidate = (static_root / rel_name).resolve()
+    except (OSError, ValueError, RuntimeError):
+        return None
+    try:
+        candidate.relative_to(static_root)
+    except ValueError:
+        return None
+    try:
+        return candidate if candidate.is_file() else None
+    except (OSError, ValueError):
+        return None
 
 
 def parse_brl_number(raw: Any) -> Optional[float]:
@@ -245,6 +278,7 @@ def _get_fallback_dashboard_html() -> str:
     </div>
   </div>
 
+  <script src="/static/radar_auth.js"></script>
   <script>
     let pautasData = [];
     let currentCategory = 'todas';
@@ -376,7 +410,11 @@ def _get_fallback_dashboard_html() -> str:
       btn.classList.add('opacity-75');
 
       try {
-        const res = await fetch('/api/executar', { method: 'POST' });
+        const res = await fetch('/api/executar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
         const result = await res.json();
         await loadData();
         alert('Ciclo concluído com sucesso! Pautas novas: ' + result.pautas_novas);
@@ -517,6 +555,63 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             return 0
         return int(db.sync_pncp_retificacoes_from_request(normalized) or 0)
 
+    def _sent_admin_token(self) -> str:
+        headers = getattr(self, "headers", None)
+        if headers is None:
+            return ""
+        direct = str(headers.get("X-Radar-Token") or "").strip()
+        if direct:
+            return direct
+        auth = str(headers.get("Authorization") or "").strip()
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+        return ""
+
+    def _is_direct_local_request(self) -> bool:
+        """Verdadeiro só para acesso local direto, sem proxy e com Host local (evita DNS rebinding)."""
+        client = getattr(self, "client_address", None) or ("",)
+        if str(client[0]) not in _LOOPBACK_ADDRESSES:
+            return False
+        headers = getattr(self, "headers", None)
+        if headers is None:
+            return True
+        if any(headers.get(h) for h in _PROXY_HEADERS):
+            return False
+        host = str(headers.get("Host") or "").strip()
+        if host:
+            try:
+                hostname = (urllib.parse.urlsplit(f"//{host}").hostname or "").lower()
+            except ValueError:
+                return False
+            if hostname not in _LOOPBACK_HOSTNAMES:
+                return False
+        return True
+
+    def _is_write_authorized(self) -> bool:
+        """Decide se a requisição pode gravar dados (POST ou reidratação por headers/cookies)."""
+        expected = os.environ.get(ADMIN_TOKEN_ENV, "").strip()
+        if expected:
+            sent = self._sent_admin_token()
+            return bool(sent) and hmac.compare_digest(sent.encode("utf-8"), expected.encode("utf-8"))
+        return self._is_direct_local_request()
+
+    def _reject_unauthorized_write(self) -> None:
+        if os.environ.get(ADMIN_TOKEN_ENV, "").strip():
+            self.send_json_response(
+                {"erro": "Token de administração ausente ou inválido. Envie o header X-Radar-Token."},
+                status=401,
+            )
+        else:
+            self.send_json_response(
+                {
+                    "erro": (
+                        "Gravação desabilitada: defina RADAR_ADMIN_TOKEN no servidor para permitir "
+                        "alterações fora do acesso local direto."
+                    )
+                },
+                status=403,
+            )
+
     def _resolve_route(self) -> Tuple[str, Dict[str, List[str]]]:
         """Resolve a rota original considerando rewrites da Vercel (`?__route=...`)."""
         parsed = urllib.parse.urlparse(self.path)
@@ -531,23 +626,24 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         return path, query
 
     def do_OPTIONS(self) -> None:
+        # Sem Access-Control-Allow-Origin: o navegador bloqueia POST JSON vindo de outros sites.
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-PNCP-Retificacoes, X-Pautas-Arquivadas")
+        self.send_header("Allow", "GET, POST, OPTIONS")
         self.end_headers()
 
     def do_GET(self) -> None:
         path, query = self._resolve_route()
         db = self.get_db()
-        if path in (
+        # Retificações e arquivamentos enviados por headers/cookies só valem para quem pode gravar.
+        can_write = self._is_write_authorized()
+        if can_write and path in (
             "/api/pautas",
             "/api/pautas/arquivadas",
             "/api/stats",
             "/api/telemetria",
         ):
             self._apply_request_pautas_arquivadas(db)
-        if path in (
+        if can_write and path in (
             "/api/stats",
             "/api/pncp/contratos",
             "/api/pncp/resumo",
@@ -575,8 +671,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         # 1.1 Arquivos estáticos
         if path.startswith("/static/"):
             rel_name = path[len("/static/"):].lstrip("/")
-            static_file = STATIC_DIR / rel_name
-            if static_file.is_file():
+            static_file = resolve_static_file(rel_name)
+            if static_file is not None:
                 mime, _ = mimetypes.guess_type(str(static_file))
                 data = static_file.read_bytes()
                 self.send_response(200)
@@ -1185,6 +1281,17 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path, _ = self._resolve_route()
+        content_type = str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        if content_type != "application/json":
+            # Exigir JSON força o preflight CORS, que este servidor não autoriza para outras origens.
+            self.send_json_response(
+                {"erro": "Envie o corpo como JSON (Content-Type: application/json)."},
+                status=415,
+            )
+            return
+        if not self._is_write_authorized():
+            self._reject_unauthorized_write()
+            return
         db = self.get_db()
         body = self._read_json_body()
 
