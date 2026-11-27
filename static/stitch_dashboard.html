@@ -3868,6 +3868,7 @@
         { k: 'DIVERGENCIA_VALOR', lbl: `Divergência Valor (${(resumo.DIVERGENCIA_VALOR && resumo.DIVERGENCIA_VALOR.qtd) || 0})` },
         { k: 'CONCILIADO', lbl: `Conciliados (${(resumo.CONCILIADO && resumo.CONCILIADO.qtd) || 0})` },
         { k: 'FOLHA_OU_REPASSE_PUBLICO', lbl: `Folha / Repasses (${(resumo.FOLHA_OU_REPASSE_PUBLICO && resumo.FOLHA_OU_REPASSE_PUBLICO.qtd) || 0})` },
+        { k: 'PAGO_CONTRATO_ANTERIOR', lbl: `Contrato de ano anterior (${(resumo.PAGO_CONTRATO_ANTERIOR && resumo.PAGO_CONTRATO_ANTERIOR.qtd) || 0})` },
       ];
       box.innerHTML = defs.map(d => {
         const active = (currentTranspAlerta || 'TODOS') === d.k;
@@ -3893,6 +3894,7 @@
           FOLHA_OU_REPASSE_PUBLICO: 'bg-slate-200 text-slate-800',
           CONTRATO_SEM_PAGAMENTO: 'bg-secondary-container text-on-secondary-container',
           CONCILIADO: 'bg-emerald-100 text-emerald-900',
+          PAGO_CONTRATO_ANTERIOR: 'bg-slate-100 text-slate-800',
           SEM_ALERTA: 'bg-surface-container text-on-surface-variant',
         };
         tbody.innerHTML = items.map(r => {

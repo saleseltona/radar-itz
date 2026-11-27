@@ -44,6 +44,9 @@ from src.transparencia_cross import (
 
 logger = logging.getLogger("radar_imperatriz.web")
 
+# Anos de contratos PNCP lidos para o cruzamento (inclui exercícios anteriores ainda vigentes)
+from src.transparencia_cross import PNCP_ANOS_CRUZAMENTO  # noqa: E402
+
 STATIC_DIR = BASE_DIR / "static"
 
 
@@ -831,8 +834,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         if path == "/api/transparencia/resumo":
             ano_str = query.get("ano", [""])[0].strip()
             ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
-            # Carrega 2025+2026 para preservar comparativo anual lado a lado
-            pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=FIORILLI_DEFAULT_YEARS)
+            # Carrega 2025+2026 (e anos anteriores, para contratos ainda vigentes) lado a lado
+            pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=PNCP_ANOS_CRUZAMENTO)
             receitas_rows = [
                 r for r in db.get_fiorilli_receitas(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
             ]
@@ -879,7 +882,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             except ValueError:
                 corte_val = 100000.0
 
-            pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+            # Todos os anos: o filtro por exercício é feito no cruzamento, que precisa dos anteriores
+            pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=PNCP_ANOS_CRUZAMENTO)
             forn_rows = [
                 r
                 for r in db.get_fiorilli_despesas_fornecedores(ano=ano_val)
@@ -1014,6 +1018,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             else:
                 alerta_val = query.get("alerta", ["TODOS"])[0].strip() or "TODOS"
                 ordem_val = query.get("ordem", ["pago_desc"])[0].strip() or "pago_desc"
+                pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=PNCP_ANOS_CRUZAMENTO)
                 forn_rows = [
                     r
                     for r in db.get_fiorilli_despesas_fornecedores(ano=ano_val)
@@ -1049,6 +1054,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     "alerta_label",
                     "pncp_contratos_qtd",
                     "pncp_valor",
+                    "pncp_anteriores_qtd",
+                    "pncp_anteriores_valor",
                     "fiorilli_contratos_qtd",
                     "fiorilli_valor",
                     "fiorilli_dispensas_qtd",
