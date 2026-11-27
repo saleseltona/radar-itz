@@ -341,5 +341,27 @@ class TestRotasPush(unittest.TestCase):
         self.assertIn("/static/radar_push.js", html)
 
 
+
+class TestWebPushEndurecimento(unittest.TestCase):
+    def test_envio_recusa_host_fora_da_lista_e_nao_segue_redirect(self) -> None:
+        from src import web_push as wp
+        status, _ = wp._enviar_urllib("POST", "https://exemplo.invalid/x", {}, b"", 1)
+        self.assertEqual(status, 0)
+        self.assertIsNone(wp._SemRedirecionar().redirect_request(None, None, 302, "", {}, "http://127.0.0.1/"))
+
+    def test_chave_vapid_mascarada(self) -> None:
+        import os
+        from src.config import mask_secrets
+        antes = os.environ.get("RADAR_VAPID_PRIVATE_KEY")
+        os.environ["RADAR_VAPID_PRIVATE_KEY"] = "chave-privada-de-teste"
+        try:
+            self.assertNotIn("chave-privada-de-teste", mask_secrets("erro chave-privada-de-teste"))
+        finally:
+            if antes is None:
+                os.environ.pop("RADAR_VAPID_PRIVATE_KEY", None)
+            else:
+                os.environ["RADAR_VAPID_PRIVATE_KEY"] = antes
+
+
 if __name__ == "__main__":
     unittest.main()
