@@ -38,12 +38,16 @@
   }
 
   window.radarClearAdminToken = function () { saveToken(''); };
+  window.radarHasAdminToken = function () { return !!readToken(); };
+  window.radarSetAdminToken = function (token) { saveToken(String(token || '').trim()); };
 
   window.fetch = function (input, options) {
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     if (!isSameOriginApi(url)) { return nativeFetch(input, options); }
     return nativeFetch(input, withToken(options, readToken())).then(function (res) {
       if (res.status !== 401) { return res; }
+      // Chamadas automáticas (ex.: atualização ao abrir o painel) nunca abrem a janela do token.
+      if (options && options.radarSemPrompt) { return res; }
       var typed = window.prompt('Esta ação exige o token de administração do Radar (RADAR_ADMIN_TOKEN). Digite o token:');
       if (!typed || !typed.trim()) { return res; }
       saveToken(typed.trim());

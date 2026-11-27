@@ -20,9 +20,14 @@ import urllib.parse
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from main import run_radar_cycle
+from src.auto_refresh import (
+    AutoAtualizador,
+    TarefaOcupada,
+    auto_atualizacao_habilitada,
+)
 from src.config import (
     ANA_ESTACAO_IMPERATRIZ_CODIGO,
     BASE_DIR,
@@ -595,6 +600,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         if not normalized:
             return 0
         return int(db.sync_pncp_retificacoes_from_request(normalized) or 0)
+
+    def auto_atualizador(self) -> AutoAtualizador:
+        return get_auto_atualizador()
 
     def _sent_admin_token(self) -> str:
         headers = getattr(self, "headers", None)
@@ -1218,6 +1226,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             return
 
         # 4. Endpoint REST: Clipping diário em Markdown
+        if path == "/api/auto-atualizar":
+            st = self.auto_atualizador().status()
+            st["habilitada"] = auto_atualizacao_habilitada()
+            self.send_json_response(st)
+            return
+
         if path == "/api/clipping":
             clipping_file = OUTPUT_DIR / "clipping_do_dia.md"
             if clipping_file.exists():
@@ -1342,6 +1356,15 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             # Tratado antes de get_db(): qualquer falha (inclusive ao abrir o banco) vira JSON
             self._handle_pncp_sync()
             return
+        if path == "/api/auto-atualizar":
+            body = self._read_json_body()
+            if not auto_atualizacao_habilitada():
+                self.send_json_response({"desabilitada": True, "em_andamento": False, "iniciadas": [], "tarefas": {}})
+                return
+            consultas = body.get("consultas_adicionais")
+            contexto = {"consultas_adicionais": [str(c) for c in consultas][:30] if isinstance(consultas, list) else None}
+            self.send_json_response(self.auto_atualizador().disparar(contexto, forcar=bool(body.get("forcar"))))
+            return
         db = self.get_db()
         body = self._read_json_body()
 
@@ -1351,8 +1374,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 consultas = body.get("consultas_adicionais")
                 if not isinstance(consultas, list):
                     consultas = None
-                res = run_radar_cycle(modo="web", consultas_adicionais=consultas)
+                res = self.auto_atualizador().executar_manual(
+                    "varredura", lambda: run_radar_cycle(modo="web", consultas_adicionais=consultas)
+                )
                 self.send_json_response(res)
+            except TarefaOcupada as e:
+                self.send_json_response({"erro": str(e), "em_andamento": True}, status=409)
             except Exception as e:
                 logger.error("Erro ao executar ciclo via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
@@ -1368,17 +1395,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     anos = []
                 if not anos:
                     anos = list(FIORILLI_DEFAULT_YEARS)
-                res = FiorilliClient(db, timeout=25).sync_imperatriz(anos=anos)
-                res["storage_backend"] = getattr(db, "backend_name", "sqlite")
-                if res.get("total_registros", 0) == 0 and res.get("erros"):
-                    res["erro"] = (
-                        "Portal Transparência Fiorilli (porta :8079) indisponível ou lento neste ambiente. "
-                        "Você pode sincronizar localmente com `python scripts/fiorilli_sync.py --anos 2025 2026` "
-                        "e subir ao Supabase com `python scripts/supabase_sync.py --only-fiorilli`."
-                    )
-                    self.send_json_response(res, status=502)
-                    return
-                self.send_json_response(res)
+                res = self.auto_atualizador().executar_manual(
+                    "fiorilli", lambda: sincronizar_fiorilli(db, anos)
+                )
+                self.send_json_response(res, status=502 if res.get("erro") else 200)
+            except TarefaOcupada as e:
+                self.send_json_response({"erro": str(e), "em_andamento": True}, status=409)
             except Exception as e:
                 logger.error("Erro ao sincronizar Fiorilli via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
@@ -1588,6 +1610,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_pncp_sync(self) -> None:
         """Sincroniza um lote do PNCP. Sempre responde JSON, com segredos mascarados."""
+        if self.auto_atualizador().tarefa_rodando("pncp"):
+            self.send_json_response(
+                {"ok": False, "erro": "A atualização automática do PNCP está em andamento. Aguarde terminar.", "em_andamento": True},
+                status=409,
+            )
+            return
         try:
             body = self._read_json_body()
             db = self.get_db()
@@ -1640,6 +1668,92 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(json_bytes)))
         self.end_headers()
         self.wfile.write(json_bytes)
+
+
+# ---------------------------------------------------------------------------
+# Atualização automática ao abrir o painel (POST /api/auto-atualizar)
+# ---------------------------------------------------------------------------
+FIORILLI_INDISPONIVEL = (
+    "Portal Transparência Fiorilli (porta :8079) indisponível ou lento neste ambiente. "
+    "Você pode sincronizar localmente com `python scripts/fiorilli_sync.py --anos 2025 2026` "
+    "e subir ao Supabase com `python scripts/supabase_sync.py --only-fiorilli`."
+)
+# Lotes do PNCP por rodada automática (~40 s cada); o restante continua na próxima abertura.
+PNCP_AUTO_MAX_LOTES = 15
+# Se outra sessão mexeu numa carga pendente há menos que isto, a automática não interfere.
+PNCP_OUTRA_SESSAO_SEGUNDOS = 180
+
+
+def sincronizar_fiorilli(db: Any, anos: List[int]) -> Dict[str, Any]:
+    res = FiorilliClient(db, timeout=25).sync_imperatriz(anos=anos)
+    res["storage_backend"] = getattr(db, "backend_name", "sqlite")
+    if res.get("total_registros", 0) == 0 and res.get("erros"):
+        res["erro"] = FIORILLI_INDISPONIVEL
+    return res
+
+
+def pncp_carga_ativa_em_outra_sessao(estado: Dict[str, Any], agora: Optional[datetime] = None) -> bool:
+    """Carga pendente com lote recente = alguém (outra aba, script) está conduzindo; não atrapalhar."""
+    if not estado or not estado.get("cursor_pendente"):
+        return False
+    try:
+        ultima = datetime.fromisoformat(str(estado.get("ultima_execucao") or ""))
+    except ValueError:
+        return False
+    agora = agora or datetime.now()
+    return abs((agora - ultima).total_seconds()) < PNCP_OUTRA_SESSAO_SEGUNDOS
+
+
+def auto_pncp(db: Any, lote: Callable[..., Dict[str, Any]] = executar_lote, max_lotes: int = PNCP_AUTO_MAX_LOTES) -> Dict[str, Any]:
+    estado = db.get_pncp_sync_state() or {}
+    if pncp_carga_ativa_em_outra_sessao(estado):
+        return {"pulado": True, "motivo": "Carga do PNCP em andamento em outra sessão."}
+    tot = {"inseridos": 0, "atualizados": 0, "ignorados": 0, "lotes": 0}
+    ultimo: Dict[str, Any] = {}
+    for _ in range(max_lotes):
+        try:
+            ultimo = lote(db, PncpClient.normalize_contrato, modo="auto")
+        except SyncEmAndamento:
+            return dict(tot, pulado=True, motivo="Outra sincronização do PNCP está em andamento.")
+        tot["lotes"] += 1
+        for k in ("inseridos", "atualizados", "ignorados"):
+            tot[k] += int(ultimo.get(k) or 0)
+        if ultimo.get("erros"):
+            res = dict(tot, parcial=bool(ultimo.get("parcial")), progresso_pct=ultimo.get("progresso_pct"))
+            if not (tot["inseridos"] or tot["atualizados"] or ultimo.get("janelas_concluidas")):
+                res["erro"] = "O PNCP não respondeu corretamente. Nada foi perdido; tenta de novo na próxima abertura."
+            return res
+        if not ultimo.get("parcial"):
+            break
+    return dict(
+        tot,
+        parcial=bool(ultimo.get("parcial")),
+        progresso_pct=ultimo.get("progresso_pct"),
+        ultima_data_sincronizada=ultimo.get("ultima_data_sincronizada"),
+    )
+
+
+def _executores_padrao() -> Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]]:
+    def varredura(ctx: Dict[str, Any]) -> Dict[str, Any]:
+        return run_radar_cycle(modo="web", consultas_adicionais=ctx.get("consultas_adicionais"))
+
+    def pncp(ctx: Dict[str, Any]) -> Dict[str, Any]:
+        return auto_pncp(RadarAPIHandler.get_db())
+
+    def fiorilli(ctx: Dict[str, Any]) -> Dict[str, Any]:
+        return sincronizar_fiorilli(RadarAPIHandler.get_db(), list(FIORILLI_DEFAULT_YEARS))
+
+    return {"varredura": varredura, "pncp": pncp, "fiorilli": fiorilli}
+
+
+_AUTO: Optional[AutoAtualizador] = None
+
+
+def get_auto_atualizador() -> AutoAtualizador:
+    global _AUTO
+    if _AUTO is None:
+        _AUTO = AutoAtualizador(_executores_padrao())
+    return _AUTO
 
 
 def run_web_server(host: str = "0.0.0.0", port: int = 8000) -> None:
