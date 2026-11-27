@@ -75,6 +75,72 @@ PWA_ARQUIVOS = {
     "/favicon.ico": ("icons/icon-192.png", "image/png"),
 }
 
+# ---------------------------------------------------------------------------
+# Cache curto do /api/transparencia/resumo
+# ---------------------------------------------------------------------------
+# Montar o resumo lê todas as tabelas Fiorilli e os contratos PNCP (15–20 s no Render com
+# Supabase). O resultado só muda quando uma sincronização ou retificação grava dados, então
+# guardamos a resposta por alguns minutos e a descartamos em qualquer gravação desse tipo.
+# RADAR_RESUMO_CACHE_SEGUNDOS=0 desliga.
+ROTAS_QUE_MUDAM_TRANSPARENCIA = (
+    "/api/pncp/sync",
+    "/api/transparencia/sync",
+    "/api/pncp/retificar",
+    "/api/pncp/retificacoes/sync",
+    "/api/pncp/ignorar",
+)
+TAREFAS_QUE_MUDAM_TRANSPARENCIA = ("pncp", "fiorilli")
+
+
+def _resumo_cache_ttl() -> float:
+    try:
+        return max(0.0, float(os.getenv("RADAR_RESUMO_CACHE_SEGUNDOS", "300")))
+    except ValueError:
+        return 300.0
+
+
+class CacheResumoTransparencia:
+    """Guarda respostas por chave com prazo; uma geração nova invalida tudo, inclusive o que está em cálculo."""
+
+    def __init__(self, relogio: Callable[[], float] = time.monotonic) -> None:
+        self.relogio = relogio
+        self._lock = threading.Lock()
+        self._geracao = 0
+        self._itens: Dict[Any, Tuple[float, int, Any]] = {}
+        self._travas: Dict[Any, threading.Lock] = {}
+
+    def invalidar(self) -> None:
+        with self._lock:
+            self._geracao += 1
+            self._itens.clear()
+
+    def obter(self, chave: Any, calcular: Callable[[], Any], ttl: float) -> Tuple[Any, bool]:
+        """Devolve (valor, veio_do_cache). Pedidos simultâneos da mesma chave calculam uma vez só."""
+        if ttl <= 0:
+            return calcular(), False
+        with self._lock:
+            trava = self._travas.setdefault(chave, threading.Lock())
+        with trava:
+            with self._lock:
+                item = self._itens.get(chave)
+                if item and item[1] == self._geracao and item[0] > self.relogio():
+                    return item[2], True
+                geracao = self._geracao
+            valor = calcular()
+            with self._lock:
+                # Se algo gravou dados durante o cálculo, não guarda um resultado possivelmente velho.
+                if geracao == self._geracao:
+                    self._itens[chave] = (self.relogio() + ttl, geracao, valor)
+            return valor, False
+
+
+CACHE_RESUMO = CacheResumoTransparencia()
+
+
+def invalidar_cache_transparencia(*_args: Any) -> None:
+    CACHE_RESUMO.invalidar()
+
+
 # Autorização das rotas que gravam dados.
 # Com RADAR_ADMIN_TOKEN definido, exige o header X-Radar-Token (ou Authorization: Bearer).
 # Sem o token, só aceita acesso local direto (127.0.0.1 / ::1, sem proxy na frente).
@@ -905,7 +971,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             "/api/transparencia/dispensas",
             "/api/transparencia/export/csv",
         ):
-            self._apply_request_pncp_retificacoes(db)
+            if self._apply_request_pncp_retificacoes(db):
+                invalidar_cache_transparencia()
 
         # 1. Página principal / Dashboard HTML
         if path in ("/", "/index.html", "/dashboard"):
@@ -1176,34 +1243,11 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
         if path == "/api/transparencia/resumo":
             ano_str = query.get("ano", [""])[0].strip()
             ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
-            # Carrega 2025+2026 (e anos anteriores, para contratos ainda vigentes) lado a lado
-            pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=PNCP_ANOS_CRUZAMENTO)
-            receitas_rows = [
-                r for r in db.get_fiorilli_receitas(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
-            ]
-            orgaos_rows = [
-                r for r in db.get_fiorilli_despesas_orgaos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
-            ]
-            forn_rows = [
-                r
-                for r in db.get_fiorilli_despesas_fornecedores(ano=None)
-                if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
-            ]
-            con_rows = [
-                r for r in db.get_fiorilli_contratos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
-            ]
-            meta = db.get_fiorilli_meta()
-            resumo = build_transparencia_resumo(
-                pncp_rows=pncp_rows,
-                receitas_rows=receitas_rows,
-                desp_orgaos_rows=orgaos_rows,
-                desp_forn_rows=forn_rows,
-                fiorilli_contratos_rows=con_rows,
-                ano=ano_val,
-                meta=meta,
-                pncp_cobertura=pncp_cobertura_registrada(db),
+            chave = (ano_val, getattr(db, "backend_name", "sqlite"))
+            resumo, do_cache = CACHE_RESUMO.obter(
+                chave, lambda: self._montar_transparencia_resumo(db, ano_val), _resumo_cache_ttl()
             )
-            self.send_json_response(resumo)
+            self.send_json_response(resumo, extra_headers={"X-Radar-Cache": "HIT" if do_cache else "MISS"})
             return
 
         if path == "/api/transparencia/cruzamento":
@@ -1548,6 +1592,17 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path, _ = self._resolve_route()
+        if path not in ROTAS_QUE_MUDAM_TRANSPARENCIA:
+            self._do_post(path)
+            return
+        # Gravações que mudam o cruzamento descartam o resumo guardado antes e depois.
+        invalidar_cache_transparencia()
+        try:
+            self._do_post(path)
+        finally:
+            invalidar_cache_transparencia()
+
+    def _do_post(self, path: str) -> None:
         content_type = str(self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
         if content_type != "application/json":
             # Exigir JSON força o preflight CORS, que este servidor não autoriza para outras origens.
@@ -1961,6 +2016,36 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 msg = "Falha interna nas notificações."
             self.send_json_response({"ok": False, "erro": msg}, status=500)
 
+    def _montar_transparencia_resumo(self, db: Any, ano_val: Optional[int]) -> Dict[str, Any]:
+        # Carrega 2025+2026 (e anos anteriores, para contratos ainda vigentes) lado a lado
+        pncp_rows = db.get_effective_pncp_contratos(ano=None, anos=PNCP_ANOS_CRUZAMENTO)
+        receitas_rows = [
+            r for r in db.get_fiorilli_receitas(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+        ]
+        orgaos_rows = [
+            r for r in db.get_fiorilli_despesas_orgaos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+        ]
+        forn_rows = [
+            r
+            for r in db.get_fiorilli_despesas_fornecedores(ano=None)
+            if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+        ]
+        con_rows = [
+            r for r in db.get_fiorilli_contratos(ano=None) if int(r.get("ano") or 0) in FIORILLI_DEFAULT_YEARS
+        ]
+        meta = db.get_fiorilli_meta()
+        resumo = build_transparencia_resumo(
+            pncp_rows=pncp_rows,
+            receitas_rows=receitas_rows,
+            desp_orgaos_rows=orgaos_rows,
+            desp_forn_rows=forn_rows,
+            fiorilli_contratos_rows=con_rows,
+            ano=ano_val,
+            meta=meta,
+            pncp_cobertura=pncp_cobertura_registrada(db),
+        )
+        return resumo
+
     def send_json_response(self, data: Any, status: int = 200,
                            extra_headers: Optional[Dict[str, str]] = None) -> None:
         json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
@@ -2059,12 +2144,18 @@ def _executores_padrao() -> Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]
 _AUTO: Optional[AutoAtualizador] = None
 
 
+def _ao_concluir_tarefa(nome: str, resultado: Dict[str, Any]) -> None:
+    if nome in TAREFAS_QUE_MUDAM_TRANSPARENCIA:
+        invalidar_cache_transparencia()
+    web_push.notificar_em_segundo_plano(RadarAPIHandler.get_db, nome, resultado)
+
+
 def get_auto_atualizador() -> AutoAtualizador:
     global _AUTO
     if _AUTO is None:
         _AUTO = AutoAtualizador(
             _executores_padrao(),
-            ao_concluir=lambda nome, res: web_push.notificar_em_segundo_plano(RadarAPIHandler.get_db, nome, res),
+            ao_concluir=_ao_concluir_tarefa,
         )
     return _AUTO
 
