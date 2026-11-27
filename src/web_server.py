@@ -153,6 +153,50 @@ class LimiteTentativas:
 
 LIMITE_TENTATIVAS_TOKEN = LimiteTentativas()
 
+# Atualização ao abrir sem token (POST /api/auto-atualizar/abrir): limite de chamadas por IP.
+MAX_ABRIR_POR_IP = 6
+JANELA_ABRIR_S = 60.0
+
+
+class LimiteChamadas:
+    """Janela deslizante de chamadas por IP (memória do processo)."""
+
+    def __init__(self, maximo: int = MAX_ABRIR_POR_IP, janela_s: float = JANELA_ABRIR_S,
+                 relogio: Callable[[], float] = time.monotonic, max_ips: int = 10_000) -> None:
+        self.maximo = maximo
+        self.janela_s = janela_s
+        self.relogio = relogio
+        self.max_ips = max_ips
+        self._chamadas: Dict[str, deque] = {}
+        self._lock = threading.Lock()
+
+    def tentar(self, ip: str) -> int:
+        """Registra a chamada e devolve 0; se o IP passou do limite, devolve os segundos de espera."""
+        with self._lock:
+            agora = self.relogio()
+            fila = self._chamadas.get(ip)
+            if fila is None:
+                if len(self._chamadas) >= self.max_ips:
+                    for antigo in list(self._chamadas):
+                        f = self._chamadas[antigo]
+                        while f and agora - f[0] >= self.janela_s:
+                            f.popleft()
+                        if not f:
+                            self._chamadas.pop(antigo, None)
+                    if len(self._chamadas) >= self.max_ips:
+                        self._chamadas.pop(next(iter(self._chamadas)))
+                fila = deque()
+                self._chamadas[ip] = fila
+            while fila and agora - fila[0] >= self.janela_s:
+                fila.popleft()
+            if len(fila) >= self.maximo:
+                return max(1, int(fila[0] + self.janela_s - agora + 0.999))
+            fila.append(agora)
+            return 0
+
+
+LIMITE_ABRIR = LimiteChamadas()
+
 
 def resolve_static_file(rel_name: str) -> Optional[Path]:
     """Resolve um arquivo dentro de STATIC_DIR, recusando qualquer caminho que saia da pasta."""
@@ -748,6 +792,21 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 logger.warning("Token de administração inválido vindo de %s", ip)
             return False
         return self._is_direct_local_request()
+
+    def _handle_auto_abrir(self) -> None:
+        self._read_json_body()  # só esvazia a conexão: nenhum campo do corpo é usado
+        espera = LIMITE_ABRIR.tentar(self._client_ip())
+        if espera:
+            self.send_json_response(
+                {"erro": f"Muitas chamadas seguidas. Tente de novo em {espera} segundos."},
+                status=429,
+                extra_headers={"Retry-After": str(espera)},
+            )
+            return
+        if not auto_atualizacao_habilitada():
+            self.send_json_response({"desabilitada": True, "em_andamento": False, "iniciadas": [], "tarefas": {}})
+            return
+        self.send_json_response(self.auto_atualizador().disparar({}))
 
     def _reject_unauthorized_write(self) -> None:
         bloqueio = int(getattr(self, "_token_bloqueado_s", 0) or 0)
@@ -1503,6 +1562,11 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             tamanho = -1
         if tamanho < 0 or tamanho > MAX_CORPO_POST:
             self.send_json_response({"erro": "Corpo da requisição inválido ou maior que 256 KB."}, status=413)
+            return
+        if path == "/api/auto-atualizar/abrir":
+            # Público de propósito: só dispara as mesmas tarefas vencidas do agendador do servidor
+            # (mesmos intervalos e travas). Ignora corpo e token: nenhum parâmetro do cliente vale aqui.
+            self._handle_auto_abrir()
             return
         if not self._is_write_authorized():
             self._reject_unauthorized_write()
