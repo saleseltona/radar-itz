@@ -23,6 +23,13 @@ from src.database import RadarDatabase
 from src.error_monitor import ErrorMonitor
 from src.live_news import LiveNewsFetcher
 from src.page_collector import PageCollector
+from src.query_runner import (
+    STATUS_ERRO,
+    STATUS_LIMITE,
+    STATUS_SEM_TEMPO,
+    QueryRunner,
+    resumo_cobertura,
+)
 from src.source_manager import SourceManager
 
 logger = logging.getLogger("radar_imperatriz.search")
@@ -90,16 +97,74 @@ class SearchEngine:
 
         return resultados
 
+    def run_search_queries(
+        self,
+        id_execucao: str,
+        consultas: List[str],
+        live_fetcher: LiveNewsFetcher,
+        runner: Optional[QueryRunner] = None,
+    ) -> Dict[str, Any]:
+        """Roda cada consulta no Google News RSS e registra falhas em erros_coleta."""
+        if runner is None:
+            runner = QueryRunner(
+                http_get=lambda url: live_fetcher._http_get_text(url, max_bytes=2_500_000),
+                parse_rss=lambda xml, consulta: LiveNewsFetcher.parse_rss_xml(
+                    xml,
+                    default_source_name="Imprensa Regional",
+                    consulta_origem=f"Consulta: {consulta}",
+                    require_imperatriz_filter=True,
+                ),
+            )
+        resultado = runner.run(consultas)
+
+        for r in resultado["relatorio"]:
+            if r["status"] == STATUS_ERRO or (r["status"] == STATUS_LIMITE and r.get("erro")):
+                self.error_monitor.record_error(
+                    id_execucao=id_execucao,
+                    componente="BuscaGoogleNewsRSS",
+                    alvo_url=r["url"],
+                    mensagem=f"Consulta '{r['consulta']}' não concluída: {r['erro']}",
+                )
+
+        pendentes = [
+            r["consulta"]
+            for r in resultado["relatorio"]
+            if r["status"] in (STATUS_LIMITE, STATUS_SEM_TEMPO) and not r.get("erro")
+        ]
+        if pendentes:
+            motivo = (
+                "limite de requisições do Google News"
+                if any(r["status"] == STATUS_LIMITE for r in resultado["relatorio"])
+                else f"orçamento de tempo de {runner.budget_seconds:.0f}s esgotado"
+            )
+            self.error_monitor.record_error(
+                id_execucao=id_execucao,
+                componente="BuscaGoogleNewsRSS",
+                alvo_url="https://news.google.com/rss/search",
+                mensagem=f"{len(pendentes)} consultas não executadas ({motivo}): " + "; ".join(pendentes),
+            )
+
+        logger.info(resumo_cobertura(resultado))
+        return resultado
+
     def execute_queries(
         self, id_execucao: str, consultas_adicionais: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Executa as 32 consultas obrigatórias da Seção 4 mais consultas derivadas.
-        Consulta fontes cadastradas e integrações configuradas.
+        Executa as 32 consultas obrigatórias da Seção 4 mais consultas derivadas e adicionais,
+        cada uma como busca real no Google News RSS (ver `src/query_runner.py`), além do
+        G1 MA RSS, do portal da Prefeitura e das fontes cadastradas.
         """
         todas_consultas = list(CONSULTAS_OBRIGATORIAS) + list(CONSULTAS_DERIVADAS)
         if consultas_adicionais:
-            todas_consultas.extend(consultas_adicionais)
+            for extra in consultas_adicionais:
+                termo = str(extra or "").strip()
+                if not termo:
+                    continue
+                # Termo livre do painel ganha o município para não buscar fora de Imperatriz
+                if "imperatriz" not in termo.lower():
+                    termo = f"{termo} Imperatriz"
+                todas_consultas.append(termo)
 
         logger.info(
             "Iniciando varredura de %d consultas de pesquisa em Imperatriz (MA)...",
@@ -118,10 +183,10 @@ class SearchEngine:
 
         # 2. Varredura de notícias recentes ao vivo (Google News RSS + G1 Maranhão RSS)
         candidatos_por_url: Dict[str, Dict[str, Any]] = {}
+        live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
         try:
-            live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
             live_res = live_fetcher.fetch_recent_news(
-                consultas_adicionais=consultas_adicionais, max_items=30
+                max_items=30, incluir_google_news=False
             )
             for item in live_res.get("itens", []):
                 u = item.get("url")
@@ -131,6 +196,13 @@ class SearchEngine:
                 logger.info("Aviso na coleta RSS ao vivo (%s)", mask_secrets(err_msg))
         except Exception as e:
             logger.warning("Coleta RSS ao vivo indisponível neste ciclo: %s", mask_secrets(str(e)))
+
+        # 2b. Execução real de cada consulta (obrigatórias, derivadas e adicionais) no Google News RSS
+        busca = self.run_search_queries(id_execucao, todas_consultas, live_fetcher)
+        for item in busca["itens"]:
+            u = item.get("url")
+            if u and u.lower() not in candidatos_por_url:
+                candidatos_por_url[u.lower()] = item
 
         # 3. Carrega repositório de páginas públicas reais verificadas (base histórica complementar)
         if VERIFIED_CORPUS_PATH.exists():
@@ -178,8 +250,11 @@ class SearchEngine:
                 )
 
         return {
-            "total_consultas_executadas": len(todas_consultas),
+            "total_consultas_previstas": busca["total_previstas"],
+            "total_consultas_executadas": busca["total_executadas"],
             "consultas": todas_consultas,
+            "relatorio_consultas": busca["relatorio"],
+            "cobertura_consultas": resumo_cobertura(busca),
             "integracoes_ativas": integrations,
             "itens_coletados": list(candidatos_por_url.values()),
         }

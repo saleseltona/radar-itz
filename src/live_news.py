@@ -651,8 +651,13 @@ class LiveNewsFetcher:
         self,
         consultas_adicionais: Optional[List[str]] = None,
         max_items: int = 35,
+        incluir_google_news: bool = True,
     ) -> Dict[str, Any]:
-        """Executa busca ao vivo no G1 MA RSS, Portal Oficial da Prefeitura e Google News RSS."""
+        """Executa busca ao vivo no G1 MA RSS, Portal Oficial da Prefeitura e Google News RSS.
+
+        Com `incluir_google_news=False`, pula as consultas fixas do Google News: o
+        `SearchEngine` executa a lista completa de consultas via `QueryRunner`.
+        """
         coletados_por_url: Dict[str, Dict[str, Any]] = {}
         erros: List[str] = []
 
@@ -681,8 +686,8 @@ class LiveNewsFetcher:
             erros.append(f"Prefeitura ITZ Notícias: {e}")
 
         # 3. Google News RSS (consultas recentes de Imperatriz)
-        queries = list(DEFAULT_RSS_QUERIES)
-        if consultas_adicionais:
+        queries = list(DEFAULT_RSS_QUERIES) if incluir_google_news else []
+        if consultas_adicionais and incluir_google_news:
             for extra in consultas_adicionais[:3]:
                 termo = str(extra).strip()
                 if termo:

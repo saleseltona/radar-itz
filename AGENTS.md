@@ -51,6 +51,8 @@ POST: `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/r
 
 Variáveis de coleta: `RADAR_TIMEOUT_SECONDS=15`, `RADAR_USER_AGENT`, `RADAR_CSV_DELIMITER=","`, `RADAR_SCHEDULE_TIMES="07:00,12:00,18:00"`.
 
+Busca: `src/query_runner.py` executa cada consulta de `CONSULTAS_OBRIGATORIAS` (32), `CONSULTAS_DERIVADAS` e as adicionais do painel no Google News RSS (`when:14d`), com pausa `RADAR_QUERY_DELAY_SECONDS` (padrão 0.5) e orçamento `RADAR_QUERY_BUDGET_SECONDS` (padrão 45, ou 20 na Vercel). HTTP 429/503 interrompe as restantes. O resultado de cada consulta vai para `output/consultas_status.csv`; falhas e consultas não executadas vão para `erros_coleta` (componente `BuscaGoogleNewsRSS`). As 5 consultas fixas de `DEFAULT_RSS_QUERIES` em `live_news.py` só rodam quando `fetch_recent_news` é chamado direto.
+
 Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `ANA_TELEMETRIA_TOKEN`.
 
 Supabase: defina `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`; `RADAR_STORAGE_BACKEND=auto|supabase|sqlite` (`sqlite` força SQLite; `auto` exige URL+chave). O código também reconhece aliases `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` e `SUPABASE_KEY`. `SUPABASE_ANON_KEY` é tratado como segredo.
