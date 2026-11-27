@@ -174,6 +174,11 @@ def run_radar_cycle(
         nivel_verificacao = verif_data["nivel_verificacao"]
         evidencias_texto = verif_data["evidencias_verificadas"]
         detalhes_denuncia = verif_data["detalhes_denuncia"]
+        pendencias_confirmacao = verif_data.get("pendencias_confirmacao", "")
+        if pendencias_confirmacao:
+            pend_atual = (raw_item.get("informacoes_pendentes") or "").strip()
+            if pendencias_confirmacao not in pend_atual:
+                raw_item["informacoes_pendentes"] = f"{pend_atual} {pendencias_confirmacao}".strip()
 
         # D. Cálculo da Pontuação Editorial (Seção 8)
         pontuacao, prioridade, justificativa, emergencia = EditorialClassifier.calculate_score(raw_item)
@@ -263,7 +268,10 @@ def run_radar_cycle(
                 "id_pauta_relacionada": raw_item.get("id_pauta_relacionada", ""),
                 "identificadores_documentos": "; ".join(raw_item.get("documentos_citados", [])),
                 "detalhes_denuncia": detalhes_denuncia,
-                "motivo_selecao": f"Relevância comunitária, pontuação editorial {pontuacao}/100 e evidências primárias confirmadas.",
+                "motivo_selecao": (
+                    f"Relevância editorial: pontuação {pontuacao}/100 (impacto, atualidade e interesse público). "
+                    f"Nível de verificação: {nivel_verificacao}."
+                ),
                 "imagem_capa": raw_item.get("imagem_capa", ""),
             }
 
@@ -322,7 +330,8 @@ def run_radar_cycle(
     limitacoes_str = (
         "Monitoramento de perfis do Instagram exige credencial institucional na Meta Graph API "
         "(plataforma impõe login wall contra requisições web abertas sem autenticação). "
-        "Ambiente de sandbox executou com sucesso checagem determinística e cruzamento com repositório real verificado."
+        "A checagem automática classifica relevância e registra publicações; não substitui a consulta ao "
+        "documento primário nem o contraditório, exigidos para marcar uma pauta como \"Confirmado\"."
     )
     metricas_relatorio = {
         "janela_pesquisa": "Últimas 24h a 48h (Prioridade) / 7 a 30 dias (Acompanhamento e Histórico)",
