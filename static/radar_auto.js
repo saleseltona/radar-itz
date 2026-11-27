@@ -14,6 +14,31 @@
   var BOTOES = { varredura: 'btn-sync-manual', pncp: 'btn-sync-pncp', fiorilli: 'btn-tr-sync' };
   var concluidasVistas = {};
   var timer = null;
+  // Respostas passageiras (trava ocupada, 502/503/504, timeout, sem conexão): espera e tenta de novo.
+  var MAX_TENTATIVAS = 6;
+  var tentativas = 0;
+
+  // ms até a próxima tentativa, ou 0 se a falha não é passageira (status 0 = sem resposta).
+  function atrasoNovaTentativa(status, tentativa) {
+    if (tentativa >= MAX_TENTATIVAS) { return 0; }
+    if (status === 409) { return 20000; }
+    if (status === 502 || status === 503 || status === 504 || status === 408 || status === 0) {
+      return Math.min(15000 + tentativa * 5000, 30000);
+    }
+    return 0;
+  }
+
+  // Agenda fn depois da espera; devolve false quando já não vale tentar de novo.
+  function tentarDeNovo(status, fn) {
+    var ms = atrasoNovaTentativa(status, tentativas);
+    if (!ms) { return false; }
+    tentativas += 1;
+    var texto = status === 409 ? 'Atualização em andamento' : (status ? 'Servidor ocupado (HTTP ' + status + ')' : 'Sem conexão');
+    mostrar(texto + ': tentando de novo em ' + Math.round(ms / 1000) + 's', 'hourglass_top', false, '');
+    if (timer) { clearTimeout(timer); }
+    timer = setTimeout(fn, ms);
+    return true;
+  }
 
   function chip() {
     var el = document.getElementById(CHIP_ID);
@@ -140,9 +165,13 @@
   async function acompanhar() {
     try {
       var res = await fetch('/api/auto-atualizar', { cache: 'no-store' });
-      if (!res.ok) { return; }
-      if (aplicar(await res.json())) { agendar(); }
-    } catch (e) { agendar(); }
+      if (!res.ok) { tentarDeNovo(res.status, acompanhar); return; }
+      var st = await res.json();
+      tentativas = 0;
+      if (aplicar(st)) { agendar(); }
+    } catch (e) {
+      if (!tentarDeNovo(0, acompanhar)) { mostrar('Sem conexão para acompanhar a atualização', 'cloud_off', false, ''); }
+    }
   }
 
   function pedirToken() {
@@ -169,11 +198,14 @@
         mostrar('Token recusado: atualização automática parada', 'key_off', false, 'Clique para informar o token de novo', pedirToken);
         return;
       }
+      if (!res.ok && tentarDeNovo(res.status, disparar)) { return; }
       var st = await res.json();
+      tentativas = 0;
       if (st.desabilitada) { mostrar('Atualização automática desligada no servidor', 'pause_circle', false, ''); return; }
       if (aplicar(st)) { agendar(); }
     } catch (e) {
-      mostrar('Sem conexão para atualizar', 'cloud_off', false, '');
+      // Queda de conexão ou página de erro em HTML (ex.: 504 enquanto o Render acorda).
+      if (!tentarDeNovo(0, disparar)) { mostrar('Sem conexão para atualizar', 'cloud_off', false, ''); }
     }
   }
 

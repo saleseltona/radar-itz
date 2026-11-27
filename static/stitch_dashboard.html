@@ -2900,6 +2900,22 @@
 
     const PNCP_SYNC_STORAGE_KEY = 'radar_pncp_sync_estado';
     const PNCP_SYNC_MAX_REQUESTS = 60;
+    // Pausas passageiras (trava ocupada, 502/503/504, timeout, falha do PNCP ou queda de conexão):
+    // o painel espera e continua sozinho, até este número de esperas seguidas sem progresso.
+    const PNCP_SYNC_MAX_RETRIES = 6;
+
+    // Devolve quantos ms esperar antes de tentar de novo, ou 0 se a falha não é passageira.
+    // status 0 = sem resposta (queda de conexão); 'pncp' = o PNCP falhou numa consulta do lote.
+    function pncpSyncRetryDelayMs(status, tentativa) {
+      if (tentativa >= PNCP_SYNC_MAX_RETRIES) return 0;
+      if (status === 409) return 20000; // trava do servidor ocupada: o TTL é de ~90 s
+      if (status === 502 || status === 503 || status === 504 || status === 408 || status === 0 || status === 'pncp') {
+        return Math.min(15000 + tentativa * 5000, 30000);
+      }
+      return 0;
+    }
+
+    function pncpSleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
     function loadPncpSyncLocalState() {
       try { return JSON.parse(localStorage.getItem(PNCP_SYNC_STORAGE_KEY) || '{}') || {}; } catch (_) { return {}; }
@@ -2931,28 +2947,53 @@
       let last = null;
       let failure = '';
       let errosPncp = [];
+      let tentativas = 0;
+
+      // Espera com contagem regressiva no botão; devolve false se a falha não for passageira.
+      async function esperarParaContinuar(status, motivo) {
+        const ms = pncpSyncRetryDelayMs(status, tentativas);
+        if (!ms) return false;
+        tentativas += 1;
+        for (let s = Math.round(ms / 1000); s > 0; s--) {
+          setPncpSyncLabel(`${motivo}: nova tentativa em ${s}s`);
+          await pncpSleep(1000);
+        }
+        return true;
+      }
 
       try {
         for (let i = 0; i < PNCP_SYNC_MAX_REQUESTS; i++) {
-          const res = await pncpFetch('/api/pncp/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              modo: 'auto',
-              proxima_janela: cursor,
-              estado_cliente: {
-                carga_completa_concluida: !!local.carga_completa_concluida,
-                ultima_data_sincronizada: local.ultima_data_sincronizada || null,
-              },
-            }),
-          });
+          let res;
+          try {
+            res = await pncpFetch('/api/pncp/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                modo: 'auto',
+                proxima_janela: cursor,
+                estado_cliente: {
+                  carga_completa_concluida: !!local.carga_completa_concluida,
+                  ultima_data_sincronizada: local.ultima_data_sincronizada || null,
+                },
+              }),
+            });
+          } catch (_) {
+            // Queda de conexão (ex.: Render acordando): espera e tenta de novo.
+            if (await esperarParaContinuar(0, 'Sem conexão')) continue;
+            throw _;
+          }
           const text = await res.text();
           const parsed = parsePncpSyncResponse(res.status, res.ok, text);
           if (parsed.data && parsed.data.erro && /cursor/i.test(parsed.data.erro)) {
             cursor = null; // cursor salvo ficou inválido: recomeça pelo estado do servidor
             local.proxima_janela = null;
           }
-          if (!parsed.ok) { failure = parsed.message; break; }
+          if (!parsed.ok) {
+            const motivo = res.status === 409 ? 'Sincronização em andamento' : `Servidor ocupado (HTTP ${res.status})`;
+            if (await esperarParaContinuar(res.status, motivo)) continue;
+            failure = parsed.message;
+            break;
+          }
 
           const data = parsed.data;
           last = data;
@@ -2967,7 +3008,13 @@
           savePncpSyncLocalState(local);
 
           if (!data.parcial || !cursor) break;
-          if (errosPncp.length) { failure = 'O PNCP falhou numa das consultas; o progresso foi salvo.'; break; }
+          if (errosPncp.length) {
+            // O progresso já foi salvo e o cursor aponta para a consulta que falhou: espera e retoma dali.
+            if (await esperarParaContinuar('pncp', 'PNCP instável')) continue;
+            failure = 'O PNCP falhou numa das consultas; o progresso foi salvo.';
+            break;
+          }
+          tentativas = 0; // lote completo sem falha: zera as esperas seguidas
           setPncpSyncLabel(`PNCP ${Math.round(data.progresso_pct || 0)}%`);
         }
       } catch (err) {
