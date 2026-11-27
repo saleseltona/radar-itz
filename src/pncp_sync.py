@@ -316,6 +316,17 @@ def buscar_com_retentativa(
 # Execução de um lote
 # ---------------------------------------------------------------------------
 
+def _data_mais_recente(*valores: Any) -> Optional[str]:
+    """Maior data ISO (AAAA-MM-DD) entre os valores válidos; None se nenhum for data."""
+    datas = []
+    for v in valores:
+        try:
+            datas.append(_parse_date(v))
+        except (TypeError, ValueError):
+            continue
+    return max(datas).isoformat() if datas else None
+
+
 def _resolver_cursor(
     estado: Dict[str, Any],
     cursor_cliente: Optional[Dict[str, Any]],
@@ -324,7 +335,20 @@ def _resolver_cursor(
     estado_cliente: Optional[Dict[str, Any]],
 ) -> Dict[str, Any]:
     if cursor_cliente is not None:
-        return validar_cursor(cursor_cliente)
+        do_cliente = validar_cursor(cursor_cliente)
+        if not estado:
+            # Sem estado persistente no servidor (ex.: SQLite efêmero): o navegador é a única memória
+            return do_cliente
+        # O servidor é a fonte da verdade: a carga pendente dele vence o cursor guardado no navegador
+        # (que pode ser de outra aba, de antes de um F5 ou de uma rodada automática já concluída).
+        pendente = estado.get("cursor_pendente")
+        if pendente:
+            try:
+                return validar_cursor(pendente)
+            except CursorInvalido:
+                pass
+        # Nada pendente no servidor: o cursor do navegador é velho; segue pelo estado do servidor
+        modo = "auto"
     if modo == MODO_CARGA:
         return novo_cursor(MODO_CARGA, date(min(ANOS_CARGA_COMPLETA), 1, 1), hoje)
     pendente = estado.get("cursor_pendente")
@@ -482,7 +506,8 @@ def executar_lote(
         novo_estado["ultima_execucao"] = datetime.now().isoformat(timespec="seconds")
         if concluido:
             novo_estado["cursor_pendente"] = None
-            novo_estado["ultima_data_sincronizada"] = cur["ate"]
+            # Nunca volta para trás (ex.: um cursor antigo de carga completa concluído depois)
+            novo_estado["ultima_data_sincronizada"] = _data_mais_recente(cur["ate"], estado.get("ultima_data_sincronizada"))
             if cur["modo"] == MODO_CARGA:
                 novo_estado["carga_completa_concluida"] = True
                 novo_estado["carga_completa_anos"] = list(ANOS_CARGA_COMPLETA)

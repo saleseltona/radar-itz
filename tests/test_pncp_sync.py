@@ -336,6 +336,41 @@ class TestPncpSyncLotes(unittest.TestCase):
         with self.db.connect() as conn:  # a trava da outra execução continua intacta
             self.assertEqual(conn.execute("SELECT lock_owner FROM pncp_sync_estado").fetchone()[0], "outra")
 
+    # --- Parte 4: cursor do servidor prevalece; data sincronizada nunca volta ---
+
+    def test_cursor_velho_do_navegador_perde_para_o_do_servidor(self) -> None:
+        r1 = self._lote(max_janelas=1)
+        velho = r1["proxima_janela"]                      # janela 1 (outra aba guardou este)
+        r2 = self._lote(max_janelas=1)                    # servidor avançou para a janela 2
+        self.assertEqual(r2["proxima_janela"]["janela"], 2)
+        antes = len(self.fake.calls)
+        r3 = self._lote(cursor=velho, max_janelas=1)
+        self.assertEqual(self.fake.calls[antes][1:3], (ORGAOS[0]["cnpj"], "20250201"))  # janela 2, não a 1
+        self.assertEqual(r3["janelas_concluidas"], 3)
+
+    def test_cursor_de_carga_ja_concluida_e_ignorado(self) -> None:
+        velho = self._lote(max_janelas=1)["proxima_janela"]
+        self._ate_concluir()
+        res = self._lote(cursor=velho, hoje=date(2025, 3, 20))
+        self.assertEqual(res["modo"], "incremental")      # não refaz a carga completa
+        self.assertEqual(res["periodo"]["inicio"], "2025-03-10")
+        self.assertEqual(res["ultima_data_sincronizada"], "2025-03-20")
+
+    def test_data_sincronizada_nunca_volta_para_tras(self) -> None:
+        self._ate_concluir()
+        self.db.save_pncp_sync_state(dict(self.db.get_pncp_sync_state(), ultima_data_sincronizada="2025-12-31"))
+        res = self._lote(modo="carga_completa")           # recarga até 15/03 não pode rebaixar a data
+        self.assertFalse(res["parcial"])
+        self.assertEqual(res["ultima_data_sincronizada"], "2025-12-31")
+        self.assertEqual(self.db.get_pncp_sync_state()["ultima_data_sincronizada"], "2025-12-31")
+
+    def test_sem_estado_no_servidor_usa_cursor_do_navegador(self) -> None:
+        cursor = {"modo": "carga_completa", "inicio": "2025-01-01", "ate": "2025-03-15", "janela": 4, "pagina": 1}
+        with mock.patch.object(self.db, "get_pncp_sync_state", return_value={}):
+            res = self._lote(cursor=cursor, max_janelas=1)
+        self.assertEqual(self.fake.calls[0][1:3], (ORGAOS[0]["cnpj"], "20250301"))
+        self.assertEqual(res["janelas_concluidas"], 5)
+
     def test_lock_bloqueia_execucao_simultanea(self) -> None:
         self.assertTrue(self.db.acquire_pncp_sync_lock("outro", 90.0, 1000.0))
         with self.assertRaises(SyncEmAndamento):
