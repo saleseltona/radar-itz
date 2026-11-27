@@ -25,6 +25,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from src.config import PNCP_ORGAOS_IMPERATRIZ, mask_secrets
+from src.pncp_client import registrar_correcoes_documentais
 
 logger = logging.getLogger("radar_imperatriz.pncp_sync")
 
@@ -358,6 +359,8 @@ def executar_lote(
             normalizados = [normalizar(r, orgao, jan["ini"].year) for r in rows if isinstance(r, dict)]
             if normalizados:
                 res = db.upsert_pncp_contratos_detalhado(normalizados)
+                # Erros de valor documentados viram retificação rastreável (preserva as existentes)
+                registrar_correcoes_documentais(db, normalizados)
                 for k in totais:
                     totais[k] += int(res.get(k, 0) or 0)
                 divergentes.extend(res.get("retificacoes_divergentes") or [])

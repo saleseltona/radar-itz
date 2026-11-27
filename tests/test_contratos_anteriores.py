@@ -176,6 +176,35 @@ class TestCorrecoesDocumentais(unittest.TestCase):
         self.assertEqual(registrar_correcoes_documentais(db, [c]), [])
         self.assertEqual(db.get_all_pncp_retificacoes(), [])
 
+    def test_sincronizacao_em_lotes_registra_correcao(self) -> None:
+        from datetime import date
+
+        from src.pncp_client import PncpClient
+        from src.pncp_sync import executar_lote
+
+        db = self._db()
+        raw = self._raw(1682632750.0)
+
+        def fetch(endpoint, cnpj, data_ini, data_fim, pagina, tamanho, timeout):
+            if data_ini == "20260201":
+                return 200, {"data": [raw], "totalPaginas": 1}
+            return 204, {"data": [], "totalPaginas": 0}
+
+        kw = dict(fetch=fetch, hoje=date(2026, 3, 31), orgaos=[{"sigla": "PMI", "cnpj": "06158455000116"}])
+        res = executar_lote(db, PncpClient.normalize_contrato, max_janelas=100, **kw)
+        while res["parcial"]:
+            res = executar_lote(db, PncpClient.normalize_contrato, cursor=res["proxima_janela"], max_janelas=100, **kw)
+        ret = {r["numero_controle_pncp"]: r for r in db.get_all_pncp_retificacoes()}[self.CTRL]
+        self.assertEqual(ret["valor_original_pncp"], 1682632750.0)
+        efetivos = {r["numero_controle_pncp"]: r for r in db.get_effective_pncp_contratos(ano=2026)}
+        self.assertAlmostEqual(efetivos[self.CTRL]["valor_global"], 1682632.75)
+
+        # Nova carga do mesmo contrato: a retificação continua valendo e não é duplicada
+        executar_lote(db, PncpClient.normalize_contrato, modo="carga_completa", max_janelas=100, **kw)
+        self.assertEqual(len(db.get_all_pncp_retificacoes()), 1)
+        efetivos = {r["numero_controle_pncp"]: r for r in db.get_effective_pncp_contratos(ano=2026)}
+        self.assertAlmostEqual(efetivos[self.CTRL]["valor_global"], 1682632.75)
+
     def test_falha_ao_ler_retificacoes_nao_grava(self) -> None:
         from src.pncp_client import registrar_correcoes_documentais
 
