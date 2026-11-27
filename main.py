@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
+import socket
 import sys
 import time
 from datetime import datetime
@@ -25,6 +27,7 @@ from src.database import RadarDatabase, get_database
 from src.deduplicator import Deduplicator
 from src.editorial_classifier import EditorialClassifier
 from src.error_monitor import ErrorMonitor
+from src.evidence_store import persist_evidencias
 from src.evidence_verifier import EvidenceVerifier
 from src.exporter import CSVExporter
 from src.page_collector import PageCollector
@@ -39,6 +42,22 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("radar_imperatriz.main")
+
+
+CONNECTIVITY_PROBE_HOSTS = ("imperatriz.ma.gov.br", "www.google.com", "g1.globo.com")
+
+
+def has_network(hosts: tuple = CONNECTIVITY_PROBE_HOSTS) -> bool:
+    """Retorna True se ao menos um host conhecido resolve no DNS (há internet nesta máquina)."""
+    if os.environ.get("RADAR_SKIP_NETWORK_CHECK", "").strip() == "1":
+        return True
+    for host in hosts:
+        try:
+            socket.getaddrinfo(host, 443)
+            return True
+        except OSError:
+            continue
+    return False
 
 
 def run_radar_cycle(
@@ -65,6 +84,44 @@ def run_radar_cycle(
 
     # 1. Registra início da execução
     db.start_execution(id_execucao, modo=modo)
+
+    # 1.1 Sem DNS/internet, todas as fontes falhariam com o mesmo erro: encerra a execução
+    # com um único registro em vez de marcar cada fonte como quebrada.
+    if not has_network():
+        msg = (
+            "Sem conexão com a internet (DNS não resolveu nenhum host de teste: "
+            + ", ".join(CONNECTIVITY_PROBE_HOSTS)
+            + "). Coleta não realizada; fontes não foram marcadas como falhas."
+        )
+        logger.error(msg)
+        error_monitor.record_error(id_execucao, "VerificadorConectividade", "dns://", msg)
+        duracao = time.time() - start_time
+        db.finish_execution(
+            id_execucao=id_execucao,
+            fontes_consultadas=0,
+            fontes_com_falha=0,
+            paginas_lidas=0,
+            pautas_novas=0,
+            pautas_atualizadas=0,
+            duplicidades_eliminadas=0,
+            itens_descartados=0,
+            duracao_segundos=duracao,
+            situacao_execucao="SEM_REDE",
+            resumo={"erro": msg},
+        )
+        return {
+            "id_execucao": id_execucao,
+            "situacao_execucao": "SEM_REDE",
+            "erro": msg,
+            "duracao_segundos": duracao,
+            "fontes_consultadas": 0,
+            "paginas_lidas": 0,
+            "pautas_novas": 0,
+            "pautas_atualizadas": 0,
+            "duplicidades_eliminadas": 0,
+            "itens_descartados": 0,
+            "arquivos_gerados": {},
+        }
 
     # 2. Carrega fontes e executa pesquisa
     fontes_carregadas = source_manager.load_sources_from_csv()
@@ -117,6 +174,11 @@ def run_radar_cycle(
         nivel_verificacao = verif_data["nivel_verificacao"]
         evidencias_texto = verif_data["evidencias_verificadas"]
         detalhes_denuncia = verif_data["detalhes_denuncia"]
+        pendencias_confirmacao = verif_data.get("pendencias_confirmacao", "")
+        if pendencias_confirmacao:
+            pend_atual = (raw_item.get("informacoes_pendentes") or "").strip()
+            if pendencias_confirmacao not in pend_atual:
+                raw_item["informacoes_pendentes"] = f"{pend_atual} {pendencias_confirmacao}".strip()
 
         # D. Cálculo da Pontuação Editorial (Seção 8)
         pontuacao, prioridade, justificativa, emergencia = EditorialClassifier.calculate_score(raw_item)
@@ -137,6 +199,12 @@ def run_radar_cycle(
                 id_execucao=id_execucao,
                 tipo_mudanca="CONSOLIDACAO_FONTES",
                 descricao_mudanca=f"Incorporada nova fonte ({raw_item.get('fonte_nome')}) e evidências adicionais.",
+            )
+            persist_evidencias(
+                db,
+                match_pauta["id_pauta"],
+                payload.get("evidencias_verificadas", ""),
+                match_pauta.get("url_original", url),
             )
             logger.info("Pauta %s consolidada com nova fonte.", match_pauta["id_pauta"])
 
@@ -200,11 +268,15 @@ def run_radar_cycle(
                 "id_pauta_relacionada": raw_item.get("id_pauta_relacionada", ""),
                 "identificadores_documentos": "; ".join(raw_item.get("documentos_citados", [])),
                 "detalhes_denuncia": detalhes_denuncia,
-                "motivo_selecao": f"Relevância comunitária, pontuação editorial {pontuacao}/100 e evidências primárias confirmadas.",
+                "motivo_selecao": (
+                    f"Relevância editorial: pontuação {pontuacao}/100 (impacto, atualidade e interesse público). "
+                    f"Nível de verificação: {nivel_verificacao}."
+                ),
                 "imagem_capa": raw_item.get("imagem_capa", ""),
             }
 
             db.insert_pauta(pauta_dict, id_execucao)
+            persist_evidencias(db, id_pauta, evidencias_texto, url)
             pautas_novas_salvas.append(pauta_dict)
             existing_pautas.append(pauta_dict)
 
@@ -261,7 +333,8 @@ def run_radar_cycle(
     limitacoes_str = (
         "Monitoramento de perfis do Instagram exige credencial institucional na Meta Graph API "
         "(plataforma impõe login wall contra requisições web abertas sem autenticação). "
-        "Ambiente de sandbox executou com sucesso checagem determinística e cruzamento com repositório real verificado. "
+        "A checagem automática classifica relevância e registra publicações; não substitui a consulta ao "
+        "documento primário nem o contraditório, exigidos para marcar uma pauta como \"Confirmado\". "
         + search_results.get("cobertura_consultas", "")
     ).strip()
     metricas_relatorio = {

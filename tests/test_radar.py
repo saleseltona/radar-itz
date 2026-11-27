@@ -1748,7 +1748,10 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             contrato_fiorilli("2026|2|C3", "C3", "8888888888/2026", "22222222000122", 30000.0),
         ]
 
-        nao_loc = build_contratos_nao_localizados_pncp(pncp_rows, fiorilli_rows, ano=2026, limite=50)
+        cobertura_ok = {"completa": True, "truncada": False, "anos": [2025, 2026]}
+        nao_loc = build_contratos_nao_localizados_pncp(
+            pncp_rows, fiorilli_rows, ano=2026, limite=50, pncp_cobertura=cobertura_ok
+        )
         resumo_loc = nao_loc["resumo"]
         self.assertTrue(resumo_loc["consulta_conclusiva"])
         self.assertEqual(resumo_loc["total_contratos_analisados"], 3)
@@ -1764,7 +1767,7 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             cruzamento_res={"items": [], "resumo_alertas": {"PAGO_SEM_PNCP": {"qtd": 1, "pago": 5000.0, "pncp": 0.0}}},
             nao_pncp_res=nao_loc,
             ano=2026,
-            pncp_meta={"sincronizado": True, "total_contratos": 1},
+            pncp_meta={"sincronizado": True, "total_contratos": 1, "cobertura": cobertura_ok},
             fiorilli_meta={"sincronizado": True},
         )
         tipos = {p["tipo"]: p for p in pontos["items"]}
@@ -1808,6 +1811,7 @@ class TestRadarPautasImperatriz(unittest.TestCase):
             fiorilli_rows,
             ano=2026,
             meta={"sincronizado": True},
+            pncp_cobertura=cobertura_ok,
         )
         self.assertIn("nao_localizados_pncp_resumo", resumo)
         self.assertIn("pontos_apuracao", resumo)
