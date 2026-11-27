@@ -36,6 +36,7 @@ radar-pautas-imperatriz/
 │   ├── deduplicator.py              # Memória histórica, detecção de duplicidades e fusão de fontes
 │   ├── page_collector.py            # Coletor HTTP seguro com registro de latência e hash
 │   ├── search_engine.py             # Motor de busca (32 consultas obrigatórias + derivadas)
+│   ├── query_runner.py              # Executa cada consulta no Google News RSS (pausa, orçamento de tempo, limite 429)
 │   ├── exporter.py                  # Exportador de arquivos CSV (UTF-8, delimitador customizável)
 │   ├── report_generator.py          # Gerador do clipping editorial obrigatório em Markdown
 │   └── scheduler.py                 # Agendador e modo manual com lockfile
@@ -46,7 +47,8 @@ radar-pautas-imperatriz/
 │   ├── clipping_do_dia.md           # Relatório editorial com as 10 melhores pautas e top 3
 │   ├── historico_execucoes.csv      # Log cronológico persistente de cada execução
 │   ├── fontes_status.csv            # Diagnóstico operacional de cada fonte monitorada
-│   └── pendencias_apuracao.csv      # Pautas que exigem apuração e investigação adicional
+│   ├── pendencias_apuracao.csv      # Pautas que exigem apuração e investigação adicional
+│   └── consultas_status.csv         # Resultado de cada consulta de busca da última execução
 │
 └── tests/
     └── test_radar.py                # Suíte automatizada de testes (9 baterias cobrindo a Seção 16)

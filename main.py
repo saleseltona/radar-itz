@@ -325,14 +325,18 @@ def run_radar_cycle(
     path_exec_csv = exporter.export_historico_execucoes(delimiter=delimiter)
     path_fontes_csv = exporter.export_fontes_status(delimiter=delimiter)
     path_pendencias_csv = exporter.export_pendencias_apuracao(delimiter=delimiter)
+    path_consultas_csv = exporter.export_consultas_status(
+        search_results.get("relatorio_consultas", []), delimiter=delimiter
+    )
 
     # 8. Geração do Relatório Markdown (output/clipping_do_dia.md)
     limitacoes_str = (
         "Monitoramento de perfis do Instagram exige credencial institucional na Meta Graph API "
         "(plataforma impõe login wall contra requisições web abertas sem autenticação). "
         "A checagem automática classifica relevância e registra publicações; não substitui a consulta ao "
-        "documento primário nem o contraditório, exigidos para marcar uma pauta como \"Confirmado\"."
-    )
+        "documento primário nem o contraditório, exigidos para marcar uma pauta como \"Confirmado\". "
+        + search_results.get("cobertura_consultas", "")
+    ).strip()
     metricas_relatorio = {
         "janela_pesquisa": "Últimas 24h a 48h (Prioridade) / 7 a 30 dias (Acompanhamento e Histórico)",
         "fontes_consultadas": len(fontes_carregadas),
@@ -373,7 +377,11 @@ def run_radar_cycle(
             "historico_execucoes_csv": str(path_exec_csv),
             "fontes_status_csv": str(path_fontes_csv),
             "pendencias_apuracao_csv": str(path_pendencias_csv),
+            "consultas_status_csv": str(path_consultas_csv),
         },
+        "consultas_previstas": search_results.get("total_consultas_previstas", 0),
+        "consultas_executadas": search_results.get("total_consultas_executadas", 0),
+        "cobertura_consultas": search_results.get("cobertura_consultas", ""),
     }
 
 

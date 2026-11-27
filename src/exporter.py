@@ -149,6 +149,19 @@ class CSVExporter:
 
         return csv_file
 
+    def export_consultas_status(
+        self, relatorio: List[Dict[str, Any]], delimiter: str = ","
+    ) -> Path:
+        """Grava o resultado de cada consulta de busca da última execução."""
+        csv_file = self.output_dir / "consultas_status.csv"
+        campos = ["consulta", "status", "itens", "erro", "url"]
+        with open(csv_file, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=campos, delimiter=delimiter, extrasaction="ignore")
+            writer.writeheader()
+            for r in relatorio:
+                writer.writerow({k: r.get(k, "") for k in campos})
+        return csv_file
+
     def export_pendencias_apuracao(self, delimiter: str = ",") -> Path:
         """Gera output/pendencias_apuracao.csv com as pautas que exigem apuração."""
         csv_file = self.output_dir / "pendencias_apuracao.csv"
