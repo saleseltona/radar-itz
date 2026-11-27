@@ -28,13 +28,16 @@ from src.config import (
     DB_PATH,
     FIORILLI_DEFAULT_YEARS,
     FONTES_CSV_PATH,
+    IS_VERCEL,
     OUTPUT_DIR,
     ensure_runtime_files,
     is_supabase_configured,
+    mask_secrets,
 )
 from src.database import RadarDatabase, get_database
 from src.fiorilli_client import FiorilliClient
 from src.pncp_client import PncpClient
+from src.pncp_sync import CursorInvalido, SyncEmAndamento, executar_lote
 from src.source_manager import SourceManager
 from src.transparencia_cross import (
     build_auditoria_dispensas,
@@ -397,6 +400,41 @@ def _get_fallback_dashboard_html() -> str:
 </body>
 </html>
 """
+
+
+def pncp_cobertura_registrada(db: Any) -> Optional[Dict[str, Any]]:
+    """Lê do banco se a sincronização PNCP percorreu todo o período (carga completa).
+
+    Usa o estado persistido pela sincronização em lotes (`get_pncp_sync_state`), quando o
+    backend o oferece. Sem esse registro devolve None, e o cruzamento trata ausências como
+    inconclusivas em vez de afirmar que o contrato não está no PNCP.
+    """
+    getter = getattr(db, "get_pncp_sync_state", None)
+    if not callable(getter):
+        return None
+    try:
+        estado = getter() or {}
+    except Exception as exc:  # estado indisponível não pode virar "cobertura completa"
+        logger.warning("Estado da sincronização PNCP indisponível: %s", exc)
+        return None
+    if not isinstance(estado, dict) or not estado:
+        return None
+    carga_ok = bool(estado.get("carga_completa_concluida"))
+    pendente = estado.get("cursor_pendente")
+    carga_pendente = isinstance(pendente, dict) and pendente.get("modo") == "carga_completa"
+    completa = carga_ok and not carga_pendente
+    motivo = ""
+    if not carga_ok:
+        motivo = "carga completa do PNCP ainda não concluída"
+    elif carga_pendente:
+        motivo = "nova carga completa do PNCP em andamento"
+    return {
+        "completa": completa,
+        "truncada": False,
+        "anos": list(estado.get("carga_completa_anos") or []),
+        "motivo": motivo,
+        "ultima_data_sincronizada": str(estado.get("ultima_data_sincronizada") or ""),
+    }
 
 
 class RadarAPIHandler(BaseHTTPRequestHandler):
@@ -859,6 +897,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 fiorilli_contratos_rows=con_rows,
                 ano=ano_val,
                 meta=meta,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(resumo)
             return
@@ -903,6 +942,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 pagina=pagina_val,
                 limite=limite_val,
                 corte_sem_pncp=corte_val,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(res)
             return
@@ -943,6 +983,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 pagina=pagina_val,
                 limite=limite_val,
                 incluir_remanescentes=inc_rem,
+                pncp_cobertura=pncp_cobertura_registrada(db),
             )
             self.send_json_response(res)
             return
@@ -953,6 +994,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             ano_val = int(ano_str) if ano_str in ("2025", "2026") else None
             q_val = query.get("q", [""])[0].strip() or None
             pncp_rows = db.get_effective_pncp_contratos(ano=ano_val, anos=FIORILLI_DEFAULT_YEARS)
+            cobertura_csv = pncp_cobertura_registrada(db)
 
             buf = io.StringIO()
             writer = csv.writer(buf, delimiter=";")
@@ -983,6 +1025,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         pagina=pg,
                         limite=200,
                         incluir_remanescentes=inc_rem,
+                        pncp_cobertura=cobertura_csv,
                     )
                     all_disp.extend(page_res["items"])
                     if pg >= page_res["total_paginas"]:
@@ -1040,6 +1083,7 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                         ordem=ordem_val,
                         pagina=pg,
                         limite=200,
+                        pncp_cobertura=cobertura_csv,
                     )
                     all_cross.extend(page_res["items"])
                     if pg >= page_res["total_paginas"]:
@@ -1052,6 +1096,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                     "cidade",
                     "alerta_codigo",
                     "alerta_label",
+                    "alerta_conclusivo",
+                    "alerta_observacao",
                     "pncp_contratos_qtd",
                     "pncp_valor",
                     "pncp_anteriores_qtd",
@@ -1192,6 +1238,10 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path, _ = self._resolve_route()
+        if path == "/api/pncp/sync":
+            # Tratado antes de get_db(): qualquer falha (inclusive ao abrir o banco) vira JSON
+            self._handle_pncp_sync()
+            return
         db = self.get_db()
         body = self._read_json_body()
 
@@ -1205,32 +1255,6 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 self.send_json_response(res)
             except Exception as e:
                 logger.error("Erro ao executar ciclo via web: %s", e, exc_info=True)
-                self.send_json_response({"erro": str(e)}, status=500)
-            return
-
-        # 2. Sincronizar contratos do PNCP sob demanda
-        if path == "/api/pncp/sync":
-            try:
-                anos = body.get("anos")
-                if not isinstance(anos, list) or not all(isinstance(a, int) for a in anos):
-                    anos = [2024, 2025, 2026]
-                mode = str(body.get("mode") or "recent").strip().lower()
-                if mode not in ("recent", "full"):
-                    mode = "recent"
-                timeout_sec = 28 if mode == "recent" else 40
-                max_pages = 4 if mode == "recent" else 8
-                res = PncpClient(db, timeout=timeout_sec).sync_imperatriz(
-                    anos=anos,
-                    max_pages_per_window=max_pages,
-                    mode=mode,
-                )
-                res["storage_backend"] = getattr(db, "backend_name", "sqlite")
-                sync_detalhes = getattr(db, "last_sync_stats", None)
-                if sync_detalhes:
-                    res["sync_detalhes"] = sync_detalhes
-                self.send_json_response(res)
-            except Exception as e:
-                logger.error("Erro ao sincronizar PNCP via web: %s", e, exc_info=True)
                 self.send_json_response({"erro": str(e)}, status=500)
             return
 
@@ -1461,6 +1485,49 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             return
 
         self.send_error(404, "Endpoint POST não encontrado")
+
+    def _handle_pncp_sync(self) -> None:
+        """Sincroniza um lote do PNCP. Sempre responde JSON, com segredos mascarados."""
+        try:
+            body = self._read_json_body()
+            db = self.get_db()
+            self._apply_request_pncp_retificacoes(db)
+            cursor = body.get("proxima_janela")
+            modo = str(body.get("modo") or "auto").strip().lower()
+            estado_cliente = body.get("estado_cliente")
+            res = executar_lote(
+                db,
+                PncpClient.normalize_contrato,
+                cursor=cursor if cursor else None,
+                modo=modo,
+                estado_cliente=estado_cliente if isinstance(estado_cliente, dict) else None,
+            )
+            res["storage_backend"] = getattr(db, "backend_name", "sqlite")
+            res["lock_escopo"] = getattr(db, "sync_lock_escopo", "banco")
+            res["estado_persistente"] = bool(getattr(db, "sync_estado_persistente", True))
+            if res["storage_backend"] == "sqlite" and IS_VERCEL:
+                res["aviso_armazenamento"] = (
+                    "Banco SQLite temporário da Vercel (/tmp): os dados podem se perder quando a função reiniciar."
+                )
+            if res["erros"] and res["inseridos"] == 0 and res["atualizados"] == 0 and res["janelas_concluidas"] == 0:
+                res["erro"] = "O PNCP não respondeu corretamente. Nada foi perdido; tente continuar mais tarde."
+                self.send_json_response(res, status=502)
+                return
+            self.send_json_response(res)
+        except SyncEmAndamento as exc:
+            self.send_json_response({"ok": False, "erro": str(exc), "em_andamento": True}, status=409)
+        except CursorInvalido as exc:
+            self.send_json_response({"ok": False, "erro": f"Cursor de sincronização inválido: {exc}"}, status=400)
+        except Exception as exc:
+            logger.error("Erro ao sincronizar PNCP via web: %s", mask_secrets(str(exc)))
+            self.send_json_response(
+                {
+                    "ok": False,
+                    "erro": "Falha interna ao sincronizar o PNCP.",
+                    "parcial": True,
+                },
+                status=500,
+            )
 
     def send_json_response(self, data: Any, status: int = 200) -> None:
         json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")

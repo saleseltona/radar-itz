@@ -257,9 +257,16 @@ class PncpClient:
         data_fim: str,
         max_pages: int = 8,
         tamanho_pagina: int = 50,
+        truncamentos: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
+        """Busca as páginas de uma janela, até `max_pages`.
+
+        Se o PNCP informar mais páginas do que o limite, a busca fica incompleta. Isso é
+        registrado em `truncamentos` (quando informado) e no log, nunca descartado em silêncio.
+        """
         coletados: List[Dict[str, Any]] = []
         pagina = 1
+        total_paginas = 1
         while pagina <= max_pages:
             status, payload = self._fetch_page(
                 cnpj_orgao=orgao_meta["cnpj"],
@@ -277,6 +284,15 @@ class PncpClient:
             if not rows or pagina >= total_paginas:
                 break
             pagina += 1
+        else:
+            # Saiu pelo limite de páginas com páginas ainda por buscar no PNCP
+            msg = (
+                f"{orgao_meta.get('sigla', '?')} {ano} ({data_ini}-{data_fim}): "
+                f"busca interrompida em {max_pages} de {total_paginas} página(s)"
+            )
+            logger.warning("Busca PNCP incompleta: %s", msg)
+            if truncamentos is not None:
+                truncamentos.append(msg)
         return coletados
 
     def _sync_window_with_fallback(
@@ -286,6 +302,7 @@ class PncpClient:
         w_start: date,
         w_end: date,
         max_pages: int,
+        truncamentos: Optional[List[str]] = None,
     ) -> Tuple[List[Dict[str, Any]], List[str]]:
         """Consulta uma janela trimestral/curta e subdivide em meses se houver timeout ou HTTP 400/422."""
         data_ini = w_start.strftime("%Y%m%d")
@@ -294,7 +311,8 @@ class PncpClient:
 
         try:
             items = self._fetch_window(
-                orgao, ano, data_ini, data_fim, max_pages=max_pages, tamanho_pagina=50
+                orgao, ano, data_ini, data_fim, max_pages=max_pages, tamanho_pagina=50,
+                truncamentos=truncamentos,
             )
             return items, erros_local
         except urllib.error.HTTPError as he:
@@ -317,7 +335,8 @@ class PncpClient:
             try:
                 batch.extend(
                     self._fetch_window(
-                        orgao, ano, m_ini, m_fim, max_pages=max_pages, tamanho_pagina=50
+                        orgao, ano, m_ini, m_fim, max_pages=max_pages, tamanho_pagina=50,
+                        truncamentos=truncamentos,
                     )
                 )
             except urllib.error.HTTPError as mhe:
@@ -362,19 +381,23 @@ class PncpClient:
 
         por_ctrl: Dict[str, Dict[str, Any]] = {}
         erros: List[str] = []
+        truncamentos: List[str] = []
 
         if tasks:
             workers = max(1, min(max_workers, len(tasks)))
             with ThreadPoolExecutor(max_workers=workers) as executor:
+                # Uma lista de truncamentos por tarefa: sem estado compartilhado entre threads
+                trunc_por_tarefa: List[List[str]] = [[] for _ in tasks]
                 futures = [
                     executor.submit(
-                        self._sync_window_with_fallback, orgao, ano, w_start, w_end, max_pg
+                        self._sync_window_with_fallback, orgao, ano, w_start, w_end, max_pg, trunc
                     )
-                    for orgao, ano, w_start, w_end, max_pg in tasks
+                    for (orgao, ano, w_start, w_end, max_pg), trunc in zip(tasks, trunc_por_tarefa)
                 ]
-                for fut in futures:
+                for fut, trunc in zip(futures, trunc_por_tarefa):
                     items, errs = fut.result()
                     erros.extend(errs)
+                    truncamentos.extend(trunc)
                     for c in items:
                         ctrl = c.get("numero_controle_pncp")
                         if ctrl:
@@ -399,9 +422,40 @@ class PncpClient:
             gravados,
             por_ano,
         )
+        cobertura = self.avaliar_cobertura_sync(mode, truncamentos, erros, target_anos)
+        if not cobertura["completa"]:
+            logger.warning("Sincronização PNCP (%s) com cobertura incompleta: %s", mode, cobertura["motivo"])
         return {
             "total_sincronizados": gravados,
             "por_orgao": por_orgao,
             "por_ano": por_ano,
             "erros": erros,
+            "truncamentos": truncamentos,
+            "cobertura": cobertura,
+        }
+
+    @staticmethod
+    def avaliar_cobertura_sync(
+        mode: str, truncamentos: List[str], erros: List[str], anos: List[int]
+    ) -> Dict[str, Any]:
+        """Diz se a sincronização cobriu todo o período pedido.
+
+        A cobertura só é completa numa carga `full` sem páginas cortadas e sem erros.
+        O modo `recent` cobre só os últimos dias, então nunca vale para afirmar ausência.
+        """
+        motivos: List[str] = []
+        if mode != "full":
+            motivos.append("sincronização parcial (apenas período recente)")
+        if truncamentos:
+            motivos.append(f"{len(truncamentos)} janela(s) com páginas não buscadas")
+        if erros:
+            motivos.append(f"{len(erros)} janela(s) com erro na consulta")
+        return {
+            "completa": not motivos,
+            "truncada": bool(truncamentos),
+            "modo": mode,
+            "anos": list(anos),
+            "janelas_truncadas": len(truncamentos),
+            "janelas_com_erro": len(erros),
+            "motivo": "; ".join(motivos),
         }

@@ -137,7 +137,7 @@ class PageCollector:
             return False, err_msg, {}
 
         except Exception as e:
-            err_msg = f"Falha de conexão / Sandbox: {mask_secrets(str(e))}"
+            err_msg = f"Falha de conexão (DNS, rede ou timeout): {mask_secrets(str(e))}"
             if cached_verified:
                 self._log_verified_page(id_execucao, cached_verified, "Repositório Verificado (Ambiente Isolado)")
                 return True, f"Lido via repositório verificado ({err_msg})", cached_verified

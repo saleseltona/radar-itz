@@ -21,6 +21,7 @@ from src.config import (
 )
 from src.database import RadarDatabase
 from src.error_monitor import ErrorMonitor
+from src.instagram_client import GRAPH_API_VERSION, InstagramGraphError, fetch_recent_media, username_from_url
 from src.live_news import LiveNewsFetcher
 from src.page_collector import PageCollector
 from src.source_manager import SourceManager
@@ -53,40 +54,77 @@ class SearchEngine:
         - Não declara sucesso se não conseguir acessar as publicações.
         """
         graph_token = os.environ.get("INSTAGRAM_GRAPH_TOKEN", "").strip()
+        business_id = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "").strip()
         resultados: List[Dict[str, Any]] = []
 
         for fonte in fontes_instagram:
             url = fonte.get("url", "")
             nome = fonte.get("nome", "Instagram Perfil")
 
-            if graph_token:
-                # Integração com API Oficial do Instagram Graph se configurada
-                status_msg = "Instagram Graph API configurada - consulta de métricas de perfil autorizada."
-                self.source_manager.update_source_status(
-                    url=url,
-                    status="Ativa (API Oficial)",
-                    sucesso=True,
-                    proxima_acao="Manter token atualizado periodicamente",
-                    metodo="Meta Graph API v19.0",
+            if not graph_token or not business_id:
+                # Falta de configuração não é falha de coleta: fica registrada só na situação da fonte,
+                # sem gerar um erro novo em erros_coleta a cada execução.
+                faltando = "INSTAGRAM_GRAPH_TOKEN e INSTAGRAM_BUSINESS_ACCOUNT_ID" if not graph_token else "INSTAGRAM_BUSINESS_ACCOUNT_ID"
+                motivo = (
+                    "Plataforma Meta exige autenticação e login wall para leitura de publicações; "
+                    f"coleta desativada até configurar {faltando}."
                 )
-            else:
-                # Sem token oficial, a plataforma Meta impõe login wall para leitura automatizada
-                motivo = "Plataforma Meta exige autenticação e login wall para leitura de publicações; acesso automatizado bloqueado sem credencial oficial."
                 self.source_manager.update_source_status(
                     url=url,
-                    status="Bloqueio por Autenticação (Meta Login Wall)",
+                    status="Aguardando credencial (Meta Graph API)",
                     sucesso=False,
                     erro=motivo,
-                    proxima_acao="Cadastrar INSTAGRAM_GRAPH_TOKEN no .env para acesso institucional autorizado",
-                    metodo="Web aberta (Bloqueado)",
+                    proxima_acao=f"Cadastrar {faltando} no .env para acesso institucional autorizado",
+                    metodo="Instagram Graph API (não configurada)",
                     observacoes="Impossível extrair legendas de forma automatizada sem API oficial ou credencial autorizada.",
+                )
+                continue
+
+            try:
+                midias = fetch_recent_media(username_from_url(url), business_id, graph_token)
+            except InstagramGraphError as e:
+                msg = mask_secrets(str(e))
+                self.source_manager.update_source_status(
+                    url=url,
+                    status="Falha na Graph API",
+                    sucesso=False,
+                    erro=msg,
+                    proxima_acao="Conferir validade do token e se o perfil é conta Empresa/Criador",
+                    metodo=f"Meta Graph API {GRAPH_API_VERSION}",
                 )
                 self.error_monitor.record_error(
                     id_execucao=id_execucao,
                     componente="MonitorInstagram",
                     alvo_url=url,
-                    mensagem=f"{nome}: {motivo}",
+                    mensagem=f"{nome}: {msg}",
                 )
+                continue
+
+            for m in midias:
+                permalink = m.get("permalink", "")
+                legenda = (m.get("caption") or "").strip()
+                if not permalink or not legenda:
+                    continue
+                titulo = legenda.splitlines()[0][:140]
+                resultados.append(
+                    LiveNewsFetcher._build_news_item(
+                        url=permalink,
+                        titulo=titulo,
+                        desc=legenda,
+                        data_pub=LiveNewsFetcher._parse_pub_date(m.get("timestamp", "")),
+                        source_name=nome,
+                        source_url=url,
+                        consulta_origem="Instagram Graph API",
+                        imagem_capa=m.get("thumbnail_url") or m.get("media_url") or "",
+                    )
+                )
+            self.source_manager.update_source_status(
+                url=url,
+                status="Ativa (API Oficial)",
+                sucesso=True,
+                proxima_acao="Manter token atualizado periodicamente",
+                metodo=f"Meta Graph API {GRAPH_API_VERSION}",
+            )
 
         return resultados
 
@@ -113,11 +151,12 @@ class SearchEngine:
         fontes_instagram = [f for f in fontes_cadastradas if "instagram.com" in f.get("url", "").lower()]
         fontes_web = [f for f in fontes_cadastradas if "instagram.com" not in f.get("url", "").lower()]
 
-        # 1. Checagem das fontes Instagram
-        self.run_instagram_checks(id_execucao, fontes_instagram)
+        # 1. Checagem das fontes Instagram (publicações entram como candidatas quando a API responde)
+        candidatos_por_url: Dict[str, Dict[str, Any]] = {}
+        for item in self.run_instagram_checks(id_execucao, fontes_instagram):
+            candidatos_por_url[item["url"].lower()] = item
 
         # 2. Varredura de notícias recentes ao vivo (Google News RSS + G1 Maranhão RSS)
-        candidatos_por_url: Dict[str, Dict[str, Any]] = {}
         try:
             live_fetcher = LiveNewsFetcher(timeout=8, max_cover_fetches=10)
             live_res = live_fetcher.fetch_recent_news(
