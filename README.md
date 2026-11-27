@@ -161,7 +161,7 @@ O sistema funciona de forma completa e autônoma sem dependências de chaves pag
 - `SERPAPI_KEY` ou `BING_SEARCH_API_KEY`: Para motores de busca adicionais.
 - `INSTAGRAM_GRAPH_TOKEN` e `INSTAGRAM_BUSINESS_ACCOUNT_ID`: Para leitura institucional de perfis Empresa/Criador via Meta Graph API (Business Discovery). Versão configurável em `INSTAGRAM_GRAPH_API_VERSION` (padrão `v27.0`). Veja o passo a passo em [`docs/instagram-graph-api.md`](docs/instagram-graph-api.md).
 
-**Segurança do painel:** defina `RADAR_ADMIN_TOKEN` com um valor longo e aleatório em qualquer servidor acessível pela internet (Vercel, Render). As ações que gravam dados (varredura, retificar, ignorar, arquivar e cadastrar fonte) passam a exigir esse token, que o painel pede uma vez e guarda no navegador. Sem o token, essas ações só funcionam no acesso local direto (`localhost`).
+**Segurança do painel:** defina `RADAR_ADMIN_TOKEN` com um valor longo e aleatório em qualquer servidor acessível pela internet (Render, Docker). As ações que gravam dados (varredura, retificar, ignorar, arquivar e cadastrar fonte) passam a exigir esse token, que o painel pede uma vez e guarda no navegador. Sem o token, essas ações só funcionam no acesso local direto (`localhost`).
 
 > **Proteção de Segredos:** O módulo `config.py` e `error_monitor.py` aplicam máscaras ativas (`***REDACTED***`) em quaisquer tokens para impedir vazamento de credenciais em relatórios, arquivos CSV ou mensagens de log.
 
@@ -186,12 +186,12 @@ O sistema funciona de forma completa e autônoma sem dependências de chaves pag
 
 ---
 
-## 5. Persistência na Nuvem com Supabase + Vercel (Carga Incremental)
+## 5. Persistência na Nuvem com Supabase + Render (Carga Incremental)
 
-Para evitar a natureza efêmera do `/tmp` em instâncias serverless da Vercel (onde retificações em SQLite dependem de sincronização por sessão), você pode ativar o backend nativo em **Supabase PostgreSQL**:
+O disco do Render (plano free) é temporário: o SQLite volta ao estado do repositório a cada reinício ou novo deploy. Para guardar os dados de vez, ativar o backend nativo em **Supabase PostgreSQL**:
 
 1. **Crie as tabelas:** No SQL Editor do seu projeto Supabase, execute [`supabase/schema.sql`](supabase/schema.sql).
-2. **Configure as variáveis:** No `.env` local (e em *Settings → Environment Variables* na Vercel), defina:
+2. **Configure as variáveis:** No `.env` local (e em *Environment* no serviço do Render), defina:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
 3. **Suba apenas dados novos (`--only-new` por padrão):**
@@ -201,4 +201,4 @@ Para evitar a natureza efêmera do `/tmp` em instâncias serverless da Vercel (o
    python scripts/supabase_sync.py
    ```
    O script consulta antes as chaves já existentes no Supabase e envia **somente os registros novos**, preservando integralmente qualquer retificação já feita no painel.
-4. **Faça redeploy na Vercel:** A API detectará automaticamente `storage_backend = "supabase"`.
+4. **Faça redeploy no Render:** A API detectará automaticamente `storage_backend = "supabase"`.

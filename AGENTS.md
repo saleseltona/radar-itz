@@ -28,7 +28,6 @@ python scripts/backfill_evidencias.py [--dry-run]
 - `src/config.py`: paths, variáveis de ambiente, backend SQLite/Supabase, pesos de scoring e máscara de segredos.
 - `src/web_server.py`: rotas HTTP da API e do dashboard.
 - `app.py`: servidor web local/Render, porta 8000 por padrão.
-- `api/index.py`: handler da Vercel.
 - `scripts/supabase_sync.py`: sincronização incremental SQLite → Supabase.
 - `supabase/schema.sql`: schema Supabase idempotente.
 - `tests/test_radar.py`: suíte `unittest`.
@@ -44,8 +43,8 @@ POST: `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/r
 
 - `python app.py` serve `http://localhost:8000`.
 - Docker: imagem `python:3.11-slim`, `PORT=8000`, `HOST=0.0.0.0`, `CMD ["python", "app.py"]`; prover `PORT`/`HOST` via ambiente quando necessário.
-- Vercel: `vercel.json` usa rewrites para `/api/index?__route=...`, `maxDuration: 60` e inclui `static/`, `data/`, `output/`, `src/`, `fontes.csv` e `main.py`.
-- Vercel usa diretório temporário `tempfile.gettempdir()/radar-pautas-imperatriz` e copia bundles de `data/`, `output/` e `fontes.csv` quando ausentes.
+- Render é o único host em nuvem (serviço `radar-itz-web`, https://radar-itz-web.onrender.com). Não há mais Vercel.
+- Render: disco temporário no plano free; sem `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` o SQLite se perde a cada reinício (`IS_RENDER` gera aviso no sync PNCP).
 - Render: `startCommand: python app.py`, `PORT=10000`, `buildCommand: ""`, plano free.
 
 ## Configuração
@@ -62,7 +61,7 @@ Segurança: `RADAR_ADMIN_TOKEN` protege todas as rotas POST e a reidratação po
 
 Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `INSTAGRAM_GRAPH_API_VERSION`, `ANA_TELEMETRIA_TOKEN`.
 
-Busca: `src/query_runner.py` executa cada consulta de `CONSULTAS_OBRIGATORIAS` (32), `CONSULTAS_DERIVADAS` e as adicionais do painel no Google News RSS (`when:14d`), com pausa `RADAR_QUERY_DELAY_SECONDS` (padrão 0.5) e orçamento `RADAR_QUERY_BUDGET_SECONDS` (padrão 45, ou 20 na Vercel). HTTP 429/503 interrompe as restantes. O resultado de cada consulta vai para `output/consultas_status.csv`; falhas e consultas não executadas vão para `erros_coleta` (componente `BuscaGoogleNewsRSS`). As 5 consultas fixas de `DEFAULT_RSS_QUERIES` em `live_news.py` só rodam quando `fetch_recent_news` é chamado direto.
+Busca: `src/query_runner.py` executa cada consulta de `CONSULTAS_OBRIGATORIAS` (32), `CONSULTAS_DERIVADAS` e as adicionais do painel no Google News RSS (`when:14d`), com pausa `RADAR_QUERY_DELAY_SECONDS` (padrão 0.5) e orçamento `RADAR_QUERY_BUDGET_SECONDS` (padrão 45). HTTP 429/503 interrompe as restantes. O resultado de cada consulta vai para `output/consultas_status.csv`; falhas e consultas não executadas vão para `erros_coleta` (componente `BuscaGoogleNewsRSS`). As 5 consultas fixas de `DEFAULT_RSS_QUERIES` em `live_news.py` só rodam quando `fetch_recent_news` é chamado direto.
 
 Supabase: defina `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`; `RADAR_STORAGE_BACKEND=auto|supabase|sqlite` (`sqlite` força SQLite; `auto` exige URL+chave). O código também reconhece aliases `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` e `SUPABASE_KEY`. `SUPABASE_ANON_KEY` é tratado como segredo.
 

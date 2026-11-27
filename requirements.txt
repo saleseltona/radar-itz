@@ -1,2 +1,2 @@
 # Projeto 100% biblioteca padrão Python 3 (sem dependências externas).
-# Mantido para detecção automática do runtime Python na Vercel.
+# Mantido para detecção automática do runtime Python no Render.

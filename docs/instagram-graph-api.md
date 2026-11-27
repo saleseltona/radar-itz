@@ -5,7 +5,7 @@ endpoint **Business Discovery** da Meta Graph API (`src/instagram_client.py`). A
 partem de uma conta profissional própria e usam um token de usuário do Facebook.
 
 > Nunca coloque valores de tokens neste repositório. Eles ficam só no `.env` local e nas
-> variáveis de ambiente do servidor (Vercel/Render).
+> variáveis de ambiente do servidor (Render).
 
 ## Variáveis de ambiente
 
@@ -15,8 +15,7 @@ partem de uma conta profissional própria e usam um token de usuário do Faceboo
 | `INSTAGRAM_BUSINESS_ACCOUNT_ID` | ID da conta profissional própria (`nasruasdeitz`) usada como ponto de partida das consultas. |
 | `INSTAGRAM_GRAPH_API_VERSION` | Opcional. Versão da Graph API (padrão `v27.0`). |
 
-Cadastre as mesmas variáveis em *Settings → Environment Variables* na Vercel (ou no painel do
-Render) e faça um novo deploy.
+Cadastre as mesmas variáveis em *Environment* no serviço do Render e faça um novo deploy.
 
 ## Configuração atual na Meta (nov/2026)
 

@@ -1396,7 +1396,7 @@
 
         <div class="bg-primary-fixed/35 rounded-xl p-2.5 text-[11px] text-on-surface-variant flex items-start gap-2">
           <span class="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">info</span>
-          <span>Recalcula na hora KPIs, gráfico mensal, ranking de fornecedores e CSV. Fica salvo no banco SQLite local e espelhado neste navegador (em deploy serverless Vercel, é reaplicado automaticamente ao abrir o painel neste navegador).</span>
+          <span>Recalcula na hora KPIs, gráfico mensal, ranking de fornecedores e CSV. Fica salvo no banco SQLite local e espelhado neste navegador.</span>
         </div>
 
         <div class="pt-2 border-t border-surface-container flex flex-wrap items-center justify-between gap-2">
@@ -2873,7 +2873,7 @@
       }
     }
 
-    // Lê a resposta como texto e só então tenta JSON: um 504 da Vercel ("An error occurred...")
+    // Lê a resposta como texto e só então tenta JSON: um 504 de proxy ou do servidor (página HTML de erro)
     // não quebra mais a tela com "Unexpected token 'A'".
     function describePncpHttpFailure(status) {
       if (status === 504 || status === 408) return `Tempo esgotado no servidor (HTTP ${status}). O progresso salvo foi mantido; clique em "Continuar PNCP".`;
