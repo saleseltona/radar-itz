@@ -37,7 +37,7 @@ python scripts/backfill_evidencias.py [--dry-run]
 
 GET: `/`, `/dashboard`, `/manifest.webmanifest`, `/sw.js`, `/apple-touch-icon.png`, `/api/push/chave-publica`, `/api/auto-atualizar`, `/api/pautas`, `/api/pautas/arquivadas`, `/api/stats`, `/api/telemetria`, `/api/clipping`, `/api/export/csv`, `/export/pautas.csv`, `/api/fontes`, `/api/pendencias`, `/api/pncp/contratos`, `/api/pncp/resumo`, `/api/pncp/estatisticas`, `/api/pncp/export/csv`, `/api/pncp/retificacoes`, `/api/pncp/ignorados`, `/api/transparencia/resumo`, `/api/transparencia/cruzamento`, `/api/transparencia/dispensas`, `/api/transparencia/export/csv`.
 
-POST: `/api/push/inscrever`, `/api/push/cancelar`, `/api/push/testar`, `/api/auto-atualizar`, `/api/auto-atualizar/abrir` (pública), `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/fontes`.
+POST: `/api/push/inscrever`, `/api/push/cancelar`, `/api/push/testar`, `/api/auto-atualizar`, `/api/auto-atualizar/abrir` (pública), `/api/executar`, `/api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, `/api/pautas/arquivar`, `/api/pautas/arquivar-lote`, `/api/fontes`.
 
 ## Deploy
 
@@ -60,6 +60,8 @@ Transparência no celular: até 768px a aba "Transparência & Cruzamento" vira u
 Cache do resumo: `GET /api/transparencia/resumo` fica guardado em memória por `RADAR_RESUMO_CACHE_SEGUNDOS` (padrão 300; `0` desliga), por exercício, com header `X-Radar-Cache: HIT|MISS`. É descartado em `POST /api/pncp/sync`, `/api/transparencia/sync`, `/api/pncp/retificar`, `/api/pncp/retificacoes/sync`, `/api/pncp/ignorar`, quando as tarefas automáticas PNCP ou Fiorilli terminam e quando retificações chegam por header; uma gravação durante o cálculo impede guardar o resultado. Scripts rodados fora do servidor (ex.: `scripts/fiorilli_sync.py`) só aparecem após o prazo.
 
 Aba "Só o Feed de Pautas": botão `nav-btn-feed` na barra lateral chama `switchMainView('feed')`, que mostra a mesma view do painel com a classe `body.feed-only` (`static/radar_feed.css`) escondendo hero, capa, PNCP e telemetria; mesmos dados, filtros, arquivamento e dossiê. Até 768px ganha navegação inferior (Feed, Painel, Transparência, Menu) e puxar para atualizar (`static/radar_feed.js`: `radarAutoAtualizar` + `loadPautasAndStats`). Atalho do app: `/?aba=feed`.
+
+Arquivar pautas: a lista muda na hora (otimista) e o servidor é avisado em segundo plano; se recusar, a pauta volta com aviso de erro. O aviso tem "Desfazer" por ~5 s (espera o arquivamento terminar antes de restaurar). No celular, deslizar o cartão para a esquerda arquiva. "Arquivar tudo" no cabeçalho do feed arquiva as pautas exibidas com os filtros atuais, após confirmação, via `POST /api/pautas/arquivar-lote` (`{"ids": [...], "restaurar"?: true}`, até 200 por chamada, exige token como as demais rotas POST).
 
 Checagem de rede: antes da coleta, `main.py` testa DNS; sem rede a execução termina como `SEM_REDE` com um único erro (`RADAR_SKIP_NETWORK_CHECK=1` desliga).
 

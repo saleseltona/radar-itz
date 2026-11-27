@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from src.config import get_supabase_config, mask_secrets
-from src.database import build_pncp_resumo_from_rows
+from src.database import _ids_lote, build_pncp_resumo_from_rows
 from src.pncp_analytics import (
     build_pncp_estatisticas,
     classify_pncp_contrato,
@@ -544,6 +544,44 @@ class SupabaseDatabase:
             return None
         self.client.delete("pautas_arquivadas", {"id_pauta": f"eq.{pid}"})
         return self._format_pauta_row(rows[0], None)
+
+    def _ids_existentes(self, pids: List[str]) -> List[str]:
+        lista = ",".join('"' + pid.replace('"', "") + '"' for pid in pids)
+        rows = self.client.select(
+            "pautas",
+            params={"select": "id_pauta", "id_pauta": f"in.({lista})"},
+            fetch_all=False,
+        )
+        existentes = {str(r.get("id_pauta") or "") for r in rows}
+        return [pid for pid in pids if pid in existentes]
+
+    def arquivar_pautas_lote(
+        self, ids: List[str], motivo: str = "Arquivada pela redação"
+    ) -> List[str]:
+        pids = _ids_lote(ids)
+        if not pids:
+            return []
+        ok = self._ids_existentes(pids)
+        if not ok:
+            return []
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        motivo_clean = (motivo or "Arquivada pela redação").strip()[:240] or "Arquivada pela redação"
+        self.client.upsert(
+            "pautas_arquivadas",
+            [{"id_pauta": pid, "motivo": motivo_clean, "atualizado_em": now_iso} for pid in ok],
+            on_conflict="id_pauta",
+        )
+        return ok
+
+    def restaurar_pautas_lote(self, ids: List[str]) -> List[str]:
+        pids = _ids_lote(ids)
+        if not pids:
+            return []
+        ok = self._ids_existentes(pids)
+        if ok:
+            lista = ",".join('"' + pid.replace('"', "") + '"' for pid in ok)
+            self.client.delete("pautas_arquivadas", {"id_pauta": f"in.({lista})"})
+        return ok
 
     def get_all_pautas_arquivadas(self) -> List[Dict[str, Any]]:
         rows = self.client.select(
