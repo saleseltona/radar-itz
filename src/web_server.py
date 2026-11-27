@@ -28,10 +28,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from main import run_radar_cycle
+from src import web_push
 from src.auto_refresh import (
     AutoAtualizador,
     TarefaOcupada,
+    agendador_servidor_habilitado,
     auto_atualizacao_habilitada,
+    iniciar_agendador,
 )
 from src.config import (
     ANA_ESTACAO_IMPERATRIZ_CODIGO,
@@ -62,6 +65,15 @@ logger = logging.getLogger("radar_imperatriz.web")
 from src.transparencia_cross import PNCP_ANOS_CRUZAMENTO  # noqa: E402
 
 STATIC_DIR = BASE_DIR / "static"
+
+# Arquivos do app instalável servidos na raiz (o service worker só controla o escopo da sua pasta).
+PWA_ARQUIVOS = {
+    "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+    "/sw.js": ("sw.js", "application/javascript; charset=utf-8"),
+    "/apple-touch-icon.png": ("icons/apple-touch-icon.png", "image/png"),
+    "/apple-touch-icon-precomposed.png": ("icons/apple-touch-icon.png", "image/png"),
+    "/favicon.ico": ("icons/icon-192.png", "image/png"),
+}
 
 # Autorização das rotas que gravam dados.
 # Com RADAR_ADMIN_TOKEN definido, exige o header X-Radar-Token (ou Authorization: Bearer).
@@ -805,6 +817,12 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if path in PWA_ARQUIVOS:
+            self._send_pwa_file(path)
+            return
+        if path == "/api/push/chave-publica":
+            self._handle_push_chave_publica()
+            return
         db = self.get_db()
         # Retificações e arquivamentos enviados por headers/cookies só valem para quem pode gravar.
         can_write = self._is_write_authorized()
@@ -1502,6 +1520,9 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
             contexto = {"consultas_adicionais": [str(c) for c in consultas][:30] if isinstance(consultas, list) else None}
             self.send_json_response(self.auto_atualizador().disparar(contexto, forcar=bool(body.get("forcar"))))
             return
+        if path.startswith("/api/push/"):
+            self._handle_push_post(path)
+            return
         db = self.get_db()
         body = self._read_json_body()
 
@@ -1775,6 +1796,8 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 estado_cliente=estado_cliente if isinstance(estado_cliente, dict) else None,
             )
             res["storage_backend"] = getattr(db, "backend_name", "sqlite")
+            if not res.get("erros"):
+                web_push.notificar_em_segundo_plano(type(self).get_db, "pncp", res)
             res["lock_escopo"] = getattr(db, "sync_lock_escopo", "banco")
             res["estado_persistente"] = bool(getattr(db, "sync_estado_persistente", True))
             if res["storage_backend"] == "sqlite" and IS_RENDER:
@@ -1801,6 +1824,78 @@ class RadarAPIHandler(BaseHTTPRequestHandler):
                 },
                 status=500,
             )
+
+    # ------------------------------------------------------------------
+    # App instalável (PWA) e notificações push
+    # ------------------------------------------------------------------
+    def _send_pwa_file(self, path: str) -> None:
+        nome, mime = PWA_ARQUIVOS[path]
+        arquivo = resolve_static_file(nome)
+        if arquivo is None:
+            self.send_error(404, "Arquivo não encontrado")
+            return
+        data = arquivo.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(data)))
+        # O service worker precisa ser revalidado sempre para as atualizações chegarem.
+        self.send_header("Cache-Control", "no-cache" if path == "/sw.js" else "public, max-age=86400")
+        if path == "/sw.js":
+            self.send_header("Service-Worker-Allowed", "/")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_push_chave_publica(self) -> None:
+        if not web_push.push_configurado():
+            self.send_json_response({"configurado": False, "chave_publica": None})
+            return
+        try:
+            self.send_json_response({"configurado": True, "chave_publica": web_push.chave_publica_vapid()})
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Chave VAPID inválida: %s", mask_secrets(str(exc)))
+            self.send_json_response({"configurado": False, "chave_publica": None, "erro": "Chave VAPID inválida."})
+
+    def _handle_push_post(self, path: str) -> None:
+        body = self._read_json_body()
+        if not web_push.push_configurado():
+            self.send_json_response(
+                {"ok": False, "erro": "Notificações não configuradas no servidor (RADAR_VAPID_PRIVATE_KEY)."}, status=503
+            )
+            return
+        try:
+            db = self.get_db()
+            if path == "/api/push/inscrever":
+                insc = web_push.validar_inscricao(body.get("inscricao"))
+                web_push.salvar_inscricao(db, insc, str(self.headers.get("User-Agent") or ""))
+                self.send_json_response({"ok": True})
+            elif path == "/api/push/cancelar":
+                endpoint = str(body.get("endpoint") or "").strip()
+                if endpoint:
+                    web_push.remover_inscricao(db, endpoint)
+                self.send_json_response({"ok": True})
+            elif path == "/api/push/testar":
+                tot = web_push.enviar_para_todos(
+                    db,
+                    {
+                        "title": "Radar de Pautas",
+                        "body": "Notificações ligadas. Você será avisado de pautas e contratos novos.",
+                        "url": "/",
+                        "tag": "radar-teste",
+                    },
+                )
+                self.send_json_response(dict(tot, ok=tot["enviadas"] > 0))
+            else:
+                self.send_json_response({"erro": "Rota não encontrada."}, status=404)
+        except ValueError as exc:
+            self.send_json_response({"ok": False, "erro": str(exc)}, status=400)
+        except Exception as exc:  # noqa: BLE001
+            msg = mask_secrets(str(exc))
+            logger.error("Erro nas notificações push: %s", msg)
+            if "push_inscricoes" in msg:
+                msg = "Tabela push_inscricoes ausente no Supabase: aplique supabase/migrations/20261127_push_inscricoes.sql."
+            else:
+                msg = "Falha interna nas notificações."
+            self.send_json_response({"ok": False, "erro": msg}, status=500)
 
     def send_json_response(self, data: Any, status: int = 200,
                            extra_headers: Optional[Dict[str, str]] = None) -> None:
@@ -1855,7 +1950,8 @@ def auto_pncp(db: Any, lote: Callable[..., Dict[str, Any]] = executar_lote, max_
     estado = db.get_pncp_sync_state() or {}
     if pncp_carga_ativa_em_outra_sessao(estado):
         return {"pulado": True, "motivo": "Carga do PNCP em andamento em outra sessão."}
-    tot = {"inseridos": 0, "atualizados": 0, "ignorados": 0, "lotes": 0}
+    tot: Dict[str, Any] = {"inseridos": 0, "atualizados": 0, "ignorados": 0, "lotes": 0}
+    novos: List[Dict[str, Any]] = []
     ultimo: Dict[str, Any] = {}
     for _ in range(max_lotes):
         try:
@@ -1865,6 +1961,9 @@ def auto_pncp(db: Any, lote: Callable[..., Dict[str, Any]] = executar_lote, max_
         tot["lotes"] += 1
         for k in ("inseridos", "atualizados", "ignorados"):
             tot[k] += int(ultimo.get(k) or 0)
+        novos.extend((ultimo.get("novos_amostra") or [])[: max(0, 5 - len(novos))])
+        tot["novos_amostra"] = novos
+        tot["modo"] = ultimo.get("modo")
         if ultimo.get("erros"):
             res = dict(tot, parcial=bool(ultimo.get("parcial")), progresso_pct=ultimo.get("progresso_pct"))
             if not (tot["inseridos"] or tot["atualizados"] or ultimo.get("janelas_concluidas")):
@@ -1899,13 +1998,19 @@ _AUTO: Optional[AutoAtualizador] = None
 def get_auto_atualizador() -> AutoAtualizador:
     global _AUTO
     if _AUTO is None:
-        _AUTO = AutoAtualizador(_executores_padrao())
+        _AUTO = AutoAtualizador(
+            _executores_padrao(),
+            ao_concluir=lambda nome, res: web_push.notificar_em_segundo_plano(RadarAPIHandler.get_db, nome, res),
+        )
     return _AUTO
 
 
 def run_web_server(host: str = "0.0.0.0", port: int = 8000) -> None:
     server = ThreadingHTTPServer((host, port), RadarAPIHandler)
     logger.info("Radar de Pautas de Imperatriz rodando em http://%s:%d", host, port)
+    if agendador_servidor_habilitado(padrao=IS_RENDER):
+        iniciar_agendador(get_auto_atualizador)
+        logger.info("Agendador do servidor ligado (coleta sozinho e envia notificações).")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

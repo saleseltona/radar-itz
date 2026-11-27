@@ -101,6 +101,21 @@ def contrato_mudou(novo: Dict[str, Any], existente: Dict[str, Any], comparar_val
     return False
 
 
+# Contratos novos guardados (resumidos) por lote, para a notificação push.
+AMOSTRA_NOVOS = 5
+
+
+def resumo_contrato_novo(c: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "numero_controle_pncp": str(c.get("numero_controle_pncp") or ""),
+        "orgao_sigla": str(c.get("orgao_sigla") or ""),
+        "fornecedor_nome": str(c.get("fornecedor_nome") or "")[:120],
+        "objeto": str(c.get("objeto") or "")[:160],
+        "valor_global": _num(c.get("valor_global")),
+        "data_publicacao": str(c.get("data_publicacao") or ""),
+    }
+
+
 def classificar_contratos(
     contratos: List[Dict[str, Any]],
     existentes: Dict[str, Dict[str, Any]],
@@ -115,6 +130,7 @@ def classificar_contratos(
     gravar: List[Dict[str, Any]] = []
     inseridos = atualizados = ignorados = 0
     divergentes: List[Dict[str, Any]] = []
+    novos: List[Dict[str, Any]] = []
     preservadas = 0
     for c in contratos:
         ctrl = str(c.get("numero_controle_pncp") or "").strip()
@@ -137,6 +153,8 @@ def classificar_contratos(
         if old is None:
             inseridos += 1
             gravar.append(c)
+            if len(novos) < AMOSTRA_NOVOS:
+                novos.append(resumo_contrato_novo(c))
         elif contrato_mudou(c, old, comparar_valores=ret is None):
             atualizados += 1
             gravar.append(c)
@@ -148,6 +166,7 @@ def classificar_contratos(
         "ignorados": ignorados,
         "retificacoes_preservadas": preservadas,
         "retificacoes_divergentes": divergentes,
+        "novos_amostra": novos,
         "_gravar": gravar,
     }
 
@@ -435,6 +454,7 @@ def executar_lote(
 
         totais = {"inseridos": 0, "atualizados": 0, "ignorados": 0, "retificacoes_preservadas": 0}
         divergentes: List[Dict[str, Any]] = []
+        novos_amostra: List[Dict[str, Any]] = []
         erros: List[str] = []
         idx, pagina = cur["janela"], cur["pagina"]
         janelas_neste_lote = 0
@@ -503,6 +523,7 @@ def executar_lote(
                 for k in totais:
                     totais[k] += int(res.get(k, 0) or 0)
                 divergentes.extend(res.get("retificacoes_divergentes") or [])
+                novos_amostra.extend((res.get("novos_amostra") or [])[: max(0, AMOSTRA_NOVOS - len(novos_amostra))])
                 reserva[0] = max(reserva[0], relogio() - t_gravacao)
             if not tem_proxima_pagina(payload, len(rows), pagina, tamanho_pagina):
                 idx, pagina = idx + 1, 1
@@ -565,6 +586,7 @@ def executar_lote(
             "endpoint": "atualizacao" if endpoint_usado == ENDPOINT_ATUALIZACAO else "publicacao",
             "retificacoes_preservadas": totais["retificacoes_preservadas"],
             "retificacoes_divergentes": divergentes[:50],
+            "novos_amostra": novos_amostra,
             "erros": erros,
             "retentativas_pncp": retentativas[0],
         }

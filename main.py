@@ -368,6 +368,11 @@ def run_radar_cycle(
         "fontes_consultadas": len(fontes_carregadas),
         "paginas_lidas": len(itens_coletados),
         "pautas_novas": len(pautas_novas_salvas),
+        # Para a notificação push: as mais bem pontuadas primeiro.
+        "pautas_novas_titulos": [
+            p.get("titulo_jornalistico", "")
+            for p in sorted(pautas_novas_salvas, key=lambda p: -float(p.get("pontuacao_editorial") or 0))[:3]
+        ],
         "pautas_atualizadas": pautas_atualizadas_contador,
         "duplicidades_eliminadas": duplicidades_eliminadas_contador,
         "itens_descartados": itens_descartados_contador,
