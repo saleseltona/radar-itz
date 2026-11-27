@@ -1145,6 +1145,15 @@ class RadarDatabase:
             )
             return cur.rowcount == 1
 
+    def renew_pncp_sync_lock(self, owner: str, ttl_seconds: float, now_ts: float) -> bool:
+        """Estende o lock só se ele ainda for de `owner`; False = outra execução assumiu."""
+        with self.connect() as conn:
+            cur = conn.execute(
+                "UPDATE pncp_sync_estado SET lock_ate = ? WHERE id = 'default' AND lock_owner = ?",
+                (now_ts + ttl_seconds, owner),
+            )
+            return cur.rowcount == 1
+
     def release_pncp_sync_lock(self, owner: str) -> None:
         with self.connect() as conn:
             conn.execute(
