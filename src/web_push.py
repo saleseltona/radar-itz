@@ -193,10 +193,22 @@ def endpoint_permitido(endpoint: str) -> bool:
     return any(host == h or host.endswith("." + h) for h in HOSTS_PUSH_PERMITIDOS)
 
 
+class _SemRedirecionar(urllib.request.HTTPRedirectHandler):
+    """Não segue redirecionamentos: o envio só vai ao host de push validado na inscrição."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+_ABRIDOR_PUSH = urllib.request.build_opener(_SemRedirecionar)
+
+
 def _enviar_urllib(metodo: str, url: str, headers: Dict[str, str], corpo: bytes, timeout: int) -> Tuple[int, bytes]:
+    if not endpoint_permitido(url):
+        return 0, b"endpoint recusado"
     req = urllib.request.Request(url, data=corpo, headers=headers, method=metodo)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - host validado
+        with _ABRIDOR_PUSH.open(req, timeout=timeout) as resp:  # noqa: S310 - host validado
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read() or b""
