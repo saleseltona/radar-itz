@@ -54,13 +54,13 @@ Variáveis de coleta: `RADAR_TIMEOUT_SECONDS=15`, `RADAR_USER_AGENT`, `RADAR_CSV
 
 Checagem de rede: antes da coleta, `main.py` testa DNS; sem rede a execução termina como `SEM_REDE` com um único erro (`RADAR_SKIP_NETWORK_CHECK=1` desliga).
 
-Instagram: só coleta com `INSTAGRAM_GRAPH_TOKEN` + `INSTAGRAM_BUSINESS_ACCOUNT_ID` (Graph API Business Discovery, `src/instagram_client.py`); funciona apenas para perfis Empresa/Criador. Sem as duas variáveis, a fonte fica "Aguardando credencial" e não gera erro em `erros_coleta`.
+Instagram: só coleta com `INSTAGRAM_GRAPH_TOKEN` + `INSTAGRAM_BUSINESS_ACCOUNT_ID` (Graph API Business Discovery, `src/instagram_client.py`); funciona apenas para perfis Empresa/Criador. Versão em `INSTAGRAM_GRAPH_API_VERSION` (padrão `v27.0`); tokens `IGAA...` (Login do Instagram) são recusados com mensagem clara, pois o Business Discovery exige token de usuário do Facebook (`EAA...`). Configuração do app Meta em `docs/instagram-graph-api.md`. Sem as duas variáveis, a fonte fica "Aguardando credencial" e não gera erro em `erros_coleta`.
 
 Evidências: cada item de `pautas.evidencias_verificadas` é gravado também na tabela `evidencias` (`src/evidence_store.py`).
 
 Segurança: `RADAR_ADMIN_TOKEN` protege todas as rotas POST e a reidratação por headers/cookies (header `X-Radar-Token` ou `Authorization: Bearer`). Sem ele, só o acesso local direto pode gravar. `/static/` só serve arquivos dentro de `static/`.
 
-Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `ANA_TELEMETRIA_TOKEN`.
+Opcionais: `GOOGLE_SEARCH_API_KEY`, `GOOGLE_SEARCH_CX`, `SERPAPI_KEY`, `BING_SEARCH_API_KEY`, `INSTAGRAM_GRAPH_TOKEN`, `INSTAGRAM_BUSINESS_ACCOUNT_ID`, `INSTAGRAM_GRAPH_API_VERSION`, `ANA_TELEMETRIA_TOKEN`.
 
 Busca: `src/query_runner.py` executa cada consulta de `CONSULTAS_OBRIGATORIAS` (32), `CONSULTAS_DERIVADAS` e as adicionais do painel no Google News RSS (`when:14d`), com pausa `RADAR_QUERY_DELAY_SECONDS` (padrão 0.5) e orçamento `RADAR_QUERY_BUDGET_SECONDS` (padrão 45, ou 20 na Vercel). HTTP 429/503 interrompe as restantes. O resultado de cada consulta vai para `output/consultas_status.csv`; falhas e consultas não executadas vão para `erros_coleta` (componente `BuscaGoogleNewsRSS`). As 5 consultas fixas de `DEFAULT_RSS_QUERIES` em `live_news.py` só rodam quando `fetch_recent_news` é chamado direto.
 
